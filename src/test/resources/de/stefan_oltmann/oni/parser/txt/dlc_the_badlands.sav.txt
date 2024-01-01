@@ -1,0 +1,99 @@
+### Oxygen Not Included save game
+Version   : 7.33
+Cluster   : The Badlands
+Seed      : V-BAD-C-1015190566-0-0
+Base name : V-BAD-C-1015190566-0-3A
+Cycles    : 0
+Dupes     : 3
+Sandbox   : false
+DLC       : EXPANSION1_ID
+Play time : 16.033333
+Placed #  : 1
+Mods      : []
+
+# The Badlands Asteroid
+Start   : true
+Offset  : 0,0
+Size    : 240 x 380
+Traits  : Frozen Core, Large Glaciers
+Geyser 1: Chlorine Gas Vent @ 28,232
+Geyser 2: Polluted Water Vent @ 57,72
+Geyser 3: Aluminium Volcano @ 71,88
+Geyser 4: Hydrogen Vent @ 82,17
+Geyser 5: Sulfur Geyser @ 82,127
+Geyser 6: Leaky Oil Fissure @ 101,217
+Geyser 7: Water Geyser @ 122,116
+Geyser 8: Sulfur Geyser @ 142,178
+Geyser 9: Water Geyser @ 169,268
+Geyser 10: Hydrogen Vent @ 172,15
+Geyser 11: Sulfur Geyser @ 177,76
+Geyser 12: Cool Salt Slush Geyser @ 211,33
+Geyser 13: Copper Volcano @ 216,249
+
+# Radioactive Swamp Asteroid
+Start   : false
+Offset  : 242,0
+Size    : 160 x 176
+Traits  : Slime Molds, Mixed Boulders
+Geyser 1: Water Geyser @ 258,31
+Geyser 2: Carbon Dioxide Geyser @ 274,17
+Geyser 3: Gold Volcano @ 295,33
+Geyser 4: Carbon Dioxide Geyser @ 315,27
+Geyser 5: Iron Volcano @ 317,53
+Geyser 6: Minor Volcano @ 349,8
+Geyser 7: Cool Salt Slush Geyser @ 355,120
+Geyser 8: Cool Slush Geyser @ 372,124
+Geyser 9: Salt Water Geyser @ 385,67
+Geyser 10: Carbon Dioxide Geyser @ 388,39
+
+# Water Asteroid
+Start   : false
+Offset  : 242,178
+Size    : 80 x 174
+Traits  : 
+Geyser 1: Water Geyser @ 264,288
+Geyser 2: Salt Water Geyser @ 286,294
+
+# Tundra Asteroid
+Start   : false
+Offset  : 324,178
+Size    : 64 x 128
+Traits  : Radioactive Crust
+Geyser 1: Iron Volcano @ 339,210
+Geyser 2: Iron Volcano @ 350,249
+Geyser 3: Iron Volcano @ 364,197
+Geyser 4: Iron Volcano @ 377,198
+
+# Marshy Asteroid
+Start   : false
+Offset  : 324,308
+Size    : 64 x 96
+Traits  : Metal Poor
+Geyser 1: Tungsten Volcano @ 332,313
+Geyser 2: Infectious Polluted Oxygen Vent @ 335,332
+Geyser 3: Infectious Polluted Oxygen Vent @ 339,345
+Geyser 4: Tungsten Volcano @ 352,333
+Geyser 5: Tungsten Volcano @ 381,318
+
+# Superconductive Asteroid
+Start   : false
+Offset  : 390,178
+Size    : 64 x 96
+Traits  : 
+Geyser 1: Niobium Volcano @ 419,190
+
+# Regolith Asteroid
+Start   : false
+Offset  : 390,276
+Size    : 96 x 96
+Traits  : 
+Geyser 1: Cool Steam Vent @ 402,289
+Geyser 2: Steam Vent @ 462,286
+
+# Moo Asteroid
+Start   : false
+Offset  : 404,0
+Size    : 96 x 80
+Traits  : 
+Geyser 1: Chlorine Gas Vent @ 414,25
+

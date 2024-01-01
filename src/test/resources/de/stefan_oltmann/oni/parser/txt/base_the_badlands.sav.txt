@@ -1,0 +1,33 @@
+### Oxygen Not Included save game
+Version   : 7.33
+Cluster   : The Badlands
+Seed      : BAD-A-1040813684-0-0
+Base name : BAD-A-1040813684-0-3A
+Cycles    : 0
+Dupes     : 3
+Sandbox   : false
+DLC       : 
+Play time : 11.033333
+Placed #  : 0
+Mods      : []
+
+# The Badlands Asteroid
+Start   : true
+Offset  : 0,0
+Size    : 256 x 384
+Traits  : Mixed Boulders, Trapped Oil, Large Glaciers
+Geyser 1: Salt Water Geyser @ 18,37
+Geyser 2: Cool Steam Vent @ 33,201
+Geyser 3: Hydrogen Vent @ 52,59
+Geyser 4: Chlorine Gas Vent @ 53,171
+Geyser 5: Cool Slush Geyser @ 58,123
+Geyser 6: Carbon Dioxide Geyser @ 74,211
+Geyser 7: Polluted Water Vent @ 137,92
+Geyser 8: Salt Water Geyser @ 139,251
+Geyser 9: Valcano @ 159,57
+Geyser 10: Hydrogen Vent @ 202,43
+Geyser 11: Natural Gas Geyser @ 213,40
+Geyser 12: Minor Volcano @ 214,65
+Geyser 13: Minor Volcano @ 216,176
+Geyser 14: Cool Slush Geyser @ 240,54
+

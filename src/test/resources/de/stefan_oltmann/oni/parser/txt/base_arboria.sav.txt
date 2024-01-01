@@ -1,0 +1,34 @@
+### Oxygen Not Included save game
+Version   : 7.33
+Cluster   : Arboria
+Seed      : FRST-A-1768863402-0-0
+Base name : FRST-A-1768863402-0-3A
+Cycles    : 0
+Dupes     : 3
+Sandbox   : false
+DLC       : 
+Play time : 12.033333
+Placed #  : 0
+Mods      : []
+
+# Arboria Asteroid
+Start   : true
+Offset  : 0,0
+Size    : 256 x 384
+Traits  : Subsurface Ocean, Large Glaciers
+Geyser 1: Carbon Dioxide Geyser @ 20,302
+Geyser 2: Salt Water Geyser @ 25,245
+Geyser 3: Salt Water Geyser @ 45,257
+Geyser 4: Cool Steam Vent @ 60,234
+Geyser 5: Hot Polluted Oxygen Vent @ 78,250
+Geyser 6: Carbon Dioxide Vent @ 83,285
+Geyser 7: Carbon Dioxide Geyser @ 100,243
+Geyser 8: Salt Water Geyser @ 110,250
+Geyser 9: Cool Steam Vent @ 132,258
+Geyser 10: Minor Volcano @ 137,246
+Geyser 11: Copper Volcano @ 139,63
+Geyser 12: Iron Volcano @ 184,43
+Geyser 13: Chlorine Gas Vent @ 201,281
+Geyser 14: Polluted Water Vent @ 222,132
+Geyser 15: Chlorine Gas Vent @ 238,228
+

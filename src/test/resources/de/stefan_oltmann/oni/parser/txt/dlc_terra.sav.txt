@@ -1,0 +1,103 @@
+### Oxygen Not Included save game
+Version   : 7.33
+Cluster   : Terra
+Seed      : V-SNDST-C-525064110-0-0
+Base name : V-SNDST-C-525064110-0-3A
+Cycles    : 0
+Dupes     : 3
+Sandbox   : false
+DLC       : EXPANSION1_ID
+Play time : 16.033333
+Placed #  : 0
+Mods      : []
+
+# Terra Asteroid
+Start   : true
+Offset  : 0,0
+Size    : 240 x 380
+Traits  : 
+Geyser 1: Cool Steam Vent @ 21,46
+Geyser 2: Chlorine Gas Vent @ 23,250
+Geyser 3: Copper Volcano @ 40,214
+Geyser 4: Cobalt Volcano @ 49,257
+Geyser 5: Cool Steam Vent @ 52,83
+Geyser 6: Cool Salt Slush Geyser @ 53,292
+Geyser 7: Hot Polluted Oxygen Vent @ 76,126
+Geyser 8: Chlorine Gas Vent @ 76,199
+Geyser 9: Aluminium Volcano @ 94,256
+Geyser 10: Natural Gas Geyser @ 113,253
+Geyser 11: Salt Water Geyser @ 150,96
+Geyser 12: Hot Polluted Oxygen Vent @ 156,180
+Geyser 13: Valcano @ 160,57
+Geyser 14: Cool Steam Vent @ 163,193
+Geyser 15: Hot Polluted Oxygen Vent @ 178,68
+Geyser 16: Hydrogen Vent @ 190,54
+Geyser 17: Cool Steam Vent @ 221,86
+
+# Radioactive Swamp Asteroid
+Start   : false
+Offset  : 242,0
+Size    : 160 x 176
+Traits  : Metal Poor, Crashed Satellites
+Geyser 1: Carbon Dioxide Geyser @ 276,13
+Geyser 2: Cool Salt Slush Geyser @ 276,115
+Geyser 3: Gold Volcano @ 286,110
+Geyser 4: Carbon Dioxide Geyser @ 326,17
+Geyser 5: Iron Volcano @ 340,51
+Geyser 6: Gold Volcano @ 352,44
+Geyser 7: Cool Slush Geyser @ 356,132
+Geyser 8: Hot Polluted Oxygen Vent @ 365,36
+Geyser 9: Natural Gas Geyser @ 378,97
+Geyser 10: Cool Salt Slush Geyser @ 391,88
+
+# Water Asteroid
+Start   : false
+Offset  : 242,178
+Size    : 80 x 174
+Traits  : 
+Geyser 1: Salt Water Geyser @ 300,263
+Geyser 2: Cool Slush Geyser @ 300,286
+
+# Tundra Asteroid
+Start   : false
+Offset  : 324,178
+Size    : 64 x 128
+Traits  : Lush Core
+Geyser 1: Iron Volcano @ 346,213
+Geyser 2: Iron Volcano @ 357,234
+Geyser 3: Iron Volcano @ 366,222
+Geyser 4: Iron Volcano @ 376,211
+
+# Marshy Asteroid
+Start   : false
+Offset  : 324,308
+Size    : 64 x 96
+Traits  : Subsurface Ocean
+Geyser 1: Tungsten Volcano @ 336,334
+Geyser 2: Tungsten Volcano @ 340,314
+Geyser 3: Tungsten Volcano @ 364,313
+Geyser 4: Natural Gas Geyser @ 366,333
+Geyser 5: Chlorine Gas Vent @ 371,350
+
+# Superconductive Asteroid
+Start   : false
+Offset  : 390,178
+Size    : 64 x 96
+Traits  : 
+Geyser 1: Niobium Volcano @ 399,213
+
+# Regolith Asteroid
+Start   : false
+Offset  : 390,276
+Size    : 96 x 96
+Traits  : 
+Geyser 1: Steam Vent @ 422,287
+Geyser 2: Steam Vent @ 449,287
+
+# Moo Asteroid
+Start   : false
+Offset  : 404,0
+Size    : 96 x 80
+Traits  : 
+Geyser 1: Chlorine Gas Vent @ 479,35
+

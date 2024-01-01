@@ -1,0 +1,106 @@
+### Oxygen Not Included save game
+Version   : 7.33
+Cluster   : Terrania
+Seed      : SNDST-C-1386481048-0-0
+Base name : SNDST-C-1386481048-0-3A
+Cycles    : 0
+Dupes     : 3
+Sandbox   : false
+DLC       : EXPANSION1_ID
+Play time : 44.033333
+Placed #  : 0
+Mods      : []
+
+# Terrania Asteroid
+Start   : true
+Offset  : 0,0
+Size    : 160 x 274
+Traits  : 
+Geyser 1: Minor Volcano @ 18,49
+Geyser 2: Minor Volcano @ 42,32
+Geyser 3: Natural Gas Geyser @ 52,187
+Geyser 4: Natural Gas Geyser @ 70,90
+Geyser 5: Cool Salt Slush Geyser @ 70,171
+Geyser 6: Cool Steam Vent @ 73,65
+Geyser 7: Chlorine Gas Vent @ 81,36
+Geyser 8: Cool Slush Geyser @ 100,189
+Geyser 9: Minor Volcano @ 110,39
+Geyser 10: Natural Gas Geyser @ 138,135
+
+# Water Asteroid
+Start   : false
+Offset  : 162,0
+Size    : 80 x 174
+Traits  : 
+Geyser 1: Cool Slush Geyser @ 187,100
+Geyser 2: Water Geyser @ 188,113
+
+# Tundra Asteroid
+Start   : false
+Offset  : 162,176
+Size    : 64 x 128
+Traits  : Metal Poor
+Geyser 1: Iron Volcano @ 176,197
+Geyser 2: Iron Volcano @ 191,233
+Geyser 3: Iron Volcano @ 206,218
+Geyser 4: Iron Volcano @ 210,203
+
+# Marshy Asteroid
+Start   : false
+Offset  : 228,176
+Size    : 64 x 96
+Traits  : Metal Rich
+Geyser 1: Tungsten Volcano @ 234,181
+Geyser 2: Tungsten Volcano @ 240,205
+Geyser 3: Tungsten Volcano @ 261,181
+Geyser 4: Hydrogen Vent @ 266,199
+Geyser 5: Natural Gas Geyser @ 269,210
+
+# Irradiated Forest Asteroid
+Start   : false
+Offset  : 244,0
+Size    : 128 x 153
+Traits  : Metal Rich
+Geyser 1: Polluted Water Vent @ 260,38
+Geyser 2: Aluminium Volcano @ 267,57
+Geyser 3: Carbon Dioxide Geyser @ 287,18
+Geyser 4: Salt Water Geyser @ 295,76
+Geyser 5: Carbon Dioxide Geyser @ 310,19
+Geyser 6: Gold Volcano @ 321,42
+Geyser 7: Polluted Water Vent @ 325,60
+Geyser 8: Copper Volcano @ 336,62
+Geyser 9: Gold Volcano @ 356,44
+Geyser 10: Aluminium Volcano @ 357,28
+
+# Superconductive Asteroid
+Start   : false
+Offset  : 294,155
+Size    : 64 x 96
+Traits  : Metal Poor
+Geyser 1: Niobium Volcano @ 299,182
+
+# Regolith Asteroid
+Start   : false
+Offset  : 360,155
+Size    : 160 x 96
+Traits  : 
+Geyser 1: Cool Steam Vent @ 373,164
+Geyser 2: Steam Vent @ 439,163
+
+# Oily Swamp Asteroid
+Start   : false
+Offset  : 374,0
+Size    : 128 x 153
+Traits  : Metallic Caves, Irregular Oil
+Geyser 1: Natural Gas Geyser @ 389,13
+Geyser 2: Sulfur Geyser @ 466,110
+Geyser 3: Sulfur Geyser @ 473,28
+Geyser 4: Carbon Dioxide Vent @ 480,108
+
+# Moo Asteroid
+Start   : false
+Offset  : 504,0
+Size    : 96 x 80
+Traits  : 
+Geyser 1: Chlorine Gas Vent @ 587,45
+

@@ -1,0 +1,40 @@
+### Oxygen Not Included save game
+Version   : 7.33
+Cluster   : Volcanea
+Seed      : VOLCA-1372325844-0-0
+Base name : VOLCA-1372325844-0-3A
+Cycles    : 0
+Dupes     : 3
+Sandbox   : false
+DLC       : 
+Play time : 13.033333
+Placed #  : 0
+Mods      : []
+
+# Volcanea Astroid
+Start   : true
+Offset  : 0,0
+Size    : 256 x 384
+Traits  : Slime Molds, Metal Poor, Geoactive, Medium Boulders
+Geyser 1: Natural Gas Geyser @ 41,307
+Geyser 2: Salt Water Geyser @ 42,289
+Geyser 3: Water Geyser @ 44,119
+Geyser 4: Carbon Dioxide Geyser @ 45,134
+Geyser 5: Cool Steam Vent @ 62,184
+Geyser 6: Carbon Dioxide Vent @ 64,96
+Geyser 7: Iron Volcano @ 74,234
+Geyser 8: Gold Volcano @ 75,103
+Geyser 9: Copper Volcano @ 104,225
+Geyser 10: Carbon Dioxide Geyser @ 115,110
+Geyser 11: Copper Volcano @ 132,107
+Geyser 12: Hot Polluted Oxygen Vent @ 144,244
+Geyser 13: Hot Polluted Oxygen Vent @ 156,98
+Geyser 14: Valcano @ 163,238
+Geyser 15: Gold Volcano @ 169,76
+Geyser 16: Carbon Dioxide Geyser @ 195,95
+Geyser 17: Natural Gas Geyser @ 208,248
+Geyser 18: Cool Steam Vent @ 212,104
+Geyser 19: Natural Gas Geyser @ 217,126
+Geyser 20: Cool Steam Vent @ 217,143
+Geyser 21: Steam Vent @ 231,154
+

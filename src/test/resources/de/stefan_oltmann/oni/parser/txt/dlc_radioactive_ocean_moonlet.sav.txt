@@ -1,0 +1,123 @@
+### Oxygen Not Included save game
+Version   : 7.33
+Cluster   : Radioactive Ocean Moonlet
+Seed      : M-RAD-C-436445653-0-0
+Base name : M-RAD-C-436445653-0-3A
+Cycles    : 0
+Dupes     : 3
+Sandbox   : false
+DLC       : EXPANSION1_ID
+Play time : 16.033333
+Placed #  : 1
+Mods      : []
+
+# Radioactive Ocean Asteroid
+Start   : true
+Offset  : 212,0
+Size    : 128 x 153
+Traits  : Frozen Core, Metal Rich
+Geyser 1: Polluted Water Vent @ 228,49
+Geyser 2: Salt Water Geyser @ 262,95
+Geyser 3: Carbon Dioxide Geyser @ 298,36
+Geyser 4: Cool Slush Geyser @ 310,91
+Geyser 5: Steam Vent @ 320,62
+
+# Water Asteroid
+Start   : false
+Offset  : 0,0
+Size    : 80 x 174
+Traits  : 
+Geyser 1: Cool Slush Geyser @ 38,108
+Geyser 2: Water Geyser @ 57,110
+
+# The Desolands Asteroid
+Start   : false
+Offset  : 82,0
+Size    : 128 x 153
+Traits  : Volcanoes
+Geyser 1: Carbon Dioxide Vent @ 99,98
+Geyser 2: Valcano @ 107,77
+Geyser 3: Natural Gas Geyser @ 128,99
+Geyser 4: Valcano @ 134,36
+Geyser 5: Cool Steam Vent @ 136,21
+Geyser 6: Minor Volcano @ 160,94
+Geyser 7: Valcano @ 186,55
+
+# Flipped Asteroid
+Start   : false
+Offset  : 342,0
+Size    : 128 x 153
+Traits  : Metal Rich
+Geyser 1: Valcano @ 355,70
+Geyser 2: Sulfur Geyser @ 402,98
+Geyser 3: Minor Volcano @ 454,50
+Geyser 4: Carbon Dioxide Geyser @ 455,29
+
+# Metallic Swampy Asteroid
+Start   : false
+Offset  : 472,0
+Size    : 128 x 153
+Traits  : Radioactive Crust, Metallic Caves
+Geyser 1: Aluminium Volcano @ 483,50
+Geyser 2: Minor Volcano @ 496,85
+Geyser 3: Gold Volcano @ 527,35
+Geyser 4: Natural Gas Geyser @ 531,51
+Geyser 5: Cobalt Volcano @ 557,68
+Geyser 6: Copper Volcano @ 558,43
+Geyser 7: Chlorine Gas Vent @ 571,32
+Geyser 8: Cobalt Volcano @ 577,56
+
+# Frozen Forest Asteroid
+Start   : false
+Offset  : 602,0
+Size    : 128 x 153
+Traits  : Small Boulders
+Geyser 1: Hot Polluted Oxygen Vent @ 619,43
+Geyser 2: Sulfur Geyser @ 633,66
+Geyser 3: Chlorine Gas Vent @ 666,53
+Geyser 4: Chlorine Gas Vent @ 690,50
+Geyser 5: Cool Slush Geyser @ 711,47
+
+# Tundra Asteroid
+Start   : false
+Offset  : 732,0
+Size    : 64 x 128
+Traits  : Crashed Satellites, Metal Rich
+Geyser 1: Iron Volcano @ 772,16
+Geyser 2: Iron Volcano @ 774,49
+Geyser 3: Iron Volcano @ 778,62
+Geyser 4: Iron Volcano @ 782,34
+
+# Marshy Asteroid
+Start   : false
+Offset  : 798,0
+Size    : 64 x 96
+Traits  : 
+Geyser 1: Hydrogen Vent @ 807,25
+Geyser 2: Tungsten Volcano @ 827,5
+Geyser 3: Hydrogen Vent @ 829,39
+Geyser 4: Tungsten Volcano @ 833,26
+Geyser 5: Tungsten Volcano @ 854,7
+
+# Superconductive Asteroid
+Start   : false
+Offset  : 798,98
+Size    : 64 x 96
+Traits  : Metal Rich
+Geyser 1: Niobium Volcano @ 815,113
+
+# Regolith Asteroid
+Start   : false
+Offset  : 864,0
+Size    : 160 x 96
+Traits  : 
+Geyser 1: Steam Vent @ 871,13
+Geyser 2: Cool Steam Vent @ 945,12
+
+# Moo Asteroid
+Start   : false
+Offset  : 864,98
+Size    : 96 x 80
+Traits  : 
+Geyser 1: Chlorine Gas Vent @ 876,143
+

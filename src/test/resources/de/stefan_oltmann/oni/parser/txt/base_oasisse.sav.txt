@@ -1,0 +1,33 @@
+### Oxygen Not Included save game
+Version   : 7.33
+Cluster   : Oasisse
+Seed      : OASIS-A-471177248-0-0
+Base name : OASIS-A-471177248-0-3A
+Cycles    : 0
+Dupes     : 3
+Sandbox   : false
+DLC       : 
+Play time : 12.033333
+Placed #  : 0
+Mods      : []
+
+# Oasisse Asteroid
+Start   : true
+Offset  : 0,0
+Size    : 256 x 384
+Traits  : Irregular Oil, Geodormant, Small Boulders
+Geyser 1: Hot Polluted Oxygen Vent @ 15,121
+Geyser 2: Hydrogen Vent @ 33,124
+Geyser 3: Salt Water Geyser @ 36,266
+Geyser 4: Carbon Dioxide Geyser @ 44,42
+Geyser 5: Cool Steam Vent @ 45,280
+Geyser 6: Natural Gas Geyser @ 46,68
+Geyser 7: Valcano @ 88,130
+Geyser 8: Cool Steam Vent @ 97,292
+Geyser 9: Steam Vent @ 121,282
+Geyser 10: Valcano @ 175,242
+Geyser 11: Minor Volcano @ 205,210
+Geyser 12: Carbon Dioxide Geyser @ 213,252
+Geyser 13: Salt Water Geyser @ 217,64
+Geyser 14: Chlorine Gas Vent @ 231,198
+
