@@ -9,6 +9,7 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.util.logging.*
+import java.io.File
 
 fun Application.configureRouting() {
 
@@ -16,6 +17,23 @@ fun Application.configureRouting() {
 
         get("/") {
             call.respondText("stefan-oltmann.de")
+        }
+
+        get("/submit") {
+
+            val stream = javaClass.classLoader.getResourceAsStream("index.html")
+
+            val bytes = stream?.readBytes()
+
+            if (bytes == null) {
+                call.respondText("Failed to load page.")
+                return@get
+            }
+
+            call.respondBytes(
+                bytes,
+                contentType = ContentType.Text.Html
+            )
         }
 
         post("/upload") {
@@ -27,6 +45,8 @@ fun Application.configureRouting() {
             val saveGame = SaveGameReader.readSaveGame(byteArray)
 
             val summary = saveGame.createSummary()
+
+            println(summary)
 
             call.respondText(summary.toString())
         }
