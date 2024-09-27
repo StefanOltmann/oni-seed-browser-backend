@@ -1,4 +1,4 @@
-FROM gradle:latest AS BUILD_STAGE
+FROM gradle:8-jdk17 AS BUILD_STAGE
 WORKDIR /tmp
 COPY gradle gradle
 COPY build.gradle.kts gradle.properties settings.gradle.kts gradlew ./
