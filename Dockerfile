@@ -3,7 +3,7 @@ WORKDIR /tmp
 COPY gradle gradle
 COPY build.gradle.kts gradle.properties settings.gradle.kts gradlew ./
 COPY src src
-RUN ./gradlew --no-daemon buildFatJar
+RUN ./gradlew --no-daemon --info buildFatJar
 
 FROM openjdk:17-jdk-slim
 EXPOSE 8080:8080
