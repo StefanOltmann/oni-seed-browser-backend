@@ -32,12 +32,20 @@ private val mongoClientSettings = MongoClientSettings.builder()
 
 fun Application.configureRouting() {
 
-    check(!mongoPassword.isNullOrBlank())
-    check(!mniApiKey.isNullOrBlank())
-
     routing {
 
         get("/") {
+
+            if (mongoPassword.isNullOrBlank()) {
+                call.respond(HttpStatusCode.InternalServerError, "No DB key.")
+                return@get
+            }
+
+            if (mniApiKey.isNullOrBlank()) {
+                call.respond(HttpStatusCode.InternalServerError, "No API key.")
+                return@get
+            }
+
             call.respondText("stefan-oltmann.de")
         }
 
