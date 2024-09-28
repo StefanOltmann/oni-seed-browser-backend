@@ -13,9 +13,13 @@ import io.ktor.server.routing.*
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import model.World
+import java.util.logging.Logger
+
+private val mongoPassword: String? = System.getenv("MONGO_DB_PASSWORD")
+private val mniApiKey: String? = System.getenv("MNI_API_KEY")
 
 private val connectionString =
-    "mongodb+srv://mongodb:${System.getenv("MONGO_DB_PASSWORD")}@cluster0.um7sl.mongodb.net/?retryWrites=true&w=majority&appName=cluster0"
+    "mongodb+srv://mongodb:$mongoPassword@cluster0.um7sl.mongodb.net/?retryWrites=true&w=majority&appName=cluster0"
 
 private val serverApi = ServerApi.builder()
     .version(ServerApiVersion.V1)
@@ -27,6 +31,9 @@ private val mongoClientSettings = MongoClientSettings.builder()
     .build()
 
 fun Application.configureRouting() {
+
+    check(!mongoPassword.isNullOrBlank())
+    check(!mniApiKey.isNullOrBlank())
 
     routing {
 
@@ -43,6 +50,16 @@ fun Application.configureRouting() {
         }
 
         post("/upload") {
+
+            if (mongoPassword.isNullOrBlank()) {
+                call.respond(HttpStatusCode.InternalServerError, "No DB key.")
+                return@post
+            }
+
+            if (mniApiKey.isNullOrBlank()) {
+                call.respond(HttpStatusCode.InternalServerError, "No API key.")
+                return@post
+            }
 
             val apiKey = this.context.request.headers["MNI_API_KEY"]
 
