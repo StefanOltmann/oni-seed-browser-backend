@@ -18,17 +18,8 @@ fun Application.configureRouting() {
 
         get("/submit") {
 
-            val stream = javaClass.classLoader.getResourceAsStream("index.html")
-
-            val bytes = stream?.readBytes()
-
-            if (bytes == null) {
-                call.respondText("Failed to load page.")
-                return@get
-            }
-
             call.respondBytes(
-                bytes,
+                indexHtml.encodeToByteArray(),
                 contentType = ContentType.Text.Html
             )
         }
