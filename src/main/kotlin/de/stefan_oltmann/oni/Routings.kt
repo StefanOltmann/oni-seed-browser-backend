@@ -4,8 +4,11 @@ import com.mongodb.ConnectionString
 import com.mongodb.MongoClientSettings
 import com.mongodb.ServerApi
 import com.mongodb.ServerApiVersion
+import com.mongodb.client.model.Aggregates.project
+import com.mongodb.client.model.Projections.computed
+import com.mongodb.client.model.Projections.fields
 import com.mongodb.kotlin.client.coroutine.MongoClient
-import de.stefan_oltmann.oni.dto.SearchResponse
+import de.stefan_oltmann.oni.model.WorldSummary
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
@@ -23,6 +26,7 @@ import io.ktor.server.routing.routing
 import kotlinx.coroutines.flow.toList
 import kotlinx.serialization.json.Json
 import model.World
+import org.bson.Document
 import org.slf4j.LoggerFactory
 
 private val mongoPassword: String? = System.getenv("MONGO_DB_PASSWORD")
@@ -94,10 +98,54 @@ fun Application.configureRouting() {
                 call.respond(allWorlds)
             }
 
-
             val duration = System.currentTimeMillis() - start
 
             logger.info("Returned all worlds in $duration ms.")
+        }
+
+        get("/summaries") {
+
+            val start = System.currentTimeMillis()
+
+            logger.info("Should deliver all worlds...")
+
+            MongoClient.create(mongoClientSettings).use { mongoClient ->
+
+                val database = mongoClient.getDatabase("oni")
+
+                val collection = database.getCollection<World>("worlds")
+
+                val summaries = collection.aggregate<WorldSummary>(
+                    listOf(
+                        project(
+                            fields(
+
+                                /* Use as is */
+                                computed("coordinate", "\$coordinate"),
+                                computed("cluster", "\$cluster"),
+                                computed("dlcs", "\$dlcs"),
+
+                                /* Take the list of the first asteroid */
+                                computed(
+                                    "worldTraitsOfStarter",
+                                    Document("\$arrayElemAt", listOf("\$asteroids.worldTraits", 0))
+                                )
+
+                                // TODO Aggreagte geyser map
+
+                            )
+                        )
+                    )
+                ).toList()
+
+                logger.info("Found ${summaries.size} worlds.")
+
+                call.respond(summaries)
+            }
+
+            val duration = System.currentTimeMillis() - start
+
+            logger.info("Returned summaries for all worlds in $duration ms.")
         }
 
         post("/upload") {
