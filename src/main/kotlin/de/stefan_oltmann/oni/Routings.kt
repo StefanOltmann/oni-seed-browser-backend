@@ -4,9 +4,13 @@ import com.mongodb.ConnectionString
 import com.mongodb.MongoClientSettings
 import com.mongodb.ServerApi
 import com.mongodb.ServerApiVersion
+import com.mongodb.client.model.Aggregates
 import com.mongodb.client.model.Aggregates.project
+import com.mongodb.client.model.Projections
 import com.mongodb.client.model.Projections.computed
 import com.mongodb.client.model.Projections.fields
+import com.mongodb.client.model.Projections.include
+import com.mongodb.client.model.Projections.slice
 import com.mongodb.kotlin.client.coroutine.MongoClient
 import de.stefan_oltmann.oni.model.WorldSummary
 import io.ktor.http.ContentType
@@ -23,6 +27,7 @@ import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import kotlinx.serialization.json.Json
 import model.World
@@ -115,28 +120,38 @@ fun Application.configureRouting() {
 
                 val collection = database.getCollection<World>("worlds")
 
-                val summaries = collection.aggregate<WorldSummary>(
-                    listOf(
-                        project(
-                            fields(
+                /*
+                 * TODO Use MongoDB aggregation instead for better performance.
+                 */
 
-                                /* Use as is */
-                                computed("coordinate", "\$coordinate"),
-                                computed("cluster", "\$cluster"),
-                                computed("dlcs", "\$dlcs"),
+                val summaries: List<WorldSummary> = collection.find().map { world ->
 
-                                /* Take the list of the first asteroid */
-                                computed(
-                                    "worldTraitsOfStarter",
-                                    Document("\$arrayElemAt", listOf("\$asteroids.worldTraits", 0))
-                                )
+                    val firstAsteroid = world.asteroids.first()
 
-                                // TODO Aggreagte geyser map
+                    val worldTraits = firstAsteroid.worldTraits
 
-                            )
-                        )
+                    val geysersCount = firstAsteroid.geysers.groupingBy { it.id }.eachCount()
+
+                    val starMapCounts = mutableMapOf<String, Int>()
+
+                    world.starMapEntriesVanilla?.let {
+                        starMapCounts.putAll(it.groupingBy { it.id }.eachCount())
+                    }
+
+                    world.starMapEntriesSpacedOut?.let {
+                        starMapCounts.putAll(it.groupingBy { it.id }.eachCount())
+                    }
+
+                    WorldSummary(
+                        coordinate = world.coordinate,
+                        cluster = world.cluster,
+                        dlcs = world.dlcs,
+                        worldTraitsOfStarter = worldTraits,
+                        geysersCountOfStarter = geysersCount,
+                        starMapEntryCounts = starMapCounts
                     )
-                ).toList()
+
+                }.toList()
 
                 logger.info("Found ${summaries.size} worlds.")
 
