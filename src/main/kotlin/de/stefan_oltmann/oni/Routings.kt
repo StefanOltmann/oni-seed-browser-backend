@@ -5,6 +5,8 @@ import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import kotlinx.serialization.json.Json
+import model.World
 
 fun Application.configureRouting() {
 
@@ -33,11 +35,26 @@ fun Application.configureRouting() {
 
         post("/upload") {
 
-            val byteArray = call.receive<ByteArray>()
+            try {
 
-            println("Received bytes: ${byteArray.size}")
+                val byteArray = call.receive<ByteArray>()
 
-            call.respondText(byteArray.decodeToString())
+                println("Received bytes: ${byteArray.size}")
+
+                val jsonString = byteArray.decodeToString()
+
+                val world = Json.decodeFromString<World>(jsonString)
+
+                println(world)
+
+                call.respond(HttpStatusCode.OK)
+
+            } catch (ex: Exception) {
+
+                ex.printStackTrace()
+
+                call.respond(HttpStatusCode.InternalServerError)
+            }
         }
 
         get("/health") {
