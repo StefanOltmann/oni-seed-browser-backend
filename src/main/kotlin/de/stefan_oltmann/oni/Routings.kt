@@ -13,7 +13,7 @@ import io.ktor.server.routing.*
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import model.World
-import java.util.logging.Logger
+import org.slf4j.LoggerFactory
 
 private val mongoPassword: String? = System.getenv("MONGO_DB_PASSWORD")
 private val mniApiKey: String? = System.getenv("MNI_API_KEY")
@@ -30,22 +30,13 @@ private val mongoClientSettings = MongoClientSettings.builder()
     .serverApi(serverApi)
     .build()
 
+private val logger = LoggerFactory.getLogger("Routings")
+
 fun Application.configureRouting() {
 
     routing {
 
         get("/") {
-
-            if (mongoPassword.isNullOrBlank()) {
-                call.respond(HttpStatusCode.InternalServerError, "No DB key.")
-                return@get
-            }
-
-            if (mniApiKey.isNullOrBlank()) {
-                call.respond(HttpStatusCode.InternalServerError, "No API key.")
-                return@get
-            }
-
             call.respondText("stefan-oltmann.de")
         }
 
@@ -59,20 +50,14 @@ fun Application.configureRouting() {
 
         post("/upload") {
 
-            if (mongoPassword.isNullOrBlank()) {
-                call.respond(HttpStatusCode.InternalServerError, "No DB key.")
-                return@post
-            }
-
-            if (mniApiKey.isNullOrBlank()) {
-                call.respond(HttpStatusCode.InternalServerError, "No API key.")
-                return@post
-            }
-
             val apiKey = this.context.request.headers["MNI_API_KEY"]
 
             if (apiKey != System.getenv("MNI_API_KEY")) {
+
+                logger.warn("Unauthorized API key used.")
+
                 call.respond(HttpStatusCode.Unauthorized)
+
                 return@post
             }
 
@@ -80,13 +65,11 @@ fun Application.configureRouting() {
 
                 val byteArray = call.receive<ByteArray>()
 
-                println("Received bytes: ${byteArray.size}")
-
                 val jsonString = byteArray.decodeToString()
 
                 val world = Json.decodeFromString<World>(jsonString)
 
-                println(world)
+                logger.info("Received world: $world")
 
                 MongoClient.create(mongoClientSettings).use { mongoClient ->
 
@@ -105,11 +88,26 @@ fun Application.configureRouting() {
 
                 ex.printStackTrace()
 
+                logger.error("Exception on submitting.", ex)
+
                 call.respond(HttpStatusCode.InternalServerError)
             }
         }
 
         get("/health") {
+
+            if (mongoPassword.isNullOrBlank()) {
+                logger.error("No DB key set.")
+                call.respond(HttpStatusCode.InternalServerError, "No DB key.")
+                return@get
+            }
+
+            if (mniApiKey.isNullOrBlank()) {
+                logger.error("No API key set.")
+                call.respond(HttpStatusCode.InternalServerError, "No API key.")
+                return@get
+            }
+
             call.respondText("OK")
         }
     }
