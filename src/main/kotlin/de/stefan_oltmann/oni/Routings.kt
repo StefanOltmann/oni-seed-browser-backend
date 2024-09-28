@@ -13,6 +13,7 @@ import io.ktor.server.routing.*
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import model.World
+import org.bson.Document
 import org.slf4j.LoggerFactory
 
 private val mongoPassword: String? = System.getenv("MONGO_DB_PASSWORD")
@@ -106,6 +107,18 @@ fun Application.configureRouting() {
                 logger.error("No API key set.")
                 call.respond(HttpStatusCode.InternalServerError, "No API key.")
                 return@get
+            }
+
+            /*
+             * We are only healthy if our MongoDB connection is intact.
+             */
+            MongoClient.create(mongoClientSettings).use { mongoClient ->
+
+                val database = mongoClient.getDatabase("admin")
+
+                runBlocking {
+                    database.runCommand(Document("ping", 1))
+                }
             }
 
             call.respondText("OK")
