@@ -5,15 +5,24 @@ import com.mongodb.MongoClientSettings
 import com.mongodb.ServerApi
 import com.mongodb.ServerApiVersion
 import com.mongodb.kotlin.client.coroutine.MongoClient
-import io.ktor.http.*
-import io.ktor.server.application.*
-import io.ktor.server.request.*
-import io.ktor.server.response.*
-import io.ktor.server.routing.*
-import kotlinx.coroutines.runBlocking
+import de.stefan_oltmann.oni.dto.SearchResponse
+import io.ktor.http.ContentType
+import io.ktor.http.HttpStatusCode
+import io.ktor.serialization.kotlinx.json.json
+import io.ktor.server.application.Application
+import io.ktor.server.application.call
+import io.ktor.server.application.install
+import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.server.request.receive
+import io.ktor.server.response.respond
+import io.ktor.server.response.respondBytes
+import io.ktor.server.response.respondText
+import io.ktor.server.routing.get
+import io.ktor.server.routing.post
+import io.ktor.server.routing.routing
+import kotlinx.coroutines.flow.toList
 import kotlinx.serialization.json.Json
 import model.World
-import org.bson.Document
 import org.slf4j.LoggerFactory
 
 private val mongoPassword: String? = System.getenv("MONGO_DB_PASSWORD")
@@ -34,6 +43,10 @@ private val mongoClientSettings = MongoClientSettings.builder()
 private val logger = LoggerFactory.getLogger("Routings")
 
 fun Application.configureRouting() {
+
+    install(ContentNegotiation) {
+        json()
+    }
 
     routing {
 
@@ -60,6 +73,26 @@ fun Application.configureRouting() {
                 indexHtml.encodeToByteArray(),
                 contentType = ContentType.Text.Html
             )
+        }
+
+        get("/all") {
+
+            logger.info("Should deliver all worlds...")
+
+            MongoClient.create(mongoClientSettings).use { mongoClient ->
+
+                val database = mongoClient.getDatabase("oni")
+
+                val collection = database.getCollection<World>("worlds")
+
+                val allWorlds = collection.find().toList()
+
+                logger.info("Found ${allWorlds.size} worlds.")
+
+                call.respond(
+                    SearchResponse(worlds = allWorlds)
+                )
+            }
         }
 
         post("/upload") {
@@ -93,9 +126,7 @@ fun Application.configureRouting() {
 
                     val collection = database.getCollection<World>("worlds")
 
-                    runBlocking {
-                        collection.insertOne(world)
-                    }
+                    collection.insertOne(world)
                 }
 
                 call.respond(HttpStatusCode.OK)
@@ -128,19 +159,7 @@ fun Application.configureRouting() {
                 return@get
             }
 
-            /*
-             * We are only healthy if our MongoDB connection is intact.
-             */
-            MongoClient.create(mongoClientSettings).use { mongoClient ->
-
-                val database = mongoClient.getDatabase("admin")
-
-                runBlocking {
-                    database.runCommand(Document("ping", 1))
-                }
-            }
-
-            call.respondText("OK")
+            call.respondText("OK", ContentType.Text.Plain, HttpStatusCode.OK)
         }
     }
 }
