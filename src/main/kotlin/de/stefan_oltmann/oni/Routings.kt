@@ -77,6 +77,8 @@ fun Application.configureRouting() {
 
         get("/all") {
 
+            val start = System.currentTimeMillis()
+
             logger.info("Should deliver all worlds...")
 
             MongoClient.create(mongoClientSettings).use { mongoClient ->
@@ -93,6 +95,11 @@ fun Application.configureRouting() {
                     SearchResponse(worlds = allWorlds)
                 )
             }
+
+
+            val duration = System.currentTimeMillis() - start
+
+            logger.info("Returned all worlds in $duration ms.")
         }
 
         post("/upload") {
