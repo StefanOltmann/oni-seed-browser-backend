@@ -41,6 +41,19 @@ fun Application.configureRouting() {
             call.respondText("stefan-oltmann.de")
         }
 
+        get("/bench") {
+
+            val start = System.nanoTime()
+
+            Json.decodeFromString<World>(sampleWorldJson)
+
+            val durationNanos = System.nanoTime() - start
+
+            val millis = durationNanos / 1000000.0
+
+            call.respondText("Parsing of sample took $millis ms.")
+        }
+
         get("/submit") {
 
             call.respondBytes(
@@ -50,6 +63,8 @@ fun Application.configureRouting() {
         }
 
         post("/upload") {
+
+            val start = System.currentTimeMillis()
 
             val apiKey = this.context.request.headers["MNI_API_KEY"]
 
@@ -84,6 +99,10 @@ fun Application.configureRouting() {
                 }
 
                 call.respond(HttpStatusCode.OK)
+
+                val duration = System.currentTimeMillis() - start
+
+                logger.info("Completed upload in $duration ms.")
 
             } catch (ex: Exception) {
 
