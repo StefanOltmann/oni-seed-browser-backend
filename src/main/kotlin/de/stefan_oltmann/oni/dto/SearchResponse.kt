@@ -1,10 +1,13 @@
 package de.stefan_oltmann.oni.dto;
 
-import kotlinx.serialization.Serializable;
-import model.World
+import de.stefan_oltmann.oni.model.WorldSummary
+import kotlinx.serialization.Serializable
 
 @Serializable
 data class SearchResponse(
-    val worlds: List<World>,
-    val count: Int = worlds.size
+    val page: Int,
+    val pageSize: Int,
+    val totalPages: Int,
+    val totalResults: Int,
+    val worlds: List<WorldSummary>
 )

@@ -91,9 +91,7 @@ fun Application.configureRouting() {
 
                 logger.info("Found ${allWorlds.size} worlds.")
 
-                call.respond(
-                    SearchResponse(worlds = allWorlds)
-                )
+                call.respond(allWorlds)
             }
 
 
