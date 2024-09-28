@@ -47,9 +47,9 @@ data class WorldSummary(
     val worldTraitsOfStarter: List<WorldTrait>,
 
     /**
-     * Counts of the Geysers (including Oil Wells)
+     * Counts of the starting Asteroid geysers (including Oil Wells)
      */
-    val geysersCount: Map<GeyserType, Int>?,
+    val geysersCountOfStarter: Map<GeyserType, Int>?,
 
     /**
      * Counts of the Star POIs
