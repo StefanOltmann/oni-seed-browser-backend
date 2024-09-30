@@ -1,6 +1,5 @@
 package de.stefan_oltmann.oni.dto;
 
-import de.stefan_oltmann.oni.model.WorldSummary
 import kotlinx.serialization.Serializable
 
 @Serializable

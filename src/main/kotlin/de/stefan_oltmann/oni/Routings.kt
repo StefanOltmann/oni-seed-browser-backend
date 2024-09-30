@@ -12,7 +12,6 @@ import com.mongodb.client.model.Projections.fields
 import com.mongodb.client.model.Projections.include
 import com.mongodb.client.model.Projections.slice
 import com.mongodb.kotlin.client.coroutine.MongoClient
-import de.stefan_oltmann.oni.model.WorldSummary
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
@@ -108,7 +107,7 @@ fun Application.configureRouting() {
             logger.info("Returned all worlds in $duration ms.")
         }
 
-        get("/summaries") {
+        get("/distinct") {
 
             val start = System.currentTimeMillis()
 
@@ -120,47 +119,18 @@ fun Application.configureRouting() {
 
                 val collection = database.getCollection<World>("worlds")
 
-                /*
-                 * TODO Use MongoDB aggregation instead for better performance.
-                 */
+                val allWorlds = collection.find().toList().distinctBy {
+                    it.cluster
+                }
 
-                val summaries: List<WorldSummary> = collection.find().map { world ->
+                logger.info("Found ${allWorlds.size} distinct worlds.")
 
-                    val firstAsteroid = world.asteroids.first()
-
-                    val worldTraits = firstAsteroid.worldTraits
-
-                    val geysersCount = firstAsteroid.geysers.groupingBy { it.id }.eachCount()
-
-                    val starMapCounts = mutableMapOf<String, Int>()
-
-                    world.starMapEntriesVanilla?.let {
-                        starMapCounts.putAll(it.groupingBy { it.id }.eachCount())
-                    }
-
-                    world.starMapEntriesSpacedOut?.let {
-                        starMapCounts.putAll(it.groupingBy { it.id }.eachCount())
-                    }
-
-                    WorldSummary(
-                        coordinate = world.coordinate,
-                        cluster = world.cluster,
-                        dlcs = world.dlcs,
-                        worldTraitsOfStarter = worldTraits,
-                        geysersCountOfStarter = geysersCount,
-                        starMapEntryCounts = starMapCounts
-                    )
-
-                }.toList()
-
-                logger.info("Found ${summaries.size} worlds.")
-
-                call.respond(summaries)
+                call.respond(allWorlds)
             }
 
             val duration = System.currentTimeMillis() - start
 
-            logger.info("Returned summaries for all worlds in $duration ms.")
+            logger.info("Returned distinct worlds in $duration ms.")
         }
 
         post("/upload") {
