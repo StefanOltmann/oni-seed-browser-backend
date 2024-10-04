@@ -20,7 +20,6 @@
 package model
 
 import kotlinx.serialization.Serializable
-import serializer.ClusterSerializer
 
 @Suppress("UNUSED")
 @Serializable
@@ -28,10 +27,9 @@ data class World(
 
     val coordinate: String,
 
-    @Serializable(with = ClusterSerializer::class)
-    val cluster: Cluster,
+    val cluster: String,
 
-    val dlcs: List<Dlc>,
+    val dlcs: List<String>,
 
     val asteroids: List<Asteroid>,
 
