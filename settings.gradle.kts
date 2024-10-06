@@ -1,2 +1,2 @@
-rootProject.name = "oni-seed-uploader"
+rootProject.name = "oni-seed-browser-backend"
 
