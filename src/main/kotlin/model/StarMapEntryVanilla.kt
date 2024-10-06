@@ -1,7 +1,7 @@
 /*
- * ONI Seed Browser backend
+ * ONI Seed Browser Backend
  * Copyright (C) 2024 Stefan Oltmann
- * https://stefan-oltmann.de/oni-seed-browser
+ * https://stefan-oltmann.de
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
