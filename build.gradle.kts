@@ -9,12 +9,12 @@ val ktorVersion: String by project
 val kotlinVersion: String by project
 val logbackVersion: String by project
 
-group = "de.stefan_oltmann.oni"
+group = "org.mapsnotincluded"
 version = "0.0.1"
 
 application {
 
-    mainClass.set("de.stefan_oltmann.oni.ApplicationKt")
+    mainClass.set("ApplicationKt")
 
     val isDevelopment: Boolean = project.ext.has("development")
     applicationDefaultJvmArgs = listOf("-Dio.ktor.development=$isDevelopment")
