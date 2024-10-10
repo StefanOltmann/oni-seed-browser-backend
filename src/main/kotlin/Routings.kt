@@ -21,6 +21,7 @@ import com.mongodb.ConnectionString
 import com.mongodb.MongoClientSettings
 import com.mongodb.ServerApi
 import com.mongodb.ServerApiVersion
+import com.mongodb.client.model.Filters
 import com.mongodb.kotlin.client.coroutine.MongoClient
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
@@ -143,9 +144,13 @@ fun Application.configureRouting() {
 
                     val collection = database.getCollection<World>("worlds")
 
-                    val allWorlds = collection.find().toList()
+                    val filter = Filters.eq("cluster", filterQuery.cluster)
 
-                    logger.info("Found ${allWorlds.size} worlds.")
+                    // val andFilters = mutableListOf<Bson>()
+
+                    val allWorlds = collection.find(filter).toList()
+
+                    logger.info("Found ${allWorlds.size} worlds for filter.")
 
                     call.respond(allWorlds)
                 }
