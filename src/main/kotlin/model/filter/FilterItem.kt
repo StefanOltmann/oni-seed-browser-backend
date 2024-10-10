@@ -1,7 +1,7 @@
 /*
- * ONI Seed Browser Backend
+ * ONI Seed Browser
  * Copyright (C) 2024 Stefan Oltmann
- * https://stefan-oltmann.de
+ * https://stefan-oltmann.de/oni-seed-browser
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -17,18 +17,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import io.ktor.server.application.Application
-import io.ktor.server.engine.embeddedServer
-import io.ktor.server.netty.Netty
+package model.filter
 
-fun main() {
-    embeddedServer(
-        Netty, port = 8080,
-        host = "0.0.0.0",
-        module = Application::module
-    ).start(wait = true)
-}
+interface FilterItem {
 
-fun Application.module() {
-    configureRouting()
+    val type: FilterItemType
+
 }

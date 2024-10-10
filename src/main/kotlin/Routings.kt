@@ -41,6 +41,7 @@ import io.ktor.server.routing.routing
 import kotlinx.coroutines.flow.toList
 import kotlinx.serialization.json.Json
 import model.World
+import model.filter.FilterQuery
 import org.slf4j.LoggerFactory
 
 private val mongoUrl: String = System.getenv("MONGO_DB_URL") ?: "cluster0.um7sl.mongodb.net"
@@ -82,7 +83,7 @@ fun Application.configureRouting() {
     routing {
 
         get("/") {
-            call.respondText("MapsNotIncluded.org")
+            call.respondText("ONI Seed Browser Backend")
         }
 
 //        get("/bench") {
@@ -120,6 +121,47 @@ fun Application.configureRouting() {
             val duration = System.currentTimeMillis() - start
 
             logger.info("Returned all worlds in $duration ms.")
+        }
+
+        post("/search") {
+
+            val start = System.currentTimeMillis()
+
+            try {
+
+                val byteArray = call.receive<ByteArray>()
+
+                val jsonString = byteArray.decodeToString()
+
+                val filterQuery = Json.decodeFromString<FilterQuery>(jsonString)
+
+                logger.info("Received query: $filterQuery")
+
+                MongoClient.create(mongoClientSettings).use { mongoClient ->
+
+                    val database = mongoClient.getDatabase("oni")
+
+                    val collection = database.getCollection<World>("worlds")
+
+                    val allWorlds = collection.find().toList()
+
+                    logger.info("Found ${allWorlds.size} worlds.")
+
+                    call.respond(allWorlds)
+                }
+
+                val duration = System.currentTimeMillis() - start
+
+                logger.info("Returned search results in $duration ms.")
+
+            } catch (ex: Exception) {
+
+                ex.printStackTrace()
+
+                logger.error("Exception on submitting.", ex)
+
+                call.respond(HttpStatusCode.InternalServerError)
+            }
         }
 
         get("/distinct") {
