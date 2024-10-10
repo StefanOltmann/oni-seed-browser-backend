@@ -43,6 +43,7 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.serialization.json.Json
 import model.World
 import model.filter.FilterQuery
+import org.bson.conversions.Bson
 import org.slf4j.LoggerFactory
 
 private val mongoUrl: String = System.getenv("MONGO_DB_URL") ?: "cluster0.um7sl.mongodb.net"
@@ -144,9 +145,25 @@ fun Application.configureRouting() {
 
                     val collection = database.getCollection<World>("worlds")
 
-                    val filter = Filters.eq("cluster", filterQuery.cluster)
+                    val andRulesBson = mutableListOf<Bson>()
 
-                    // val andFilters = mutableListOf<Bson>()
+                    andRulesBson.add(Filters.eq("cluster", filterQuery.cluster))
+
+                    for (orRules in filterQuery.rules) {
+
+                        val orRulesBson = mutableListOf<Bson>()
+
+                        for (orRule in orRules) {
+
+                            /*
+                             * TODO Fill in correct queries here
+                             */
+                        }
+
+                        andRulesBson.add(Filters.or(orRulesBson))
+                    }
+
+                    val filter = Filters.and(andRulesBson)
 
                     val allWorlds = collection.find(filter).toList()
 
