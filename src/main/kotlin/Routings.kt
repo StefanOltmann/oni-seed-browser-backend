@@ -23,12 +23,14 @@ import com.mongodb.ServerApi
 import com.mongodb.ServerApiVersion
 import com.mongodb.kotlin.client.coroutine.MongoClient
 import io.ktor.http.ContentType
+import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.call
 import io.ktor.server.application.install
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.server.plugins.cors.routing.CORS
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondBytes
@@ -40,6 +42,7 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.serialization.json.Json
 import model.World
 import org.slf4j.LoggerFactory
+import java.net.http.HttpHeaders
 
 private val mongoUrl: String = System.getenv("MONGO_DB_URL") ?: "cluster0.um7sl.mongodb.net"
 private val mongoPassword: String? = System.getenv("MONGO_DB_PASSWORD")
@@ -63,6 +66,18 @@ fun Application.configureRouting() {
 
     install(ContentNegotiation) {
         json()
+    }
+
+    install(CORS) {
+
+        // FIXME Not suitable for production
+        anyHost()
+
+        allowMethod(HttpMethod.Options)
+        allowMethod(HttpMethod.Get)
+        allowMethod(HttpMethod.Post)
+        allowHeader(io.ktor.http.HttpHeaders.Authorization)
+        allowCredentials = true
     }
 
     routing {
