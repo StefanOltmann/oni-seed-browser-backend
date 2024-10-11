@@ -9,11 +9,11 @@ class FilterGeneratorTest {
 
         val filterQuery = FilterQuery.parse(
             """
-            {
-                "cluster": "V-SNDST-C",
-                "dlcs": [],
-                "rules": []
-            }
+                {
+                    "cluster": "V-SNDST-C",
+                    "dlcs": [],
+                    "rules": []
+                }
         """.trimIndent()
         )
 
@@ -21,6 +21,81 @@ class FilterGeneratorTest {
 
         assertEquals(
             expected = "{\"\$and\": [{\"cluster\": \"V-SNDST-C\"}]}",
+            actual = filter.toBsonDocument().toJson()
+        )
+    }
+
+    @Test
+    fun testGeyserOutputOnAnyAsteroid() {
+
+        val filterQuery = FilterQuery.parse(
+            """
+                {
+                    "cluster": "V-SNDST-C",
+                    "dlcs": [
+                        "FrostyPlanet"
+                    ],
+                    "rules": [
+                        [
+                            {
+                                "asteroid": null,
+                                "geyserCount": null,
+                                "geyserOutput": {
+                                    "geyser": "steam",
+                                    "condition": "AT_LEAST",
+                                    "outputInGramPerSecond": 500
+                                },
+                                "worldTrait": null,
+                                "spaceDestinationCount": null
+                            }
+                        ]
+                    ]
+                }
+        """.trimIndent()
+        )
+
+        val filter = generateFilter(filterQuery)
+
+        assertEquals(
+            expected = "{\"\$and\": [{\"cluster\": \"V-SNDST-C\"}, {\"\$or\": [{\"asteroids.geysers\": {\"\$elemMatch\": {\"\$and\": [{\"id\": \"steam\"}, {\"avgEmitRate\": {\"\$gte\": 500}}]}}}]}]}",
+            actual = filter.toBsonDocument().toJson()
+        )
+    }
+
+    @Test
+    fun testGeyserOutputOnSpecificAsteroid() {
+
+        val filterQuery = FilterQuery.parse(
+            """
+                {
+                    "cluster": "V-SNDST-C",
+                    "dlcs": [
+                        "FrostyPlanet"
+                    ],
+                    "rules": [
+                        [
+                            {
+                                "asteroid": "VanillaSandstoneDefault",
+                                "geyserCount": null,
+                                "geyserOutput": {
+                                    "geyser": "steam",
+                                    "condition": "AT_LEAST",
+                                    "outputInGramPerSecond": 500
+                                },
+                                "worldTrait": null,
+                                "spaceDestinationCount": null
+                            }
+                        ]
+                    ]
+                }
+        """
+                .trimIndent()
+        )
+
+        val filter = generateFilter(filterQuery)
+
+        assertEquals(
+            expected = "{\"\$and\": [{\"cluster\": \"V-SNDST-C\"}, {\"\$or\": [{\"asteroids\": {\"\$elemMatch\": {\"\$and\": [{\"id\": \"VanillaSandstoneDefault\"}, {\"geysers\": {\"\$elemMatch\": {\"\$and\": [{\"id\": \"steam\"}, {\"avgEmitRate\": {\"\$gte\": 500}}]}}}]}}}]}]}",
             actual = filter.toBsonDocument().toJson()
         )
     }

@@ -1,4 +1,5 @@
 import com.mongodb.client.model.Filters
+import model.filter.FilterCondition
 import model.filter.FilterQuery
 import org.bson.conversions.Bson
 
@@ -13,6 +14,68 @@ fun generateFilter(filterQuery: FilterQuery): Bson {
         val orRulesBson = mutableListOf<Bson>()
 
         for (orRule in orRules) {
+
+            if (orRule.geyserOutput != null) {
+
+                val geyserOutput = orRule.geyserOutput
+
+                if (orRule.asteroid == null) {
+
+                    orRulesBson.add(
+
+                        Filters.elemMatch(
+                            "asteroids.geysers",
+                            Filters.and(
+                                Filters.eq("id", geyserOutput.geyser),
+
+                                when (geyserOutput.condition) {
+
+                                    FilterCondition.EXACTLY ->
+                                        Filters.eq("avgEmitRate", geyserOutput.outputInGramPerSecond)
+
+                                    FilterCondition.AT_LEAST ->
+                                        Filters.gte("avgEmitRate", geyserOutput.outputInGramPerSecond)
+
+                                    FilterCondition.AT_MOST ->
+                                        Filters.lte("avgEmitRate", geyserOutput.outputInGramPerSecond)
+                                }
+                            )
+                        )
+                    )
+
+                } else {
+
+                    orRulesBson.add(
+
+                        Filters.elemMatch(
+                            "asteroids",
+                            Filters.and(
+                                Filters.eq("id", orRule.asteroid),
+                                Filters.elemMatch(
+                                    "geysers",
+                                    Filters.and(
+                                        Filters.eq("id", geyserOutput.geyser),
+
+                                        when (geyserOutput.condition) {
+
+                                            FilterCondition.EXACTLY ->
+                                                Filters.eq("avgEmitRate", geyserOutput.outputInGramPerSecond)
+
+                                            FilterCondition.AT_LEAST ->
+                                                Filters.gte("avgEmitRate", geyserOutput.outputInGramPerSecond)
+
+                                            FilterCondition.AT_MOST ->
+                                                Filters.lte("avgEmitRate", geyserOutput.outputInGramPerSecond)
+                                        }
+                                    )
+                                )
+                            )
+                        )
+                    )
+                }
+
+                continue
+            }
 
             /*
              * TODO Fill in correct queries here
