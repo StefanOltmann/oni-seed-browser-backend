@@ -26,6 +26,43 @@ class FilterGeneratorTest {
     }
 
     @Test
+    fun testGeyserCountOnAnyAsteroid() {
+
+        val filterQuery = FilterQuery.parse(
+            """
+                {
+                    "cluster": "V-SNDST-C",
+                    "dlcs": [
+                        "FrostyPlanet"
+                    ],
+                    "rules": [
+                        [
+                            {
+                                "asteroid": null,
+                                "geyserCount": {
+                                    "geyser": "steam",
+                                    "condition": "EXACTLY",
+                                    "count": 3
+                                },
+                                "geyserOutput": null,
+                                "worldTrait": null,
+                                "spaceDestinationCount": null
+                            }
+                        ]
+                    ]
+                }
+        """.trimIndent()
+        )
+
+        val filter = generateFilter(filterQuery)
+
+        assertEquals(
+            expected = "{\"\$and\": [{\"cluster\": \"V-SNDST-C\"}, {\"\$or\": [{\"asteroids.geysers\": {\"\$elemMatch\": {\"\$and\": [{\"id\": \"steam\"}, {\"avgEmitRate\": {\"\$gte\": 500}}]}}}]}]}",
+            actual = filter.toBsonDocument().toJson()
+        )
+    }
+
+    @Test
     fun testGeyserOutputOnAnyAsteroid() {
 
         val filterQuery = FilterQuery.parse(

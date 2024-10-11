@@ -18,9 +18,11 @@ fun generateFilter(filterQuery: FilterQuery): Bson {
 
             when {
 
+//                orRule.geyserCount != null ->
+//                    orRulesBson.add(generateGeyserCountFilter(orRule.asteroid, orRule.geyserCount))
+
                 orRule.geyserOutput != null ->
                     orRulesBson.add(generateGeyserOutputFilter(orRule.asteroid, orRule.geyserOutput))
-
             }
 
             /*
