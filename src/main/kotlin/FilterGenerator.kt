@@ -3,7 +3,6 @@ import model.filter.FilterCondition
 import model.filter.FilterItemGeyserOutput
 import model.filter.FilterItemWorldTrait
 import model.filter.FilterQuery
-import org.bson.Document
 import org.bson.conversions.Bson
 
 fun generateFilter(filterQuery: FilterQuery): Bson {
@@ -20,35 +19,36 @@ fun generateFilter(filterQuery: FilterQuery): Bson {
 
             when {
 
-                orRule.geyserCount != null -> {
-
-                    val geyserCount = orRule.geyserCount
-
-                    if (orRule.asteroid != null) {
-
-                        val conditionString = when (geyserCount.condition) {
-                            FilterCondition.EXACTLY -> "eq"
-                            FilterCondition.AT_LEAST -> "gte"
-                            FilterCondition.AT_MOST -> "lte"
-                        }
-
-                        val bson = Document.parse(
-                            "{\n" +
-                                "  \"asteroids\": {\n" +
-                                "    \"\$elemMatch\": {\n" +
-                                "      \"id\": \"${orRule.asteroid}\",\n" +
-                                "      \"geysers\": {\n" +
-                                "        \"\$elemMatch\": { \"id\": \"steam\" },\n" +
-                                "        \"\$size\": { \"$conditionString\": ${geyserCount.count} }\n" +
-                                "      }\n" +
-                                "    }\n" +
-                                "  }\n" +
-                                "}"
-                        )
-
-                        orRulesBson.add(bson)
-                    }
-                }
+                // FIXME Implement geyser count
+//                orRule.geyserCount != null -> {
+//
+//                    val geyserCount = orRule.geyserCount
+//
+//                    if (orRule.asteroid != null) {
+//
+//                        val conditionString = when (geyserCount.condition) {
+//                            FilterCondition.EXACTLY -> "eq"
+//                            FilterCondition.AT_LEAST -> "gte"
+//                            FilterCondition.AT_MOST -> "lte"
+//                        }
+//
+//                        val bson = Document.parse(
+//                            "{\n" +
+//                                "  \"asteroids\": {\n" +
+//                                "    \"\$elemMatch\": {\n" +
+//                                "      \"id\": \"${orRule.asteroid}\",\n" +
+//                                "      \"geysers\": {\n" +
+//                                "        \"\$elemMatch\": { \"id\": \"steam\" },\n" +
+//                                "        \"\$size\": { \"$conditionString\": ${geyserCount.count} }\n" +
+//                                "      }\n" +
+//                                "    }\n" +
+//                                "  }\n" +
+//                                "}"
+//                        )
+//
+//                        orRulesBson.add(bson)
+//                    }
+//                }
 
                 orRule.geyserOutput != null ->
                     orRulesBson.add(generateGeyserOutputFilter(orRule.asteroid, orRule.geyserOutput))
@@ -56,10 +56,6 @@ fun generateFilter(filterQuery: FilterQuery): Bson {
                 orRule.worldTrait != null ->
                     orRulesBson.add(generateWorldTraitFilter(orRule.asteroid, orRule.worldTrait))
             }
-
-            /*
-             * TODO Fill in correct queries here
-             */
         }
 
         andRulesBson.add(Filters.or(orRulesBson))
