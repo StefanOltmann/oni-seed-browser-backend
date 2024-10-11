@@ -20,7 +20,7 @@ class FilterGeneratorTest {
         val filter = generateFilter(filterQuery)
 
         assertEquals(
-            expected = "{\"\$and\": [{\"cluster\": \"V-SNDST-C\"}]}",
+            expected = "{\"cluster\": \"V-SNDST-C\"}",
             actual = filter.toBsonDocument().toJson()
         )
     }

@@ -7,9 +7,14 @@ import org.bson.conversions.Bson
 
 fun generateFilter(filterQuery: FilterQuery): Bson {
 
+    val clusterFilter = Filters.eq("cluster", filterQuery.cluster)
+
+    if (filterQuery.rules.isEmpty())
+        return clusterFilter
+
     val andRulesBson = mutableListOf<Bson>()
 
-    andRulesBson.add(Filters.eq("cluster", filterQuery.cluster))
+    andRulesBson.add(clusterFilter)
 
     for (orRules in filterQuery.rules) {
 
