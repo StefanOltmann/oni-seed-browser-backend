@@ -21,7 +21,6 @@ import com.mongodb.ConnectionString
 import com.mongodb.MongoClientSettings
 import com.mongodb.ServerApi
 import com.mongodb.ServerApiVersion
-import com.mongodb.client.model.Filters
 import com.mongodb.kotlin.client.coroutine.MongoClient
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
@@ -43,7 +42,6 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.serialization.json.Json
 import model.World
 import model.filter.FilterQuery
-import org.bson.conversions.Bson
 import org.slf4j.LoggerFactory
 
 private val mongoUrl: String = System.getenv("MONGO_DB_URL") ?: "cluster0.um7sl.mongodb.net"
@@ -133,9 +131,9 @@ fun Application.configureRouting() {
 
                 val byteArray = call.receive<ByteArray>()
 
-                val jsonString = byteArray.decodeToString()
+                val filterQueryJson = byteArray.decodeToString()
 
-                val filterQuery = Json.decodeFromString<FilterQuery>(jsonString)
+                val filterQuery = FilterQuery.parse(filterQueryJson)
 
                 logger.info("Received query: $filterQuery")
 
@@ -145,25 +143,7 @@ fun Application.configureRouting() {
 
                     val collection = database.getCollection<World>("worlds")
 
-                    val andRulesBson = mutableListOf<Bson>()
-
-                    andRulesBson.add(Filters.eq("cluster", filterQuery.cluster))
-
-                    for (orRules in filterQuery.rules) {
-
-                        val orRulesBson = mutableListOf<Bson>()
-
-                        for (orRule in orRules) {
-
-                            /*
-                             * TODO Fill in correct queries here
-                             */
-                        }
-
-                        andRulesBson.add(Filters.or(orRulesBson))
-                    }
-
-                    val filter = Filters.and(andRulesBson)
+                    val filter = generateFilter(filterQuery)
 
                     val allWorlds = collection.find(filter).toList()
 
