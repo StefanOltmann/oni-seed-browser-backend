@@ -133,9 +133,9 @@ fun Application.configureRouting() {
 
                 val filterQueryJson = byteArray.decodeToString()
 
-                val filterQuery = FilterQuery.parse(filterQueryJson)
+                logger.info("Received JSON query: $filterQueryJson")
 
-                logger.info("Received query: $filterQuery")
+                val filterQuery = FilterQuery.parse(filterQueryJson)
 
                 MongoClient.create(mongoClientSettings).use { mongoClient ->
 
@@ -144,6 +144,8 @@ fun Application.configureRouting() {
                     val collection = database.getCollection<World>("worlds")
 
                     val filter = generateFilter(filterQuery)
+
+                    logger.info("Generated MongoDB filter: ${filter.toBsonDocument().toJson()}")
 
                     val allWorlds = collection.find(filter).toList()
 
