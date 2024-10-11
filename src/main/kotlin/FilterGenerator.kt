@@ -1,6 +1,7 @@
 import com.mongodb.client.model.Filters
 import model.filter.FilterCondition
 import model.filter.FilterItemGeyserOutput
+import model.filter.FilterItemWorldTrait
 import model.filter.FilterQuery
 import org.bson.Document
 import org.bson.conversions.Bson
@@ -51,6 +52,9 @@ fun generateFilter(filterQuery: FilterQuery): Bson {
 
                 orRule.geyserOutput != null ->
                     orRulesBson.add(generateGeyserOutputFilter(orRule.asteroid, orRule.geyserOutput))
+
+                orRule.worldTrait != null ->
+                    orRulesBson.add(generateWorldTraitFilter(orRule.asteroid, orRule.worldTrait))
             }
 
             /*
@@ -114,6 +118,39 @@ private fun generateGeyserOutputFilter(
                         }
                     )
                 )
+            )
+        )
+    }
+}
+
+private fun generateWorldTraitFilter(
+    asteroid: String?,
+    worldTrait: FilterItemWorldTrait
+): Bson {
+
+    if (asteroid == null) {
+
+        if (worldTrait.has)
+            return Filters.eq("asteroids.worldTraits", worldTrait.worldTrait)
+
+        return Filters.ne("asteroids.worldTraits", worldTrait.worldTrait)
+
+    } else {
+
+        if (worldTrait.has)
+            return Filters.elemMatch(
+                "asteroids",
+                Filters.and(
+                    Filters.eq("id", asteroid),
+                    Filters.eq("worldTraits", worldTrait.worldTrait)
+                )
+            )
+
+        return Filters.elemMatch(
+            "asteroids",
+            Filters.and(
+                Filters.eq("id", asteroid),
+                Filters.ne("worldTraits", worldTrait.worldTrait)
             )
         )
     }

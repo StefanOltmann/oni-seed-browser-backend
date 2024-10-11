@@ -26,6 +26,42 @@ class FilterGeneratorTest {
     }
 
     @Test
+    fun testWorldTraitOnSpecificAsteroid() {
+
+        val filterQuery = FilterQuery.parse(
+            """
+                {
+                    "cluster": "V-OCAN-C",
+                    "dlcs": [
+                        "FrostyPlanet"
+                    ],
+                    "rules": [
+                        [
+                            {
+                                "asteroid": null,
+                                "geyserCount": null,
+                                "geyserOutput": null,
+                                "worldTrait": {
+                                    "has": true,
+                                    "worldTrait": "SubsurfaceOcean"
+                                },
+                                "spaceDestinationCount": null
+                            }
+                        ]
+                    ]
+                }
+        """.trimIndent()
+        )
+
+        val filter = generateFilter(filterQuery)
+
+        assertEquals(
+            expected = "{\"\$and\": [{\"cluster\": \"V-OCAN-C\"}, {\"\$or\": [{\"asteroids.worldTraits\": \"SubsurfaceOcean\"}]}]}",
+            actual = filter.toBsonDocument().toJson()
+        )
+    }
+
+    @Test
     fun testGeyserCountOnSpecificAsteroid() {
 
         val filterQuery = FilterQuery.parse(
