@@ -15,8 +15,7 @@ fun generateFilter(filterQuery: FilterQuery): Bson {
 
         val orRulesBson = mutableListOf<Bson>()
 
-        for (orRule in orRules) {
-
+        for (orRule in orRules)
             when {
 
                 // FIXME Implement geyser count
@@ -56,9 +55,9 @@ fun generateFilter(filterQuery: FilterQuery): Bson {
                 orRule.worldTrait != null ->
                     orRulesBson.add(generateWorldTraitFilter(orRule.asteroid, orRule.worldTrait))
             }
-        }
 
-        andRulesBson.add(Filters.or(orRulesBson))
+        if (orRulesBson.isNotEmpty())
+            andRulesBson.add(Filters.or(orRulesBson))
     }
 
     return Filters.and(andRulesBson)

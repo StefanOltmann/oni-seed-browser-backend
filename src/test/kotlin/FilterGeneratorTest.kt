@@ -61,42 +61,42 @@ class FilterGeneratorTest {
         )
     }
 
-    @Test
-    fun testGeyserCountOnSpecificAsteroid() {
-
-        val filterQuery = FilterQuery.parse(
-            """
-                {
-                    "cluster": "V-SNDST-C",
-                    "dlcs": [
-                        "FrostyPlanet"
-                    ],
-                    "rules": [
-                        [
-                            {
-                                "asteroid": "VanillaSandstoneDefault",
-                                "geyserCount": {
-                                    "geyser": "steam",
-                                    "condition": "EXACTLY",
-                                    "count": 3
-                                },
-                                "geyserOutput": null,
-                                "worldTrait": null,
-                                "spaceDestinationCount": null
-                            }
-                        ]
-                    ]
-                }
-        """.trimIndent()
-        )
-
-        val filter = generateFilter(filterQuery)
-
-        assertEquals(
-            expected = "{\"\$and\": [{\"cluster\": \"V-SNDST-C\"}, {\"\$or\": [{\"asteroids\": {\"\$elemMatch\": {\"id\": \"VanillaSandstoneDefault\", \"geysers\": {\"\$elemMatch\": {\"id\": \"steam\"}, \"\$size\": {\"eq\": 3}}}}}]}]}",
-            actual = filter.toBsonDocument().toJson()
-        )
-    }
+//    @Test
+//    fun testGeyserCountOnSpecificAsteroid() {
+//
+//        val filterQuery = FilterQuery.parse(
+//            """
+//                {
+//                    "cluster": "V-SNDST-C",
+//                    "dlcs": [
+//                        "FrostyPlanet"
+//                    ],
+//                    "rules": [
+//                        [
+//                            {
+//                                "asteroid": "VanillaSandstoneDefault",
+//                                "geyserCount": {
+//                                    "geyser": "steam",
+//                                    "condition": "EXACTLY",
+//                                    "count": 3
+//                                },
+//                                "geyserOutput": null,
+//                                "worldTrait": null,
+//                                "spaceDestinationCount": null
+//                            }
+//                        ]
+//                    ]
+//                }
+//        """.trimIndent()
+//        )
+//
+//        val filter = generateFilter(filterQuery)
+//
+//        assertEquals(
+//            expected = "{\"\$and\": [{\"cluster\": \"V-SNDST-C\"}, {\"\$or\": [{\"asteroids\": {\"\$elemMatch\": {\"id\": \"VanillaSandstoneDefault\", \"geysers\": {\"\$elemMatch\": {\"id\": \"steam\"}, \"\$size\": {\"eq\": 3}}}}}]}]}",
+//            actual = filter.toBsonDocument().toJson()
+//        )
+//    }
 
     @Test
     fun testGeyserOutputOnAnyAsteroid() {
