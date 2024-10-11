@@ -26,7 +26,7 @@ class FilterGeneratorTest {
     }
 
     @Test
-    fun testGeyserCountOnAnyAsteroid() {
+    fun testGeyserCountOnSpecificAsteroid() {
 
         val filterQuery = FilterQuery.parse(
             """
@@ -38,7 +38,7 @@ class FilterGeneratorTest {
                     "rules": [
                         [
                             {
-                                "asteroid": null,
+                                "asteroid": "VanillaSandstoneDefault",
                                 "geyserCount": {
                                     "geyser": "steam",
                                     "condition": "EXACTLY",
@@ -57,7 +57,7 @@ class FilterGeneratorTest {
         val filter = generateFilter(filterQuery)
 
         assertEquals(
-            expected = "{\"\$and\": [{\"cluster\": \"V-SNDST-C\"}, {\"\$or\": [{\"asteroids.geysers\": {\"\$elemMatch\": {\"\$and\": [{\"id\": \"steam\"}, {\"avgEmitRate\": {\"\$gte\": 500}}]}}}]}]}",
+            expected = "{\"\$and\": [{\"cluster\": \"V-SNDST-C\"}, {\"\$or\": [{\"asteroids\": {\"\$elemMatch\": {\"id\": \"VanillaSandstoneDefault\", \"geysers\": {\"\$elemMatch\": {\"id\": \"steam\"}, \"\$size\": {\"eq\": 3}}}}}]}]}",
             actual = filter.toBsonDocument().toJson()
         )
     }
