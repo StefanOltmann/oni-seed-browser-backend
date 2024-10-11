@@ -62,6 +62,9 @@ private val mongoClientSettings = MongoClientSettings.builder()
 
 private val logger = LoggerFactory.getLogger("Routings")
 
+/* Limit the results to avoid memory issues */
+const val RESULT_LIMIT = 50
+
 fun Application.configureRouting() {
 
     install(ContentNegotiation) {
@@ -147,7 +150,7 @@ fun Application.configureRouting() {
 
                     logger.info("Generated MongoDB filter: ${filter.toBsonDocument().toJson()}")
 
-                    val allWorlds = collection.find(filter).toList()
+                    val allWorlds = collection.find(filter).limit(RESULT_LIMIT).toList()
 
                     logger.info("Found ${allWorlds.size} worlds for filter.")
 
