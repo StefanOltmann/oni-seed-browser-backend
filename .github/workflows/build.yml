@@ -19,6 +19,9 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push Docker images
         uses: docker/build-push-action@v4.0.0
+        permissions:
+          contents: read
+          packages: write
         with:
           context: .
           push: true
