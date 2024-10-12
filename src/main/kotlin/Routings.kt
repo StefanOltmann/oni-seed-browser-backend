@@ -1,7 +1,7 @@
 /*
  * ONI Seed Browser Backend
  * Copyright (C) 2024 Stefan Oltmann
- * https://stefan-oltmann.de
+ * https://stefan-oltmann.de/oni-seed-browser
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -79,7 +79,6 @@ fun Application.configureRouting() {
         allowHeader(HttpHeaders.AccessControlAllowOrigin)
         allowHeader(HttpHeaders.ContentType)
 
-        // FIXME Not suitable for production
         anyHost()
     }
 
@@ -89,18 +88,18 @@ fun Application.configureRouting() {
             call.respondText("ONI Seed Browser Backend")
         }
 
-//        get("/bench") {
-//
-//            val start = System.nanoTime()
-//
-//            Json.decodeFromString<World>(sampleWorldJson)
-//
-//            val durationNanos = System.nanoTime() - start
-//
-//            val millis = durationNanos / 1000000.0
-//
-//            call.respondText("Parsing of sample took $millis ms.")
-//        }
+        get("/bench") {
+
+            val start = System.nanoTime()
+
+            Json.decodeFromString<List<World>>(sampleWorldsJson)
+
+            val durationNanos = System.nanoTime() - start
+
+            val millis = durationNanos / 1000000.0
+
+            call.respondText("Parsing of sample took $millis ms.")
+        }
 
         get("/all") {
 
