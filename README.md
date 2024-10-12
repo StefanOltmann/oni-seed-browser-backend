@@ -1,3 +1,3 @@
-# We moved
+# ONI Seed Browser Backend
 
-This code has been moved to https://github.com/barratt/mapsnotincluded.org/tree/main/backend
+This is the backend for https://github.com/StefanOltmann/oni-seed-browser
