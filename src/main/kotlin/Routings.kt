@@ -21,6 +21,7 @@ import com.mongodb.ConnectionString
 import com.mongodb.MongoClientSettings
 import com.mongodb.ServerApi
 import com.mongodb.ServerApiVersion
+import com.mongodb.client.model.Filters
 import com.mongodb.kotlin.client.coroutine.MongoClient
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
@@ -30,6 +31,7 @@ import io.ktor.server.plugins.cors.routing.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.toList
 import kotlinx.serialization.json.Json
 import model.World
@@ -91,6 +93,42 @@ fun Application.configureRouting() {
             val millis = durationNanos / 1000000.0
 
             call.respondText("Parsing of sample took $millis ms.")
+        }
+
+        get("/coordinate/{coordinate}") {
+
+            val coordinate = call.parameters["coordinate"]
+
+            if (coordinate.isNullOrBlank()) {
+
+                call.respond(HttpStatusCode.BadRequest, "Invalid coordinate '$coordinate'")
+
+                return@get
+            }
+
+            val start = System.currentTimeMillis()
+
+            logger.info("Receiving coordinate: $coordinate")
+
+            MongoClient.create(mongoClientSettings).use { mongoClient ->
+
+                val database = mongoClient.getDatabase("oni")
+
+                val collection = database.getCollection<World>("worlds")
+
+                val world: World? = collection.find(
+                    Filters.eq("coordinate", coordinate)
+                ).firstOrNull()
+
+                if (world != null)
+                    call.respond(world)
+                else
+                    call.respond(HttpStatusCode.NotFound, "No world found for coordinate: $coordinate")
+            }
+
+            val duration = System.currentTimeMillis() - start
+
+            logger.info("Returned one world in $duration ms.")
         }
 
         get("/all") {
