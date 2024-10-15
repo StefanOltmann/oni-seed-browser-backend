@@ -1,5 +1,5 @@
 /*
- * ONI Seed Browser Backend
+ * ONI Seed Browser
  * Copyright (C) 2024 Stefan Oltmann
  * https://stefan-oltmann.de/oni-seed-browser
  *
@@ -17,18 +17,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import io.ktor.server.application.*
-import io.ktor.server.engine.*
-import io.ktor.server.netty.*
+package model
 
-fun main() {
-    embeddedServer(
-        Netty, port = 8080,
-        host = "0.0.0.0",
-        module = Application::module
-    ).start(wait = true)
-}
-
-fun Application.module() {
-    configureRouting()
-}
+data class Point(
+    val x: Int,
+    val y: Int
+)

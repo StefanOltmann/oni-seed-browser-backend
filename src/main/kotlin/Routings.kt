@@ -21,23 +21,17 @@ import com.mongodb.ConnectionString
 import com.mongodb.MongoClientSettings
 import com.mongodb.ServerApi
 import com.mongodb.ServerApiVersion
+import com.mongodb.client.model.Filters
 import com.mongodb.kotlin.client.coroutine.MongoClient
-import io.ktor.http.ContentType
-import io.ktor.http.HttpHeaders
-import io.ktor.http.HttpMethod
-import io.ktor.http.HttpStatusCode
-import io.ktor.serialization.kotlinx.json.json
-import io.ktor.server.application.Application
-import io.ktor.server.application.call
-import io.ktor.server.application.install
-import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.server.plugins.cors.routing.CORS
-import io.ktor.server.request.receive
-import io.ktor.server.response.respond
-import io.ktor.server.response.respondText
-import io.ktor.server.routing.get
-import io.ktor.server.routing.post
-import io.ktor.server.routing.routing
+import io.ktor.http.*
+import io.ktor.serialization.kotlinx.json.*
+import io.ktor.server.application.*
+import io.ktor.server.plugins.contentnegotiation.*
+import io.ktor.server.plugins.cors.routing.*
+import io.ktor.server.request.*
+import io.ktor.server.response.*
+import io.ktor.server.routing.*
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.toList
 import kotlinx.serialization.json.Json
 import model.World
@@ -99,6 +93,42 @@ fun Application.configureRouting() {
             val millis = durationNanos / 1000000.0
 
             call.respondText("Parsing of sample took $millis ms.")
+        }
+
+        get("/coordinate/{coordinate}") {
+
+            val coordinate = call.parameters["coordinate"]
+
+            if (coordinate.isNullOrBlank()) {
+
+                call.respond(HttpStatusCode.BadRequest, "Invalid coordinate '$coordinate'")
+
+                return@get
+            }
+
+            val start = System.currentTimeMillis()
+
+            logger.info("Receiving coordinate: $coordinate")
+
+            MongoClient.create(mongoClientSettings).use { mongoClient ->
+
+                val database = mongoClient.getDatabase("oni")
+
+                val collection = database.getCollection<World>("worlds")
+
+                val world: World? = collection.find(
+                    Filters.eq("coordinate", coordinate)
+                ).firstOrNull()
+
+                if (world != null)
+                    call.respond(world)
+                else
+                    call.respond(HttpStatusCode.NotFound, "No world found for coordinate: $coordinate")
+            }
+
+            val duration = System.currentTimeMillis() - start
+
+            logger.info("Returned one world in $duration ms.")
         }
 
         get("/all") {
@@ -221,20 +251,29 @@ fun Application.configureRouting() {
 
                 logger.info("Received world: $world")
 
+                val startOptimization = System.currentTimeMillis()
+
+                val optimizedWorld = world.optimizeBiomePaths()
+
+                val durationForOptimization = System.currentTimeMillis() - startOptimization
+
                 MongoClient.create(mongoClientSettings).use { mongoClient ->
 
                     val database = mongoClient.getDatabase("oni")
 
                     val collection = database.getCollection<World>("worlds")
 
-                    collection.insertOne(world)
+                    collection.insertOne(optimizedWorld)
                 }
 
                 call.respond(HttpStatusCode.OK)
 
                 val duration = System.currentTimeMillis() - start
 
-                logger.info("Completed upload in $duration ms.")
+                logger.info(
+                    "Completed upload in $duration ms. " +
+                        "Optimization took $durationForOptimization ms."
+                )
 
             } catch (ex: Exception) {
 
