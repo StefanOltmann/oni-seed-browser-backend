@@ -296,16 +296,19 @@ fun Application.configureRouting() {
 
         get("/health") {
 
-            if (mongoPassword.isNullOrBlank()) {
-                logger.error("No DB key set.")
-                call.respond(HttpStatusCode.InternalServerError, "No DB key.")
-                return@get
-            }
+            if (System.getenv("MONGO_DB_CONNECTION_STRING").isNullOrBlank()) {
 
-            if (mniApiKey.isNullOrBlank()) {
-                logger.error("No API key set.")
-                call.respond(HttpStatusCode.InternalServerError, "No API key.")
-                return@get
+                if (mongoPassword.isNullOrBlank()) {
+                    logger.error("No DB key set.")
+                    call.respond(HttpStatusCode.InternalServerError, "No DB key.")
+                    return@get
+                }
+
+                if (mniApiKey.isNullOrBlank()) {
+                    logger.error("No API key set.")
+                    call.respond(HttpStatusCode.InternalServerError, "No API key.")
+                    return@get
+                }
             }
 
             call.respondText("OK", ContentType.Text.Plain, HttpStatusCode.OK)
