@@ -62,6 +62,8 @@ const val RESULT_LIMIT = 50
 
 fun Application.configureRouting() {
 
+    log.info("Starting Server at version $VERSION")
+
     install(ContentNegotiation) {
         json()
     }

@@ -11,7 +11,6 @@ val kotlinVersion: String by project
 val logbackVersion: String by project
 
 group = "org.mapsnotincluded"
-version = "0.0.1"
 
 gitVersioning.apply {
 
@@ -19,10 +18,6 @@ gitVersioning.apply {
         /* Main branch contains the current dev version */
         branch("main") {
             version = "\${commit.short}"
-        }
-        /* Release / tags have real version numbers */
-        tag("v(?<version>.*)") {
-            version = "\${ref.version}"
         }
     }
 
