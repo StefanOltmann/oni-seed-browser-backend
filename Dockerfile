@@ -1,5 +1,6 @@
 FROM gradle:8-jdk17 AS BUILD_STAGE
 WORKDIR /tmp
+COPY .git .git
 COPY gradle gradle
 COPY build.gradle.kts gradle.properties settings.gradle.kts gradlew ./
 COPY src src
