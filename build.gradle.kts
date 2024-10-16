@@ -3,6 +3,7 @@ plugins {
     kotlin("jvm") version "1.9.21"
     kotlin("plugin.serialization") version "1.9.21"
     id("io.ktor.plugin") version "2.3.7"
+    id("me.qoomon.git-versioning") version "6.4.4"
 }
 
 val ktorVersion: String by project
@@ -12,12 +13,39 @@ val logbackVersion: String by project
 group = "org.mapsnotincluded"
 version = "0.0.1"
 
+gitVersioning.apply {
+
+    refs {
+        /* Main branch contains the current dev version */
+        branch("main") {
+            version = "\${commit.short}"
+        }
+        /* Release / tags have real version numbers */
+        tag("v(?<version>.*)") {
+            version = "\${ref.version}"
+        }
+    }
+
+    /* Fallback if branch was not found (for feature branches) */
+    rev {
+        version = "\${commit.short}"
+    }
+}
+
 application {
 
     mainClass.set("ApplicationKt")
 
     val isDevelopment: Boolean = project.ext.has("development")
     applicationDefaultJvmArgs = listOf("-Dio.ktor.development=$isDevelopment")
+}
+
+sourceSets {
+    main {
+        kotlin {
+            srcDir(layout.buildDirectory.dir("generated/source"))
+        }
+    }
 }
 
 repositories {
@@ -44,3 +72,22 @@ dependencies {
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlinVersion")
 }
 
+// region Version
+project.afterEvaluate {
+
+    logger.lifecycle("Generate Version.kt")
+
+    val outputDir = layout.buildDirectory.file("generated/source/").get().asFile
+
+    outputDir.mkdirs()
+
+    val file = File(outputDir.absolutePath, "Version.kt")
+
+    file.printWriter().use { writer ->
+
+        writer.println("const val VERSION: String = \"$version\"")
+
+        writer.flush()
+    }
+}
+// endregion

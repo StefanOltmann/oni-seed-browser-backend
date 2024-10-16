@@ -23,22 +23,14 @@ import com.mongodb.ServerApi
 import com.mongodb.ServerApiVersion
 import com.mongodb.client.model.Filters
 import com.mongodb.kotlin.client.coroutine.MongoClient
-import io.ktor.http.ContentType
-import io.ktor.http.HttpHeaders
-import io.ktor.http.HttpMethod
-import io.ktor.http.HttpStatusCode
-import io.ktor.serialization.kotlinx.json.json
-import io.ktor.server.application.Application
-import io.ktor.server.application.call
-import io.ktor.server.application.install
-import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.server.plugins.cors.routing.CORS
-import io.ktor.server.request.receive
-import io.ktor.server.response.respond
-import io.ktor.server.response.respondText
-import io.ktor.server.routing.get
-import io.ktor.server.routing.post
-import io.ktor.server.routing.routing
+import io.ktor.http.*
+import io.ktor.serialization.kotlinx.json.*
+import io.ktor.server.application.*
+import io.ktor.server.plugins.contentnegotiation.*
+import io.ktor.server.plugins.cors.routing.*
+import io.ktor.server.request.*
+import io.ktor.server.response.*
+import io.ktor.server.routing.*
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.toList
 import kotlinx.serialization.json.Json
@@ -88,7 +80,7 @@ fun Application.configureRouting() {
     routing {
 
         get("/") {
-            call.respondText("ONI Seed Browser Backend")
+            call.respondText("ONI Seed Browser Backend $VERSION")
         }
 
         get("/bench") {
