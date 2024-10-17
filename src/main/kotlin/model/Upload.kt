@@ -21,9 +21,19 @@ package model
 
 import kotlinx.serialization.Serializable
 
+/**
+ * This is the format expected to be sent from the mod
+ */
 @Serializable
-data class PointOfInterest(
-    val id: String,
-    val x: Int,
-    val y: Int,
+data class Upload(
+
+    val userId: String,
+
+    val installationId: String,
+
+    val gameVersion: String,
+
+    val fileHashes: Map<String, String>,
+
+    val world: World
 )

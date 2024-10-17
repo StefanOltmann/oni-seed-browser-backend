@@ -34,6 +34,7 @@ import io.ktor.server.application.install
 import io.ktor.server.application.log
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.cors.routing.CORS
+import io.ktor.server.plugins.origin
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
@@ -43,9 +44,12 @@ import io.ktor.server.routing.routing
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.toList
 import kotlinx.serialization.json.Json
+import model.Upload
+import model.UploadDatabase
 import model.World
 import model.filter.FilterQuery
 import org.slf4j.LoggerFactory
+import java.util.UUID
 
 private val mongoUrl: String = System.getenv("MONGO_DB_URL") ?: "cluster0.um7sl.mongodb.net"
 private val mongoPassword: String? = System.getenv("MONGO_DB_PASSWORD")
@@ -265,15 +269,17 @@ fun Application.configureRouting() {
 
         post("/upload") {
 
+            val ipAddress = call.request.origin.remoteAddress
+
             val start = System.currentTimeMillis()
 
             val apiKey = this.context.request.headers["MNI_API_KEY"]
 
             if (apiKey != System.getenv("MNI_API_KEY")) {
 
-                logger.warn("Unauthorized API key used.")
+                logger.warn("Unauthorized API key used by $ipAddress.")
 
-                call.respond(HttpStatusCode.Unauthorized)
+                call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
 
                 return@post
             }
@@ -284,9 +290,29 @@ fun Application.configureRouting() {
 
                 val jsonString = byteArray.decodeToString()
 
-                val world = Json.decodeFromString<World>(jsonString)
+                val upload = Json.decodeFromString<Upload>(jsonString)
 
-                logger.info("Received world: $world")
+                logger.info("Received upload: $upload")
+
+                try {
+                    UUID.fromString(upload.installationId)
+                } catch (ex: IllegalArgumentException) {
+                    logger.info("InstallationID was not UUID: ${upload.installationId}")
+                    call.respond(HttpStatusCode.NotAcceptable, "installationId must be UUID")
+                    return@post
+                }
+
+                val uploadDatabase = UploadDatabase(
+                    userId = upload.userId,
+                    installationId = upload.installationId,
+                    gameVersion = upload.gameVersion,
+                    fileHashes = upload.fileHashes,
+                    uploadDate = System.currentTimeMillis(),
+                    ipAddress = ipAddress,
+                    coordinate = upload.world.coordinate
+                )
+
+                val world = upload.world
 
                 val startOptimization = System.currentTimeMillis()
 
@@ -294,16 +320,21 @@ fun Application.configureRouting() {
 
                 val durationForOptimization = System.currentTimeMillis() - startOptimization
 
+                /* Save to MongoDB */
                 MongoClient.create(mongoClientSettings).use { mongoClient ->
 
                     val database = mongoClient.getDatabase("oni")
 
-                    val collection = database.getCollection<World>("worlds")
+                    val uploadCollection = database.getCollection<UploadDatabase>("uploads")
 
-                    collection.insertOne(optimizedWorld)
+                    uploadCollection.insertOne(uploadDatabase)
+
+                    val worldCollection = database.getCollection<World>("worlds")
+
+                    worldCollection.insertOne(optimizedWorld)
                 }
 
-                call.respond(HttpStatusCode.OK)
+                call.respond(HttpStatusCode.OK, "World was saved.")
 
                 val duration = System.currentTimeMillis() - start
 
