@@ -1,5 +1,5 @@
 /*
- * ONI Seed Browser Backend
+ * ONI Seed Browser
  * Copyright (C) 2024 Stefan Oltmann
  * https://stefan-oltmann.de/oni-seed-browser
  *
@@ -20,14 +20,10 @@
 package model
 
 import kotlinx.serialization.Serializable
-import serializer.PointOfInterestTypeSerializer
 
 @Serializable
-data class PointOfInterest(
+enum class Dlc {
 
-    @Serializable(with = PointOfInterestTypeSerializer::class)
-    val id: PointOfInterestType,
-
-    val x: Int,
-    val y: Int,
-)
+    SpacedOut,
+    FrostyPlanet;
+}

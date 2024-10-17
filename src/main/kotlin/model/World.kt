@@ -20,15 +20,17 @@
 package model
 
 import kotlinx.serialization.Serializable
+import serializer.ClusterSerializer
 
 @Serializable
 data class World(
 
     val coordinate: String,
 
-    val cluster: String,
+    @Serializable(with = ClusterSerializer::class)
+    val cluster: Cluster,
 
-    val dlcs: List<String>,
+    val dlcs: List<Dlc>,
 
     val asteroids: List<Asteroid>,
 

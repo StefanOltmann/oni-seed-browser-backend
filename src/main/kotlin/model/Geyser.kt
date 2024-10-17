@@ -20,11 +20,13 @@
 package model
 
 import kotlinx.serialization.Serializable
+import serializer.GeyserTypeSerializer
 
 @Serializable
 data class Geyser(
 
-    val id: String,
+    @Serializable(with = GeyserTypeSerializer::class)
+    val id: GeyserType,
 
     val x: Int,
     val y: Int,
