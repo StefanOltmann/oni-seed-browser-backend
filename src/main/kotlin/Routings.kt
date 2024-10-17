@@ -23,6 +23,7 @@ import com.mongodb.ServerApi
 import com.mongodb.ServerApiVersion
 import com.mongodb.client.model.Filters
 import com.mongodb.kotlin.client.coroutine.MongoClient
+import io.ktor.http.ContentDisposition
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
@@ -36,25 +37,33 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.cors.routing.CORS
 import io.ktor.server.plugins.origin
 import io.ktor.server.request.receive
+import io.ktor.server.response.header
 import io.ktor.server.response.respond
+import io.ktor.server.response.respondBytes
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.toList
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import model.Upload
 import model.UploadDatabase
 import model.World
 import model.filter.FilterQuery
 import org.slf4j.LoggerFactory
+import java.io.ByteArrayOutputStream
 import java.util.UUID
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 private val mongoUrl: String = System.getenv("MONGO_DB_URL") ?: "cluster0.um7sl.mongodb.net"
 private val mongoPassword: String? = System.getenv("MONGO_DB_PASSWORD")
 
 private val mniApiKey: String? = System.getenv("MNI_API_KEY")
+
+private val exportApiKey: String? = System.getenv("EXPORT_API_KEY")
 
 private val connectionString = System.getenv("MONGO_DB_CONNECTION_STRING")
     ?: "mongodb+srv://mongodb:$mongoPassword@$mongoUrl/?retryWrites=true&w=majority&appName=cluster0"
@@ -147,11 +156,22 @@ fun Application.configureRouting() {
             logger.info("Returned one world in $duration ms.")
         }
 
-        get("/all") {
+        get("/export") {
 
             val start = System.currentTimeMillis()
 
-            logger.info("Should deliver all worlds...")
+//            val apiKey = this.context.request.headers["EXPORT_API_KEY"]
+//
+//            if (apiKey != System.getenv("EXPORT_API_KEY")) {
+//
+//                logger.warn("Unauthorized API key used.")
+//
+//                call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
+//
+//                return@get
+//            }
+
+            logger.info("Data export requested...")
 
             MongoClient.create(mongoClientSettings).use { mongoClient ->
 
@@ -161,7 +181,28 @@ fun Application.configureRouting() {
 
                 val allWorlds = collection.find().toList()
 
-                logger.info("Found ${allWorlds.size} worlds.")
+                val allWorldsJson = Json.encodeToString(allWorlds)
+
+                val byteArrayOutputStream = ByteArrayOutputStream()
+
+                ZipOutputStream(byteArrayOutputStream).use { zip ->
+
+                    zip.putNextEntry(ZipEntry("worlds.json"))
+                    zip.write(allWorldsJson.toByteArray())
+                    zip.closeEntry()
+                }
+
+                val zipBytes = byteArrayOutputStream.toByteArray()
+
+                logger.info("Zipped all ${allWorlds.size} to a file of ${zipBytes.size / 1024 / 1024} mb.")
+
+                call.response.header(
+                    HttpHeaders.ContentDisposition,
+                    ContentDisposition.Attachment.withParameter(ContentDisposition.Parameters.FileName, "worlds.zip")
+                        .toString()
+                )
+
+                call.respondBytes(zipBytes, ContentType.Application.Zip)
 
                 call.respond(allWorlds)
             }
