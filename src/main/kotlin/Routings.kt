@@ -80,7 +80,7 @@ private val mongoClientSettings = MongoClientSettings.builder()
 private val logger = LoggerFactory.getLogger("Routings")
 
 /* Limit the results to avoid memory issues */
-const val RESULT_LIMIT = 50
+const val RESULT_LIMIT = 100
 
 fun Application.configureRouting() {
 
