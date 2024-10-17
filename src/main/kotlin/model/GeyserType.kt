@@ -21,11 +21,9 @@ package model
 
 import kotlinx.serialization.Serializable
 
-@Suppress("UNUSED")
 @Serializable
 enum class GeyserType(
-    val type: String,
-    val displayName: String
+    val type: String
 ) {
 
     /*
@@ -33,107 +31,81 @@ enum class GeyserType(
      */
 
     COOL_STEAM(
-        type = "steam",
-        displayName = "Cool Steam Vent"
+        type = "steam"
     ),
     HYDROGEN(
-        type = "hot_hydrogen",
-        displayName = "Hydrogen Vent"
+        type = "hot_hydrogen"
     ),
     NATURAL_GAS(
-        type = "methane",
-        displayName = "Natural Gas Geyser"
+        type = "methane"
     ),
     CHLORINE(
-        type = "chlorine_gas",
-        displayName = "Chlorine Gas Vent"
+        type = "chlorine_gas"
     ),
     HOT_STEAM(
-        type = "hot_steam",
-        displayName = "Steam Vent"
+        type = "hot_steam"
     ),
     HOT_CO2(
-        type = "hot_co2",
-        displayName = "Carbon Dioxide Vent"
+        type = "hot_co2"
     ),
     HOT_POLLUTED_O2(
-        type = "hot_po2",
-        displayName = "Hot Polluted Oxygen Vent"
+        type = "hot_po2"
     ),
     INFECTIOUS_POLLUTED_O2(
-        type = "slimy_po2",
-        displayName = "Infectious Polluted Oxygen Vent"
+        type = "slimy_po2"
     ),
     WATER(
-        type = "hot_water",
-        displayName = "Water Geyser"
+        type = "hot_water"
     ),
     COOL_SLUSH_WATER(
-        type = "slush_water",
-        displayName = "Cool Slush Geyser"
+        type = "slush_water"
     ),
     POLLUTED_WATER(
-        type = "filthy_water",
-        displayName = "Polluted Water Vent"
+        type = "filthy_water"
     ),
     COOL_SALT_WATER(
-        type = "slush_salt_water",
-        displayName = "Cool Salt Slush Geyser"
+        type = "slush_salt_water"
     ),
     HOT_SALT_WATER(
-        type = "salt_water",
-        displayName = "Salt Water Geyser"
+        type = "salt_water"
     ),
     LIQUID_CO2(
-        type = "liquid_co2",
-        displayName = "Carbon Dioxide Geyser"
+        type = "liquid_co2"
     ),
     LEAKY_OIL_FISSURE(
-        type = "oil_drip",
-        displayName = "Leaky Oil Fissure"
+        type = "oil_drip"
     ),
     LIQUID_SULFUR_GEYSER(
-        type = "liquid_sulfur",
-        displayName = "Liquid Sulfur Geyser"
+        type = "liquid_sulfur"
     ),
     IRON_VOLCANO(
-        type = "molten_iron",
-        displayName = "Iron Volcano"
+        type = "molten_iron"
     ),
     COPPER_VOLCANO(
-        type = "molten_copper",
-        displayName = "Copper Volcano"
+        type = "molten_copper"
     ),
     GOLD_VOLCANO(
-        type = "molten_gold",
-        displayName = "Gold Volcano"
+        type = "molten_gold"
     ),
     ALUMINIUM_VOLCANO(
-        type = "molten_aluminum",
-        displayName = "Aluminium Volcano"
+        type = "molten_aluminum"
     ),
     COBALT_VOLCANO(
-        type = "molten_cobalt",
-        displayName = "Cobalt Volcano"
+        type = "molten_cobalt"
     ),
     TUNGSTEN_VOLCANO(
-        type = "molten_tungsten",
-        displayName = "Tungsten Volcano"
+        type = "molten_tungsten"
     ),
     NIOBIUM_VOLCANO(
-        type = "molten_niobium",
-        displayName = "Niobium Volcano"
+        type = "molten_niobium"
     ),
     VOLCANO(
-        type = "big_volcano",
-        displayName = "Valcano"
+        type = "big_volcano"
     ),
     MINOR_VOLCANO(
-        type = "small_volcano",
-        displayName = "Minor Volcano"
+        type = "small_volcano"
     ),
     OIL_RESERVOIR(
-        type = "OilWell",
-        displayName = "Oil Reservoir"
+        type = "OilWell"
     )
 }

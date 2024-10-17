@@ -21,18 +21,15 @@ package model
 
 import kotlinx.serialization.Serializable
 
-@Suppress("UNUSED")
 @Serializable
 enum class Cluster(
     val prefix: String,
-    val displayName: String,
     val asteroidTypes: List<AsteroidType>
 ) {
 
     /** Terra */
     BASE_TERRA(
         prefix = "SNDST-A",
-        displayName = "Terra",
         asteroidTypes = listOf(
             AsteroidType.SandstoneDefault
         )
@@ -41,7 +38,6 @@ enum class Cluster(
     /** Ceres */
     BASE_CERES(
         prefix = "CER-A",
-        displayName = "Ceres",
         asteroidTypes = listOf(
             AsteroidType.CeresBaseGameAsteroid
         )
@@ -50,7 +46,6 @@ enum class Cluster(
     /** Ceres */
     BASE_BLASTED_CERES(
         prefix = "CERS-A",
-        displayName = "Blasted Ceres",
         asteroidTypes = listOf(
             AsteroidType.CeresBaseGameShatteredAsteroid
         )
@@ -59,7 +54,6 @@ enum class Cluster(
     /** Oceania */
     BASE_OCEANIA(
         prefix = "OCAN-A",
-        displayName = "Oceania",
         asteroidTypes = listOf(
             AsteroidType.Oceania
         )
@@ -68,7 +62,6 @@ enum class Cluster(
     /** Rime */
     BASE_RIME(
         prefix = "S-FRZ",
-        displayName = "Rime",
         asteroidTypes = listOf(
             AsteroidType.SandstoneFrozen
         )
@@ -77,7 +70,6 @@ enum class Cluster(
     /** Verdante */
     BASE_VERDANTE(
         prefix = "LUSH-A",
-        displayName = "Verdante",
         asteroidTypes = listOf(
             AsteroidType.ForestLush
         )
@@ -86,7 +78,6 @@ enum class Cluster(
     /** Arboria */
     BASE_ARBORIA(
         prefix = "FRST-A",
-        displayName = "Arboria",
         asteroidTypes = listOf(
             AsteroidType.ForestDefault
         )
@@ -95,7 +86,6 @@ enum class Cluster(
     /** Volcanea */
     BASE_VOLCANEA(
         prefix = "VOLCA",
-        displayName = "Volcanea",
         asteroidTypes = listOf(
             AsteroidType.Volcanic
         )
@@ -104,7 +94,6 @@ enum class Cluster(
     /** The Badlands */
     BASE_THE_BADLANDS(
         prefix = "BAD-A",
-        displayName = "The Badlands",
         asteroidTypes = listOf(
             AsteroidType.Badlands
         )
@@ -113,7 +102,6 @@ enum class Cluster(
     /** Aridio */
     BASE_ARIDIO(
         prefix = "HTFST-A",
-        displayName = "Aridio",
         asteroidTypes = listOf(
             AsteroidType.ForestHot
         )
@@ -122,7 +110,6 @@ enum class Cluster(
     /** Oasisse */
     BASE_OASISSE(
         prefix = "OASIS-A",
-        displayName = "Oasisse",
         asteroidTypes = listOf(
             AsteroidType.Oasis
         )
@@ -131,7 +118,6 @@ enum class Cluster(
     /** Terra */
     DLC_TERRA(
         prefix = "V-SNDST-C",
-        displayName = "Terra",
         asteroidTypes = listOf(
             AsteroidType.VanillaSandstoneDefault,
             AsteroidType.MediumRadioactiveVanillaWarpPlanet,
@@ -147,7 +133,6 @@ enum class Cluster(
     /** Ceres */
     DLC_CERES(
         prefix = "V-CER-C",
-        displayName = "Ceres",
         asteroidTypes = listOf(
             AsteroidType.CeresClassicAsteroid,
             AsteroidType.MediumSwampy,
@@ -163,7 +148,6 @@ enum class Cluster(
     /** Ceres (lab) */
     DLC_BLASTED_CERES(
         prefix = "V-CERS-C",
-        displayName = "Blasted Ceres",
         asteroidTypes = listOf(
             AsteroidType.CeresClassicShatteredAsteroid,
             AsteroidType.MediumSwampy,
@@ -179,7 +163,6 @@ enum class Cluster(
     /** Oceania */
     DLC_OCEANIA(
         prefix = "V-OCAN-C",
-        displayName = "Oceania",
         asteroidTypes = listOf(
             AsteroidType.VanillaOceania,
             AsteroidType.MediumForestyWasteland,
@@ -195,7 +178,6 @@ enum class Cluster(
     /** Squelchy */
     DLC_SQUELCHY(
         prefix = "V-SWMP-C",
-        displayName = "Squelchy",
         asteroidTypes = listOf(
             AsteroidType.VanillaSwampDefault,
             AsteroidType.MediumForestyRadioactiveVanillaWarpPlanet,
@@ -211,7 +193,6 @@ enum class Cluster(
     /** Rime */
     DLC_RIME(
         prefix = "V-SFRZ-C",
-        displayName = "Rime",
         asteroidTypes = listOf(
             AsteroidType.VanillaSandstoneFrozen,
             AsteroidType.MediumSwampy,
@@ -227,7 +208,6 @@ enum class Cluster(
     /** Verdante */
     DLC_VERDANTE(
         prefix = "V-LUSH-C",
-        displayName = "Verdante",
         asteroidTypes = listOf(
             AsteroidType.VanillaForestDefault,
             AsteroidType.MediumSandyRadioactiveVanillaWarpPlanet,
@@ -243,7 +223,6 @@ enum class Cluster(
     /** Arboria */
     DLC_ARBORIA(
         prefix = "V-FRST-C",
-        displayName = "Arboria",
         asteroidTypes = listOf(
             AsteroidType.VanillaArboria,
             AsteroidType.MediumSandyRadioactiveVanillaWarpPlanet,
@@ -259,7 +238,6 @@ enum class Cluster(
     /** Volcanea */
     DLC_VOLCANEA(
         prefix = "V-VOLCA-C",
-        displayName = "Volcanea",
         asteroidTypes = listOf(
             AsteroidType.VanillaVolcanic,
             AsteroidType.MediumRadioactiveVanillaWarpPlanet,
@@ -275,7 +253,6 @@ enum class Cluster(
     /** The Badlands */
     DLC_THE_BADLANDS(
         prefix = "V-BAD-C",
-        displayName = "The Badlands",
         asteroidTypes = listOf(
             AsteroidType.VanillaBadlands,
             AsteroidType.MediumRadioactiveVanillaWarpPlanet,
@@ -291,7 +268,6 @@ enum class Cluster(
     /** Aridio */
     DLC_ARIDIO(
         prefix = "V-HTFST-C",
-        displayName = "Aridio",
         asteroidTypes = listOf(
             AsteroidType.VanillaAridio,
             AsteroidType.MediumSandySwamp,
@@ -307,7 +283,6 @@ enum class Cluster(
     /** Oasisse */
     DLC_OASISSE(
         prefix = "V-OASIS-C",
-        displayName = "Oasisse",
         asteroidTypes = listOf(
             AsteroidType.VanillaOasis,
             AsteroidType.MediumRadioactiveVanillaWarpPlanet,
@@ -323,7 +298,6 @@ enum class Cluster(
     /** Terrania */
     DLC_TERRANIA(
         prefix = "SNDST-C",
-        displayName = "Terrania",
         asteroidTypes = listOf(
             AsteroidType.TerraMoonlet,
             AsteroidType.IdealLandingSite,
@@ -340,7 +314,6 @@ enum class Cluster(
     /** Ceres Minor */
     DLC_CERES_MINOR(
         prefix = "CER-C",
-        displayName = "Ceres Minor",
         asteroidTypes = listOf(
             AsteroidType.CeresSpacedOutAsteroid,
             AsteroidType.SwampyLandingSite,
@@ -357,7 +330,6 @@ enum class Cluster(
     /** Folia */
     DLC_FOLIA(
         prefix = "FRST-C",
-        displayName = "Folia",
         asteroidTypes = listOf(
             AsteroidType.ForestMoonlet,
             AsteroidType.SwampyLandingSite,
@@ -374,7 +346,6 @@ enum class Cluster(
     /** Quagmiris */
     DLC_QUAGMIRIS(
         prefix = "SWMP-C",
-        displayName = "Quagmiris",
         asteroidTypes = listOf(
             AsteroidType.SwampMoonlet,
             AsteroidType.MetalHeavyLandingSite,
@@ -391,7 +362,6 @@ enum class Cluster(
     /** Metallic Swampy Moonlet */
     DLC_METALLIC_SWAMPY_MOONLET(
         prefix = "M-SWMP-C",
-        displayName = "Metallic Swampy Moonlet",
         asteroidTypes = listOf(
             AsteroidType.MiniMetallicSwampyStart,
             AsteroidType.MiniBadlands,
@@ -410,7 +380,6 @@ enum class Cluster(
     /** The Desolands Moonlet */
     DLC_THE_DESOLANDS_MOONLET(
         prefix = "M-BAD-C",
-        displayName = "The Desolands Moonlet",
         asteroidTypes = listOf(
             AsteroidType.MiniBadlandsStart,
             AsteroidType.MiniRadioactiveOceanWarp,
@@ -429,7 +398,6 @@ enum class Cluster(
     /** Frozen Forest Moonlet */
     DLC_FROZEN_FOREST_MOONLET(
         prefix = "M-FRZ-C",
-        displayName = "Frozen Forest Moonlet",
         asteroidTypes = listOf(
             AsteroidType.MiniForestFrozenStart,
             AsteroidType.MiniBadlandsWarp,
@@ -448,7 +416,6 @@ enum class Cluster(
     /** Flipped Moonlet */
     DLC_FLIPPED_MOONLET(
         prefix = "M-FLIP-C",
-        displayName = "Flipped Moonlet",
         asteroidTypes = listOf(
             AsteroidType.MiniFlippedStart,
             AsteroidType.MiniBadlandsWarp,
@@ -467,7 +434,6 @@ enum class Cluster(
     /** Radioactive Ocean Moonlet */
     DLC_RADIOACTIVE_OCEAN_MOONLET(
         prefix = "M-RAD-C",
-        displayName = "Radioactive Ocean Moonlet",
         asteroidTypes = listOf(
             AsteroidType.MiniRadioactiveOceanStart,
             AsteroidType.MiniBadlands,
