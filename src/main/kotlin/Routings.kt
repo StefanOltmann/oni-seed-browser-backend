@@ -294,11 +294,38 @@ fun Application.configureRouting() {
 
                 logger.info("Received upload: $upload")
 
+                if (upload.userId.isBlank()) {
+                    call.respond(HttpStatusCode.NotAcceptable, "userId was not set.")
+                    return@post
+                }
+
                 try {
                     UUID.fromString(upload.installationId)
                 } catch (ex: IllegalArgumentException) {
                     logger.info("InstallationID was not UUID: ${upload.installationId}")
-                    call.respond(HttpStatusCode.NotAcceptable, "installationId must be UUID")
+                    call.respond(HttpStatusCode.NotAcceptable, "installationId must be UUID.")
+                    return@post
+                }
+
+                if (upload.gameVersion.isBlank()) {
+                    call.respond(HttpStatusCode.NotAcceptable, "gameVersion was not set.")
+                    return@post
+                }
+
+                if (upload.fileHashes.isEmpty()) {
+                    call.respond(HttpStatusCode.NotAcceptable, "fileHashes was empty.")
+                    return@post
+                }
+
+                /* World must have a coordinate set */
+                if (upload.world.coordinate.isBlank()) {
+                    call.respond(HttpStatusCode.NotAcceptable, "Illegal world data.")
+                    return@post
+                }
+
+                /* World must have asteroids */
+                if (upload.world.asteroids.isEmpty()) {
+                    call.respond(HttpStatusCode.NotAcceptable, "Illegal world data.")
                     return@post
                 }
 
