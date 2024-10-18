@@ -61,10 +61,6 @@ import java.util.zip.ZipOutputStream
 private val mongoUrl: String = System.getenv("MONGO_DB_URL") ?: "cluster0.um7sl.mongodb.net"
 private val mongoPassword: String? = System.getenv("MONGO_DB_PASSWORD")
 
-private val mniApiKey: String? = System.getenv("MNI_API_KEY")
-
-private val exportApiKey: String? = System.getenv("EXPORT_API_KEY")
-
 private val connectionString = System.getenv("MONGO_DB_CONNECTION_STRING")
     ?: "mongodb+srv://mongodb:$mongoPassword@$mongoUrl/?retryWrites=true&w=majority&appName=cluster0"
 
@@ -160,16 +156,16 @@ fun Application.configureRouting() {
 
             val start = System.currentTimeMillis()
 
-//            val apiKey = this.context.request.headers["EXPORT_API_KEY"]
-//
-//            if (apiKey != System.getenv("EXPORT_API_KEY")) {
-//
-//                logger.warn("Unauthorized API key used.")
-//
-//                call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
-//
-//                return@get
-//            }
+            val apiKey = this.context.request.headers["DATABASE_EXPORT_API_KEY"]
+
+            if (apiKey != System.getenv("DATABASE_EXPORT_API_KEY")) {
+
+                logger.warn("Unauthorized API key used.")
+
+                call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
+
+                return@get
+            }
 
             logger.info("Data export requested...")
 
@@ -431,7 +427,7 @@ fun Application.configureRouting() {
                     return@get
                 }
 
-                if (mniApiKey.isNullOrBlank()) {
+                if (System.getenv("MNI_API_KEY").isNullOrBlank()) {
                     logger.error("No API key set.")
                     call.respond(HttpStatusCode.InternalServerError, "No API key.")
                     return@get
