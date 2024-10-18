@@ -30,6 +30,7 @@ import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
+import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.call
 import io.ktor.server.application.install
 import io.ktor.server.application.log
@@ -156,11 +157,13 @@ fun Application.configureRouting() {
 
             val start = System.currentTimeMillis()
 
+            val ipAddress = call.getIpAddress()
+
             val apiKey = this.context.request.headers["DATABASE_EXPORT_API_KEY"]
 
             if (apiKey != System.getenv("DATABASE_EXPORT_API_KEY")) {
 
-                logger.warn("Unauthorized API key used.")
+                logger.warn("Unauthorized API key used by ip address $ipAddress.")
 
                 call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
 
@@ -306,7 +309,7 @@ fun Application.configureRouting() {
 
         post("/upload") {
 
-            val ipAddress = call.request.origin.remoteAddress
+            val ipAddress = call.getIpAddress()
 
             val start = System.currentTimeMillis()
 
@@ -438,3 +441,10 @@ fun Application.configureRouting() {
         }
     }
 }
+
+/**
+ * If behind a Cloudflare proxy we need to check the X-Forwarded-For first.
+ */
+private fun ApplicationCall.getIpAddress(): String =
+    request.headers["X-Forwarded-For"]?.split(",")?.firstOrNull()?.trim()
+        ?: request.origin.remoteAddress
