@@ -64,7 +64,7 @@ import java.util.UUID
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
-private val connectionString = System.getenv("MONGO_DB_CONNECTION_STRING")
+private val connectionString = System.getenv("MONGO_DB_CONNECTION_STRING") ?: ""
 
 private val serverApi = ServerApi.builder()
     .version(ServerApiVersion.V1)
