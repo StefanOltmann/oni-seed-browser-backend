@@ -27,6 +27,8 @@ data class Cluster(
 
     val coordinate: String,
 
+    val gameVersion: Int = 626616,
+
     @Serializable(with = ClusterTypeSerializer::class)
     val cluster: ClusterType,
 
