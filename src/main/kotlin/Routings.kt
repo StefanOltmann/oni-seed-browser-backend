@@ -51,7 +51,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import model.Upload
 import model.UploadDatabase
-import model.World
+import model.Cluster
 import model.filter.FilterQuery
 import org.slf4j.LoggerFactory
 import java.io.ByteArrayOutputStream
@@ -108,7 +108,7 @@ fun Application.configureRouting() {
 
             val start = System.nanoTime()
 
-            Json.decodeFromString<List<World>>(sampleWorldsJson)
+            Json.decodeFromString<List<Cluster>>(sampleSeedsJson)
 
             val durationNanos = System.nanoTime() - start
 
@@ -136,14 +136,14 @@ fun Application.configureRouting() {
 
                 val database = mongoClient.getDatabase("oni")
 
-                val collection = database.getCollection<World>("worlds")
+                val collection = database.getCollection<Cluster>("worlds")
 
-                val world: World? = collection.find(
+                val cluster: Cluster? = collection.find(
                     Filters.eq("coordinate", coordinate)
                 ).firstOrNull()
 
-                if (world != null)
-                    call.respond(world)
+                if (cluster != null)
+                    call.respond(cluster)
                 else
                     call.respond(HttpStatusCode.NotFound, "No world found for coordinate: $coordinate")
             }
@@ -176,7 +176,7 @@ fun Application.configureRouting() {
 
                 val database = mongoClient.getDatabase("oni")
 
-                val collection = database.getCollection<World>("worlds")
+                val collection = database.getCollection<Cluster>("worlds")
 
                 val allWorlds = collection.find().toList()
 
@@ -229,7 +229,7 @@ fun Application.configureRouting() {
 
                     val database = mongoClient.getDatabase("oni")
 
-                    val collection = database.getCollection<World>("worlds")
+                    val collection = database.getCollection<Cluster>("worlds")
 
                     val filter = generateFilter(filterQuery)
 
@@ -266,7 +266,7 @@ fun Application.configureRouting() {
 
                 val database = mongoClient.getDatabase("oni")
 
-                val collection = database.getCollection<World>("worlds")
+                val collection = database.getCollection<Cluster>("worlds")
 
                 val allWorlds = collection.find().toList().distinctBy {
                     it.cluster
@@ -292,7 +292,7 @@ fun Application.configureRouting() {
 
                 val database = mongoClient.getDatabase("oni")
 
-                val collection = database.getCollection<World>("worlds")
+                val collection = database.getCollection<Cluster>("worlds")
 
                 /* Fast count */
                 val count = collection.estimatedDocumentCount()
@@ -357,15 +357,22 @@ fun Application.configureRouting() {
                     return@post
                 }
 
+                val cluster = upload.cluster ?: upload.world
+
+                if (cluster == null) {
+                    call.respond(HttpStatusCode.NotAcceptable, "cluster was empty.")
+                    return@post
+                }
+
                 /* World must have a coordinate set */
-                if (upload.world.coordinate.isBlank()) {
-                    call.respond(HttpStatusCode.NotAcceptable, "Illegal world data.")
+                if (cluster.coordinate.isBlank()) {
+                    call.respond(HttpStatusCode.NotAcceptable, "Illegal data.")
                     return@post
                 }
 
                 /* World must have asteroids */
-                if (upload.world.asteroids.isEmpty()) {
-                    call.respond(HttpStatusCode.NotAcceptable, "Illegal world data.")
+                if (cluster.asteroids.isEmpty()) {
+                    call.respond(HttpStatusCode.NotAcceptable, "Illegal data.")
                     return@post
                 }
 
@@ -376,14 +383,12 @@ fun Application.configureRouting() {
                     fileHashes = upload.fileHashes,
                     uploadDate = System.currentTimeMillis(),
                     ipAddress = ipAddress,
-                    coordinate = upload.world.coordinate
+                    coordinate = cluster.coordinate
                 )
-
-                val world = upload.world
 
                 val startOptimization = System.currentTimeMillis()
 
-                val optimizedWorld = world.optimizeBiomePaths()
+                val optimizedCluster = cluster.optimizeBiomePaths()
 
                 val durationForOptimization = System.currentTimeMillis() - startOptimization
 
@@ -396,9 +401,9 @@ fun Application.configureRouting() {
 
                     uploadCollection.insertOne(uploadDatabase)
 
-                    val worldCollection = database.getCollection<World>("worlds")
+                    val clusterCollection = database.getCollection<Cluster>("worlds")
 
-                    worldCollection.insertOne(optimizedWorld)
+                    clusterCollection.insertOne(optimizedCluster)
                 }
 
                 call.respond(HttpStatusCode.OK, "World was saved.")

@@ -17,7 +17,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-val sampleWorldsJson: String = """
+val sampleSeedsJson: String = """
 [
   {
     "coordinate": "V-SNDST-C-101520169-0-0-0",

@@ -25,7 +25,7 @@ import com.menecats.polybool.models.Polygon
 import model.Asteroid
 import model.BiomePaths
 import model.Point
-import model.World
+import model.Cluster
 import kotlin.math.roundToInt
 
 fun BiomePaths.optimize(): BiomePaths {
@@ -81,7 +81,7 @@ fun BiomePaths.optimize(): BiomePaths {
     return BiomePaths(mergedPolygonMap)
 }
 
-fun World.optimizeBiomePaths(): World {
+fun Cluster.optimizeBiomePaths(): Cluster {
 
     val optimizedAsteroids = mutableListOf<Asteroid>()
 

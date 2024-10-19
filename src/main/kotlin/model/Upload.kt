@@ -35,5 +35,8 @@ data class Upload(
 
     val fileHashes: Map<String, String>,
 
-    val world: World
+    @Deprecated("Call it 'cluster'")
+    val world: Cluster?,
+
+    val cluster: Cluster?
 )
