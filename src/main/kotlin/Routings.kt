@@ -64,11 +64,7 @@ import java.util.UUID
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
-private val mongoUrl: String = System.getenv("MONGO_DB_URL") ?: "cluster0.um7sl.mongodb.net"
-private val mongoPassword: String? = System.getenv("MONGO_DB_PASSWORD")
-
 private val connectionString = System.getenv("MONGO_DB_CONNECTION_STRING")
-    ?: "mongodb+srv://mongodb:$mongoPassword@$mongoUrl/?retryWrites=true&w=majority&appName=cluster0"
 
 private val serverApi = ServerApi.builder()
     .version(ServerApiVersion.V1)
@@ -580,19 +576,10 @@ fun Application.configureRouting() {
 
         get("/health") {
 
-            if (System.getenv("MONGO_DB_CONNECTION_STRING").isNullOrBlank()) {
-
-                if (mongoPassword.isNullOrBlank()) {
-                    logger.error("No DB key set.")
-                    call.respond(HttpStatusCode.InternalServerError, "No DB key.")
-                    return@get
-                }
-
-                if (System.getenv("MNI_API_KEY").isNullOrBlank()) {
-                    logger.error("No API key set.")
-                    call.respond(HttpStatusCode.InternalServerError, "No API key.")
-                    return@get
-                }
+            if (connectionString.isNullOrBlank()) {
+                logger.error("No connection string set.")
+                call.respond(HttpStatusCode.InternalServerError, "No connection string set.")
+                return@get
             }
 
             call.respondText("OK", ContentType.Text.Plain, HttpStatusCode.OK)
