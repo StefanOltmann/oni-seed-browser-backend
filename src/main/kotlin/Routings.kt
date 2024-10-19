@@ -145,12 +145,12 @@ fun Application.configureRouting() {
                 if (cluster != null)
                     call.respond(cluster)
                 else
-                    call.respond(HttpStatusCode.NotFound, "No world found for coordinate: $coordinate")
+                    call.respond(HttpStatusCode.NotFound, "No data found for coordinate: $coordinate")
             }
 
             val duration = System.currentTimeMillis() - start
 
-            logger.info("Returned one world in $duration ms.")
+            logger.info("Returned data in $duration ms.")
         }
 
         get("/export") {
@@ -178,37 +178,37 @@ fun Application.configureRouting() {
 
                 val collection = database.getCollection<Cluster>("worlds")
 
-                val allWorlds = collection.find().toList()
+                val allClusters = collection.find().toList()
 
-                val allWorldsJson = Json.encodeToString(allWorlds)
+                val allClustersJson = Json.encodeToString(allClusters)
 
                 val byteArrayOutputStream = ByteArrayOutputStream()
 
                 ZipOutputStream(byteArrayOutputStream).use { zip ->
 
-                    zip.putNextEntry(ZipEntry("worlds.json"))
-                    zip.write(allWorldsJson.toByteArray())
+                    zip.putNextEntry(ZipEntry("data.json"))
+                    zip.write(allClustersJson.toByteArray())
                     zip.closeEntry()
                 }
 
                 val zipBytes = byteArrayOutputStream.toByteArray()
 
-                logger.info("Zipped all ${allWorlds.size} to a file of ${zipBytes.size / 1024 / 1024} mb.")
+                logger.info("Zipped all ${allClusters.size} to a file of ${zipBytes.size / 1024 / 1024} mb.")
 
                 call.response.header(
                     HttpHeaders.ContentDisposition,
-                    ContentDisposition.Attachment.withParameter(ContentDisposition.Parameters.FileName, "worlds.zip")
+                    ContentDisposition.Attachment.withParameter(ContentDisposition.Parameters.FileName, "data.zip")
                         .toString()
                 )
 
                 call.respondBytes(zipBytes, ContentType.Application.Zip)
 
-                call.respond(allWorlds)
+                call.respond(allClusters)
             }
 
             val duration = System.currentTimeMillis() - start
 
-            logger.info("Returned all worlds in $duration ms.")
+            logger.info("Exported data in $duration ms.")
         }
 
         post("/search") {
@@ -235,11 +235,11 @@ fun Application.configureRouting() {
 
                     logger.info("Generated MongoDB filter: ${filter.toBsonDocument().toJson()}")
 
-                    val allWorlds = collection.find(filter).limit(RESULT_LIMIT).toList()
+                    val resultClusters = collection.find(filter).limit(RESULT_LIMIT).toList()
 
-                    logger.info("Found ${allWorlds.size} worlds for filter.")
+                    logger.info("Found ${resultClusters.size} clusters for filter.")
 
-                    call.respond(allWorlds)
+                    call.respond(resultClusters)
                 }
 
                 val duration = System.currentTimeMillis() - start
@@ -260,7 +260,7 @@ fun Application.configureRouting() {
 
             val start = System.currentTimeMillis()
 
-            logger.info("Should deliver all worlds...")
+            logger.info("Should deliver distinct clusters...")
 
             MongoClient.create(mongoClientSettings).use { mongoClient ->
 
@@ -268,18 +268,18 @@ fun Application.configureRouting() {
 
                 val collection = database.getCollection<Cluster>("worlds")
 
-                val allWorlds = collection.find().toList().distinctBy {
+                val allDistinctClusters = collection.find().toList().distinctBy {
                     it.cluster
                 }
 
-                logger.info("Found ${allWorlds.size} distinct worlds.")
+                logger.info("Found ${allDistinctClusters.size} distinct clusters.")
 
-                call.respond(allWorlds)
+                call.respond(allDistinctClusters)
             }
 
             val duration = System.currentTimeMillis() - start
 
-            logger.info("Returned distinct worlds in $duration ms.")
+            logger.info("Returned distinct clusters in $duration ms.")
         }
 
         get("/count") {
@@ -297,14 +297,14 @@ fun Application.configureRouting() {
                 /* Fast count */
                 val count = collection.estimatedDocumentCount()
 
-                logger.info("The database contains $count worlds.")
+                logger.info("The database contains $count seeds.")
 
                 call.respond(count)
             }
 
             val duration = System.currentTimeMillis() - start
 
-            logger.info("Returned count of worlds in $duration ms.")
+            logger.info("Returned count of seeds in $duration ms.")
         }
 
         post("/upload") {
@@ -364,13 +364,13 @@ fun Application.configureRouting() {
                     return@post
                 }
 
-                /* World must have a coordinate set */
+                /* Cluster must have a coordinate set */
                 if (cluster.coordinate.isBlank()) {
                     call.respond(HttpStatusCode.NotAcceptable, "Illegal data.")
                     return@post
                 }
 
-                /* World must have asteroids */
+                /* Cluster must have asteroids */
                 if (cluster.asteroids.isEmpty()) {
                     call.respond(HttpStatusCode.NotAcceptable, "Illegal data.")
                     return@post
@@ -406,7 +406,7 @@ fun Application.configureRouting() {
                     clusterCollection.insertOne(optimizedCluster)
                 }
 
-                call.respond(HttpStatusCode.OK, "World was saved.")
+                call.respond(HttpStatusCode.OK, "Data was saved.")
 
                 val duration = System.currentTimeMillis() - start
 
