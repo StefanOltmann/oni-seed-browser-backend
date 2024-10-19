@@ -49,7 +49,6 @@ import io.ktor.server.routing.routing
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
-import kotlinx.coroutines.flow.toSet
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import model.Cluster
@@ -546,32 +545,6 @@ fun Application.configureRouting() {
             val duration = System.currentTimeMillis() - start
 
             logger.info("Returned world gen failures in $duration ms.")
-        }
-
-        get("/list-game-versions") {
-
-            val start = System.currentTimeMillis()
-
-            MongoClient.create(mongoClientSettings).use { mongoClient ->
-
-                val database = mongoClient.getDatabase("oni")
-
-                val collection = database.getCollection<UploadDatabase>("uploads")
-
-                val gameVersions: List<String> = collection.find()
-                    .projection(Projections.fields(Projections.include("gameVersion")))
-                    .map { it.gameVersion }
-                    .toSet() /* Make it distinct */
-                    .toList()
-
-                logger.info("The database contains ${gameVersions.size} game versions.")
-
-                call.respond(gameVersions)
-            }
-
-            val duration = System.currentTimeMillis() - start
-
-            logger.info("Returned game versions $duration ms.")
         }
 
         get("/health") {
