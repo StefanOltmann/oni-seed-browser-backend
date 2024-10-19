@@ -22,6 +22,7 @@ import com.mongodb.MongoClientSettings
 import com.mongodb.ServerApi
 import com.mongodb.ServerApiVersion
 import com.mongodb.client.model.Filters
+import com.mongodb.client.model.Projections
 import com.mongodb.kotlin.client.coroutine.MongoClient
 import io.ktor.http.ContentDisposition
 import io.ktor.http.ContentType
@@ -46,12 +47,15 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import model.Cluster
+import model.FailedGenReport
+import model.FailedGenReportDatabase
 import model.Upload
 import model.UploadDatabase
-import model.Cluster
 import model.filter.FilterQuery
 import org.slf4j.LoggerFactory
 import java.io.ByteArrayOutputStream
@@ -423,6 +427,128 @@ fun Application.configureRouting() {
 
                 call.respond(HttpStatusCode.InternalServerError)
             }
+        }
+
+        post("/report-worldgen-failure") {
+
+            val ipAddress = call.getIpAddress()
+
+            val start = System.currentTimeMillis()
+
+            val apiKey = this.context.request.headers["MNI_API_KEY"]
+
+            if (apiKey != System.getenv("MNI_API_KEY")) {
+
+                logger.warn("Unauthorized API key used by $ipAddress.")
+
+                call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
+
+                return@post
+            }
+
+            try {
+
+                val byteArray = call.receive<ByteArray>()
+
+                val jsonString = byteArray.decodeToString()
+
+                val failedGenReport = Json.decodeFromString<FailedGenReport>(jsonString)
+
+                logger.info("Received failed gen report: $failedGenReport")
+
+                if (failedGenReport.userId.isBlank()) {
+                    call.respond(HttpStatusCode.NotAcceptable, "userId was not set.")
+                    return@post
+                }
+
+                try {
+                    UUID.fromString(failedGenReport.installationId)
+                } catch (ex: IllegalArgumentException) {
+                    logger.info("InstallationID was not UUID: ${failedGenReport.installationId}")
+                    call.respond(HttpStatusCode.NotAcceptable, "installationId must be UUID.")
+                    return@post
+                }
+
+                if (failedGenReport.gameVersion.isBlank()) {
+                    call.respond(HttpStatusCode.NotAcceptable, "gameVersion was not set.")
+                    return@post
+                }
+
+                if (failedGenReport.fileHashes.isEmpty()) {
+                    call.respond(HttpStatusCode.NotAcceptable, "fileHashes was empty.")
+                    return@post
+                }
+
+                /* Cluster must have a coordinate set */
+                if (failedGenReport.coordinate.isBlank()) {
+                    call.respond(HttpStatusCode.NotAcceptable, "Illegal data.")
+                    return@post
+                }
+
+                val failedGenReportDatabase = FailedGenReportDatabase(
+                    userId = failedGenReport.userId,
+                    installationId = failedGenReport.installationId,
+                    gameVersion = failedGenReport.gameVersion,
+                    fileHashes = failedGenReport.fileHashes,
+                    reportDate = System.currentTimeMillis(),
+                    ipAddress = ipAddress,
+                    coordinate = failedGenReport.coordinate
+                )
+
+                /* Save to MongoDB */
+                MongoClient.create(mongoClientSettings).use { mongoClient ->
+
+                    val database = mongoClient.getDatabase("oni")
+
+                    val failedWorldGenReportsCollection =
+                        database.getCollection<FailedGenReportDatabase>("failedWorldGenReports")
+
+                    failedWorldGenReportsCollection.insertOne(failedGenReportDatabase)
+                }
+
+                call.respond(HttpStatusCode.OK, "Report was saved.")
+
+                val duration = System.currentTimeMillis() - start
+
+                logger.info(
+                    "Completed report in $duration ms."
+                )
+
+            } catch (ex: Exception) {
+
+                ex.printStackTrace()
+
+                logger.error("Exception on reporting.", ex)
+
+                call.respond(HttpStatusCode.InternalServerError)
+            }
+        }
+
+        get("/list-worldgen-failures") {
+
+            val start = System.currentTimeMillis()
+
+            logger.info("Return failed world gen reports.")
+
+            MongoClient.create(mongoClientSettings).use { mongoClient ->
+
+                val database = mongoClient.getDatabase("oni")
+
+                val collection = database.getCollection<FailedGenReportDatabase>("failedWorldGenReports")
+
+                val coordinates: List<String> = collection.find()
+                    .projection(Projections.fields(Projections.include("coordinate")))
+                    .map { it.coordinate }
+                    .toList()
+
+                logger.info("The database contains ${coordinates.size} seeds reported as world gen failures.")
+
+                call.respond(coordinates)
+            }
+
+            val duration = System.currentTimeMillis() - start
+
+            logger.info("Returned world gen failures in $duration ms.")
         }
 
         get("/health") {
