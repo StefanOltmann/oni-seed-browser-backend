@@ -49,6 +49,7 @@ import io.ktor.server.routing.routing
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.flow.toSet
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import model.Cluster
@@ -564,6 +565,7 @@ fun Application.configureRouting() {
                 val gameVersions: List<String> = collection.find()
                     .projection(Projections.fields(Projections.include("gameVersion")))
                     .map { it.gameVersion }
+                    .toSet() /* Make it distinct */
                     .toList()
 
                 logger.info("The database contains ${gameVersions.size} game versions.")
