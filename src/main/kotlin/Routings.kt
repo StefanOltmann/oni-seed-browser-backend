@@ -551,6 +551,31 @@ fun Application.configureRouting() {
             logger.info("Returned world gen failures in $duration ms.")
         }
 
+        get("/list-game-versions") {
+
+            val start = System.currentTimeMillis()
+
+            MongoClient.create(mongoClientSettings).use { mongoClient ->
+
+                val database = mongoClient.getDatabase("oni")
+
+                val collection = database.getCollection<UploadDatabase>("uploads")
+
+                val gameVersions: List<String> = collection.find()
+                    .projection(Projections.fields(Projections.include("gameVersion")))
+                    .map { it.gameVersion }
+                    .toList()
+
+                logger.info("The database contains ${gameVersions.size} game versions.")
+
+                call.respond(gameVersions)
+            }
+
+            val duration = System.currentTimeMillis() - start
+
+            logger.info("Returned game versions $duration ms.")
+        }
+
         get("/health") {
 
             if (System.getenv("MONGO_DB_CONNECTION_STRING").isNullOrBlank()) {
