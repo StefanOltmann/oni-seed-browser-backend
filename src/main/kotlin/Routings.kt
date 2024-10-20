@@ -84,7 +84,12 @@ fun Application.configureRouting() {
     log.info("Starting Server at version $VERSION")
 
     install(ContentNegotiation) {
-        json(Json)
+        json(
+            Json {
+                ignoreUnknownKeys = false
+                encodeDefaults = true
+            }
+        )
     }
 
     install(CORS) {
