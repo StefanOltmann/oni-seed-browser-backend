@@ -54,6 +54,7 @@ import kotlinx.serialization.json.Json
 import model.Cluster
 import model.FailedGenReport
 import model.FailedGenReportDatabase
+import model.ModBinaryChecksumDatabase
 import model.Upload
 import model.UploadDatabase
 import model.filter.FilterQuery
@@ -157,6 +158,89 @@ fun Application.configureRouting() {
 
             logger.info("Returned data in $duration ms.")
         }
+
+        post("/add-mod-binary-checksum") {
+
+            val ipAddress = call.getIpAddress()
+
+            val start = System.currentTimeMillis()
+
+            val apiKey = this.context.request.headers["DATABASE_EXPORT_API_KEY"]
+
+            if (apiKey != System.getenv("DATABASE_EXPORT_API_KEY")) {
+
+                logger.warn("Unauthorized API key used by $ipAddress.")
+
+                call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
+
+                return@post
+            }
+
+            try {
+
+                val byteArray = call.receive<ByteArray>()
+
+                val checksum = byteArray.decodeToString()
+
+                logger.info("Received new mod checksum: $checksum")
+
+                if (checksum.isBlank()) {
+                    call.respond(HttpStatusCode.NotAcceptable, "checksum was not set.")
+                    return@post
+                }
+
+                /* Save to MongoDB */
+                MongoClient.create(mongoClientSettings).use { mongoClient ->
+
+                    val database = mongoClient.getDatabase("oni")
+
+                    val modBinaryChecksumCollection =
+                        database.getCollection<ModBinaryChecksumDatabase>("modBinaryChecksums")
+
+                    modBinaryChecksumCollection.insertOne(
+                        ModBinaryChecksumDatabase(
+                            checksum = checksum,
+                            timestamp = System.currentTimeMillis()
+                        )
+                    )
+                }
+
+                call.respond(HttpStatusCode.OK, "Checksum was saved.")
+
+                val duration = System.currentTimeMillis() - start
+
+                logger.info("Accepted new checksum in $duration ms.")
+
+            } catch (ex: Exception) {
+
+                ex.printStackTrace()
+
+                logger.error("Exception on reporting.", ex)
+
+                call.respond(HttpStatusCode.InternalServerError)
+            }
+        }
+
+        get("/list-mod-binary-checksums") {
+
+            val start = System.currentTimeMillis()
+
+            logger.info("Return mod binary checksums.")
+
+            MongoClient.create(mongoClientSettings).use { mongoClient ->
+
+                val database = mongoClient.getDatabase("oni")
+
+                val collection = database.getCollection<ModBinaryChecksumDatabase>("modBinaryChecksums")
+
+                call.respond(collection.find().toList())
+            }
+
+            val duration = System.currentTimeMillis() - start
+
+            logger.info("Returned mod binary checksums in $duration ms.")
+        }
+
 
         get("/export") {
 
