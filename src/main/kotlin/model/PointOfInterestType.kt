@@ -39,7 +39,10 @@ enum class PointOfInterestType(
     WRECKED_SATELLITE("PropSurfaceSatellite2"),
     CRUSHED_SATELLITE("PropSurfaceSatellite3"),
     TEMPORAL_TEAR_OPENER("TemporalTearOpener"),
-    CRYOTANK("CryoTank");
+    CRYOTANK("CryoTank"),
+    PropFacilityStatue("PropFacilityStatue"),
+    GeothermalVentEntity("GeothermalVentEntity"),
+    GeothermalControllerEntity("GeothermalControllerEntity");
 
     companion object {
 
