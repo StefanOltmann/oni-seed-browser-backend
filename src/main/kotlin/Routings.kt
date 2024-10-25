@@ -75,6 +75,11 @@ private val mongoClientSettings = MongoClientSettings.builder()
     .serverApi(serverApi)
     .build()
 
+private val strictAllFieldsJson = Json {
+    ignoreUnknownKeys = false
+    encodeDefaults = true
+}
+
 private val logger = LoggerFactory.getLogger("Routings")
 
 /* Limit the results to avoid memory issues */
@@ -85,12 +90,7 @@ fun Application.configureRouting() {
     log.info("Starting Server at version $VERSION")
 
     install(ContentNegotiation) {
-        json(
-            Json {
-                ignoreUnknownKeys = false
-                encodeDefaults = true
-            }
-        )
+        json(strictAllFieldsJson)
     }
 
     install(CORS) {
@@ -114,7 +114,7 @@ fun Application.configureRouting() {
 //
 //            val start = System.nanoTime()
 //
-//            Json.decodeFromString<List<Cluster>>(sampleSeedsJson)
+//            strictAllFieldsJson.decodeFromString<List<Cluster>>(sampleSeedsJson)
 //
 //            val durationNanos = System.nanoTime() - start
 //
@@ -269,7 +269,7 @@ fun Application.configureRouting() {
 
                 val allClusters = collection.find().toList()
 
-                val allClustersJson = Json.encodeToString(allClusters)
+                val allClustersJson = strictAllFieldsJson.encodeToString(allClusters)
 
                 val byteArrayOutputStream = ByteArrayOutputStream()
 
@@ -419,7 +419,7 @@ fun Application.configureRouting() {
 
                 val jsonString = byteArray.decodeToString()
 
-                val upload = Json.decodeFromString<Upload>(jsonString)
+                val upload = strictAllFieldsJson.decodeFromString<Upload>(jsonString)
 
                 logger.info("Received upload: $upload")
 
@@ -537,7 +537,7 @@ fun Application.configureRouting() {
 
                 val jsonString = byteArray.decodeToString()
 
-                val failedGenReport = Json.decodeFromString<FailedGenReport>(jsonString)
+                val failedGenReport = strictAllFieldsJson.decodeFromString<FailedGenReport>(jsonString)
 
                 logger.info("Received failed gen report: $failedGenReport")
 
