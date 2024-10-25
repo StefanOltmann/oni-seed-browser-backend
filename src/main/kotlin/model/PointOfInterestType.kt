@@ -42,7 +42,8 @@ enum class PointOfInterestType(
     CRYOTANK("CryoTank"),
     PropFacilityStatue("PropFacilityStatue"),
     GeothermalVentEntity("GeothermalVentEntity"),
-    GeothermalControllerEntity("GeothermalControllerEntity");
+    GeothermalControllerEntity("GeothermalControllerEntity"),
+    POICeresTechUnlock("POICeresTechUnlock");
 
     companion object {
 
