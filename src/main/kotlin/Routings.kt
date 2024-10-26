@@ -287,8 +287,6 @@ fun Application.configureRouting() {
                 )
 
                 call.respondBytes(zipBytes, ContentType.Application.Zip)
-
-                call.respond(allClusters)
             }
 
             val duration = System.currentTimeMillis() - start
