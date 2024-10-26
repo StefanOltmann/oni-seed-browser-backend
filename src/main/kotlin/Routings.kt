@@ -41,7 +41,7 @@ import io.ktor.server.plugins.origin
 import io.ktor.server.request.receive
 import io.ktor.server.response.header
 import io.ktor.server.response.respond
-import io.ktor.server.response.respondBytes
+import io.ktor.server.response.respondOutputStream
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
@@ -59,7 +59,6 @@ import model.Upload
 import model.UploadDatabase
 import model.filter.FilterQuery
 import org.slf4j.LoggerFactory
-import java.io.ByteArrayOutputStream
 import java.util.UUID
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
@@ -257,6 +256,8 @@ fun Application.configureRouting() {
                 return@get
             }
 
+            var counter = 0
+
             MongoClient.create(mongoClientSettings).use { mongoClient ->
 
                 val database = mongoClient.getDatabase("oni")
@@ -265,33 +266,35 @@ fun Application.configureRouting() {
 
                 val allClusters = collection.find().toList()
 
+                counter = allClusters.size
+
                 val allClustersJson = strictAllFieldsJson.encodeToString(allClusters)
-
-                val byteArrayOutputStream = ByteArrayOutputStream()
-
-                ZipOutputStream(byteArrayOutputStream).use { zip ->
-
-                    zip.putNextEntry(ZipEntry("data.json"))
-                    zip.write(allClustersJson.toByteArray())
-                    zip.closeEntry()
-                }
-
-                val zipBytes = byteArrayOutputStream.toByteArray()
-
-                logger.info("Zipped all ${allClusters.size} to a file of ${zipBytes.size / 1024 / 1024} mb.")
 
                 call.response.header(
                     HttpHeaders.ContentDisposition,
-                    ContentDisposition.Attachment.withParameter(ContentDisposition.Parameters.FileName, "data.zip")
-                        .toString()
+                    ContentDisposition.Attachment.withParameter(
+                        key = ContentDisposition.Parameters.FileName,
+                        value = "data.zip"
+                    ).toString()
                 )
 
-                call.respondBytes(zipBytes, ContentType.Application.Zip)
+                call.respondOutputStream(
+                    contentType = ContentType.Application.Zip,
+                    status = HttpStatusCode.OK
+                ) {
+
+                    ZipOutputStream(this).use { zip ->
+
+                        zip.putNextEntry(ZipEntry("data.json"))
+                        zip.write(allClustersJson.toByteArray())
+                        zip.closeEntry()
+                    }
+                }
             }
 
             val duration = System.currentTimeMillis() - start
 
-            logger.info("Exported data in $duration ms.")
+            logger.info("Exported $counter seeds in $duration ms.")
         }
 
         post("/search") {
