@@ -136,8 +136,6 @@ fun Application.configureRouting() {
 
             val start = System.currentTimeMillis()
 
-            logger.info("Receiving coordinate: $coordinate")
-
             MongoClient.create(mongoClientSettings).use { mongoClient ->
 
                 val database = mongoClient.getDatabase("oni")
@@ -156,7 +154,7 @@ fun Application.configureRouting() {
 
             val duration = System.currentTimeMillis() - start
 
-            logger.info("Returned data in $duration ms.")
+            logger.info("Returned data for coordinate $coordinate in $duration ms.")
         }
 
         post("/add-mod-binary-checksum") {
@@ -181,8 +179,6 @@ fun Application.configureRouting() {
                 val byteArray = call.receive<ByteArray>()
 
                 val checksum = byteArray.decodeToString()
-
-                logger.info("Received new mod checksum: $checksum")
 
                 if (checksum.isBlank()) {
                     call.respond(HttpStatusCode.NotAcceptable, "checksum was not set.")
@@ -209,7 +205,7 @@ fun Application.configureRouting() {
 
                 val duration = System.currentTimeMillis() - start
 
-                logger.info("Accepted new checksum in $duration ms.")
+                logger.info("Accepted new checksum $checksum in $duration ms.")
 
             } catch (ex: Exception) {
 
@@ -225,8 +221,6 @@ fun Application.configureRouting() {
 
             val start = System.currentTimeMillis()
 
-            logger.info("Return mod binary checksums.")
-
             MongoClient.create(mongoClientSettings).use { mongoClient ->
 
                 val database = mongoClient.getDatabase("oni")
@@ -240,7 +234,6 @@ fun Application.configureRouting() {
 
             logger.info("Returned mod binary checksums in $duration ms.")
         }
-
 
         get("/export") {
 
@@ -258,8 +251,6 @@ fun Application.configureRouting() {
 
                 return@get
             }
-
-            logger.info("Data export requested...")
 
             MongoClient.create(mongoClientSettings).use { mongoClient ->
 
@@ -310,9 +301,9 @@ fun Application.configureRouting() {
 
                 val filterQueryJson = byteArray.decodeToString()
 
-                logger.info("Received JSON query: $filterQueryJson")
-
                 val filterQuery = FilterQuery.parse(filterQueryJson)
+
+                val filter = generateFilter(filterQuery)
 
                 MongoClient.create(mongoClientSettings).use { mongoClient ->
 
@@ -320,20 +311,14 @@ fun Application.configureRouting() {
 
                     val collection = database.getCollection<Cluster>("worlds")
 
-                    val filter = generateFilter(filterQuery)
-
-                    logger.info("Generated MongoDB filter: ${filter.toBsonDocument().toJson()}")
-
                     val resultClusters = collection.find(filter).limit(RESULT_LIMIT).toList()
-
-                    logger.info("Found ${resultClusters.size} clusters for filter.")
 
                     call.respond(resultClusters)
                 }
 
                 val duration = System.currentTimeMillis() - start
 
-                logger.info("Returned search results in $duration ms.")
+                logger.info("Returned search results for filter $filterQuery in $duration ms.")
 
             } catch (ex: Exception) {
 
@@ -349,8 +334,6 @@ fun Application.configureRouting() {
 
             val start = System.currentTimeMillis()
 
-            logger.info("Should deliver distinct clusters...")
-
             MongoClient.create(mongoClientSettings).use { mongoClient ->
 
                 val database = mongoClient.getDatabase("oni")
@@ -360,8 +343,6 @@ fun Application.configureRouting() {
                 val allDistinctClusters = collection.find().toList().distinctBy {
                     it.cluster
                 }
-
-                logger.info("Found ${allDistinctClusters.size} distinct clusters.")
 
                 call.respond(allDistinctClusters)
             }
@@ -375,8 +356,6 @@ fun Application.configureRouting() {
 
             val start = System.currentTimeMillis()
 
-            logger.info("Return seed count.")
-
             MongoClient.create(mongoClientSettings).use { mongoClient ->
 
                 val database = mongoClient.getDatabase("oni")
@@ -385,8 +364,6 @@ fun Application.configureRouting() {
 
                 /* Fast count */
                 val count = collection.estimatedDocumentCount()
-
-                logger.info("The database contains $count seeds.")
 
                 call.respond(count)
             }
@@ -420,8 +397,6 @@ fun Application.configureRouting() {
                 val jsonString = byteArray.decodeToString()
 
                 val upload = strictAllFieldsJson.decodeFromString<Upload>(jsonString)
-
-                logger.info("Received upload: $upload")
 
                 if (upload.userId.isBlank()) {
                     call.respond(HttpStatusCode.NotAcceptable, "userId was not set.")
@@ -539,8 +514,6 @@ fun Application.configureRouting() {
 
                 val failedGenReport = strictAllFieldsJson.decodeFromString<FailedGenReport>(jsonString)
 
-                logger.info("Received failed gen report: $failedGenReport")
-
                 if (failedGenReport.userId.isBlank()) {
                     call.respond(HttpStatusCode.NotAcceptable, "userId was not set.")
                     return@post
@@ -595,9 +568,7 @@ fun Application.configureRouting() {
 
                 val duration = System.currentTimeMillis() - start
 
-                logger.info(
-                    "Completed report in $duration ms."
-                )
+                logger.info("Completed failed worldgen report in $duration ms.")
 
             } catch (ex: Exception) {
 
@@ -612,8 +583,6 @@ fun Application.configureRouting() {
         get("/list-worldgen-failures") {
 
             val start = System.currentTimeMillis()
-
-            logger.info("Return failed world gen reports.")
 
             MongoClient.create(mongoClientSettings).use { mongoClient ->
 
