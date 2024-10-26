@@ -87,6 +87,8 @@ const val RESULT_LIMIT = 100
 
 fun Application.configureRouting() {
 
+    val startTime = System.currentTimeMillis()
+
     log.info("Starting Server at version $VERSION")
 
     install(ContentNegotiation) {
@@ -107,7 +109,10 @@ fun Application.configureRouting() {
     routing {
 
         get("/") {
-            call.respondText("ONI Seed Browser Backend $VERSION")
+
+            val uptimeHours = (System.currentTimeMillis() - startTime) / 1000 / 60 / 60
+
+            call.respondText("ONI Seed Browser Backend $VERSION (up since $uptimeHours hours)")
         }
 
 //        get("/bench") {
