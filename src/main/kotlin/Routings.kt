@@ -286,7 +286,7 @@ fun Application.configureRouting() {
                 return@get
             }
 
-            var counter = 0
+            var counter: Int
 
             MongoClient.create(mongoClientSettings).use { mongoClient ->
 
