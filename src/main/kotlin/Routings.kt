@@ -29,6 +29,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
+import io.ktor.serialization.kotlinx.cbor.cbor
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationCall
@@ -53,6 +54,8 @@ import io.ktor.server.routing.routing
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.cbor.Cbor
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import model.Cluster
@@ -83,11 +86,18 @@ private val strictAllFieldsJson = Json {
     encodeDefaults = true
 }
 
+@OptIn(ExperimentalSerializationApi::class)
+private val strictAllFieldsCbor = Cbor {
+    ignoreUnknownKeys = false
+    encodeDefaults = true
+}
+
 private val logger = LoggerFactory.getLogger("Routings")
 
 /* Limit the results to avoid memory issues */
 const val RESULT_LIMIT = 100
 
+@OptIn(ExperimentalSerializationApi::class)
 fun Application.configureRouting() {
 
     val startTime = System.currentTimeMillis()
@@ -96,6 +106,7 @@ fun Application.configureRouting() {
 
     install(ContentNegotiation) {
         json(strictAllFieldsJson)
+        cbor(strictAllFieldsCbor)
     }
 
     install(Compression) {
@@ -107,7 +118,11 @@ fun Application.configureRouting() {
             /* Only compress responses larger than 1 KB (for efficiency) */
             minimumSize(1024)
 
-            matchContentType(ContentType.Application.Json, ContentType.Application.Zip)
+            matchContentType(
+                ContentType.Application.Json,
+                ContentType.Application.Cbor,
+                ContentType.Application.Zip
+            )
         }
     }
 
