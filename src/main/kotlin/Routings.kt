@@ -35,6 +35,10 @@ import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.call
 import io.ktor.server.application.install
 import io.ktor.server.application.log
+import io.ktor.server.plugins.compression.Compression
+import io.ktor.server.plugins.compression.gzip
+import io.ktor.server.plugins.compression.matchContentType
+import io.ktor.server.plugins.compression.minimumSize
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.cors.routing.CORS
 import io.ktor.server.plugins.origin
@@ -92,6 +96,19 @@ fun Application.configureRouting() {
 
     install(ContentNegotiation) {
         json(strictAllFieldsJson)
+    }
+
+    install(Compression) {
+        gzip {
+
+            /* Apply gzip compression only when the client requests it via `Accept-Encoding: gzip` */
+            priority = 1.0
+
+            /* Only compress responses larger than 1 KB (for efficiency) */
+            minimumSize(1024)
+
+            matchContentType(ContentType.Application.Json, ContentType.Application.Zip)
+        }
     }
 
     install(CORS) {
