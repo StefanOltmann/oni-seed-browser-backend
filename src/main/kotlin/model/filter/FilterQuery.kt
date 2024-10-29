@@ -20,7 +20,6 @@
 package model.filter
 
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 
 @Serializable
 data class FilterQuery(
@@ -37,11 +36,4 @@ data class FilterQuery(
      */
     val rules: List<List<FilterRule>>
 
-) {
-
-    companion object {
-
-        fun parse(json: String): FilterQuery =
-            Json.decodeFromString<FilterQuery>(json)
-    }
-}
+)

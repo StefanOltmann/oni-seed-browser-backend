@@ -70,7 +70,8 @@ import java.util.UUID
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
-private val connectionString = System.getenv("MONGO_DB_CONNECTION_STRING") ?: ""
+private val connectionString =
+    "mongodb+srv://mongodb:EPdQuYWAipqzf255@cluster0.um7sl.mongodb.net/?retryWrites=true&w=majority&appName=cluster0"
 
 private val serverApi = ServerApi.builder()
     .version(ServerApiVersion.V1)
@@ -212,9 +213,7 @@ fun Application.configureRouting() {
 
             try {
 
-                val byteArray = call.receive<ByteArray>()
-
-                val checksum = byteArray.decodeToString()
+                val checksum = call.receive<String>()
 
                 if (checksum.isBlank()) {
                     call.respond(HttpStatusCode.NotAcceptable, "checksum was not set.")
@@ -335,11 +334,7 @@ fun Application.configureRouting() {
 
             try {
 
-                val byteArray = call.receive<ByteArray>()
-
-                val filterQueryJson = byteArray.decodeToString()
-
-                val filterQuery = FilterQuery.parse(filterQueryJson)
+                val filterQuery = call.receive<FilterQuery>()
 
                 val filter = generateFilter(filterQuery)
 
@@ -430,11 +425,7 @@ fun Application.configureRouting() {
 
             try {
 
-                val byteArray = call.receive<ByteArray>()
-
-                val jsonString = byteArray.decodeToString()
-
-                val upload = strictAllFieldsJson.decodeFromString<Upload>(jsonString)
+                val upload = call.receive<Upload>()
 
                 if (upload.userId.isBlank()) {
                     call.respond(HttpStatusCode.NotAcceptable, "userId was not set.")
@@ -546,11 +537,7 @@ fun Application.configureRouting() {
 
             try {
 
-                val byteArray = call.receive<ByteArray>()
-
-                val jsonString = byteArray.decodeToString()
-
-                val failedGenReport = strictAllFieldsJson.decodeFromString<FailedGenReport>(jsonString)
+                val failedGenReport = call.receive<FailedGenReport>()
 
                 if (failedGenReport.userId.isBlank()) {
                     call.respond(HttpStatusCode.NotAcceptable, "userId was not set.")
