@@ -58,11 +58,9 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.cbor.Cbor
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToStream
 import model.Cluster
-import model.ClusterType
 import model.FailedGenReport
 import model.FailedGenReportDatabase
 import model.ModBinaryChecksumDatabase
@@ -107,6 +105,8 @@ private val logger = LoggerFactory.getLogger("Routings")
 
 /* Limit the results to avoid memory issues */
 const val RESULT_LIMIT = 100
+
+const val EXPORT_BATCH_SIZE = 10000
 
 @OptIn(ExperimentalSerializationApi::class)
 fun Application.configureRouting() {
@@ -343,26 +343,51 @@ fun Application.configureRouting() {
 
                     ZipOutputStream(this).use { zipOutputStream ->
 
-                        for (clusterType in ClusterType.entries) {
+                        val cursor = collection.find().batchSize(1000)
 
-                            /*
-                             * We can't collect everything at once. This is too big in memory.
-                             * That's why we split the maps by cluster. We don't expect more than
-                             * 5000 maps per cluster (= 160k maps in total).
-                             */
-                            val maps = collection.find(
-                                Filters.eq("cluster", clusterType.prefix)
-                            ).toList()
+                        var batchNumber = 1
 
-                            zipOutputStream.putNextEntry(ZipEntry(clusterType.name + ".json"))
+                        val batchMaps = mutableListOf<Cluster>()
+
+                        cursor.collect { document ->
+
+                            batchMaps.add(document)
+
+                            if (batchMaps.size >= EXPORT_BATCH_SIZE) {
+
+                                zipOutputStream.putNextEntry(ZipEntry("data-${batchNumber}.json"))
+
+                                /*
+                                 * Encode directly to the stream. This avoids creating a new
+                                 * ByteArray on the heap which might let the server go out of memory.
+                                 */
+                                strictAllFieldsJson.encodeToStream(batchMaps, zipOutputStream)
+
+                                zipOutputStream.closeEntry()
+
+                                // Clear the batch, increment file number, and force GC
+                                batchMaps.clear()
+                                batchNumber++
+
+                                /* Clean up to prevent out of memory. */
+                                System.gc()
+                            }
+                        }
+
+                        /* If any remaining documents after loop, save the last batch */
+                        if (batchMaps.isNotEmpty()) {
+
+                            zipOutputStream.putNextEntry(ZipEntry("data-${batchNumber}.json"))
 
                             /*
                              * Encode directly to the stream. This avoids creating a new
                              * ByteArray on the heap which might let the server go out of memory.
                              */
-                            strictAllFieldsJson.encodeToStream(maps, zipOutputStream)
+                            strictAllFieldsJson.encodeToStream(batchMaps, zipOutputStream)
 
                             zipOutputStream.closeEntry()
+
+                            batchMaps.clear()
 
                             /* Clean up to prevent out of memory. */
                             System.gc()
