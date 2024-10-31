@@ -22,6 +22,7 @@ import com.mongodb.MongoClientSettings
 import com.mongodb.ServerApi
 import com.mongodb.ServerApiVersion
 import com.mongodb.client.model.Filters
+import com.mongodb.client.model.IndexOptions
 import com.mongodb.client.model.Projections
 import com.mongodb.kotlin.client.coroutine.MongoClient
 import io.ktor.http.ContentDisposition
@@ -54,6 +55,7 @@ import io.ktor.server.routing.routing
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.cbor.Cbor
 import kotlinx.serialization.encodeToString
@@ -65,6 +67,7 @@ import model.ModBinaryChecksumDatabase
 import model.Upload
 import model.UploadDatabase
 import model.filter.FilterQuery
+import org.bson.Document
 import org.slf4j.LoggerFactory
 import java.util.UUID
 import java.util.zip.ZipEntry
@@ -135,6 +138,28 @@ fun Application.configureRouting() {
         allowHeader(HttpHeaders.ContentType)
 
         anyHost()
+    }
+
+    launch {
+
+        /*
+         * Set "coordinate" as unique key
+         */
+
+        MongoClient.create(mongoClientSettings).use { mongoClient ->
+
+            val database = mongoClient.getDatabase("oni")
+
+            val worldsCollection = database.getCollection<Cluster>("worlds")
+            val uploadsCollection = database.getCollection<Cluster>("uploads")
+            val failedWorldGenReportsCollection = database.getCollection<Cluster>("failedWorldGenReports")
+
+            val indexOptions = IndexOptions().unique(true)
+
+            worldsCollection.createIndex(Document("coordinate", 1), indexOptions)
+            uploadsCollection.createIndex(Document("coordinate", 1), indexOptions)
+            failedWorldGenReportsCollection.createIndex(Document("coordinate", 1), indexOptions)
+        }
     }
 
     routing {
