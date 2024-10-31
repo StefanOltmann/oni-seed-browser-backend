@@ -84,6 +84,12 @@ private val mongoClientSettings = MongoClientSettings.builder()
     .serverApi(serverApi)
     .build()
 
+private val exportJson = Json {
+    ignoreUnknownKeys = false
+    encodeDefaults = true
+    prettyPrint = true
+}
+
 private val strictAllFieldsJson = Json {
     ignoreUnknownKeys = false
     encodeDefaults = true
@@ -311,19 +317,11 @@ fun Application.configureRouting() {
                 return@get
             }
 
-            var counter: Int
-
             MongoClient.create(mongoClientSettings).use { mongoClient ->
 
                 val database = mongoClient.getDatabase("oni")
 
                 val collection = database.getCollection<Cluster>("worlds")
-
-                val allClusters = collection.find().toList()
-
-                counter = allClusters.size
-
-                val allClustersJson = strictAllFieldsJson.encodeToString(allClusters)
 
                 call.response.header(
                     HttpHeaders.ContentDisposition,
@@ -340,16 +338,19 @@ fun Application.configureRouting() {
 
                     ZipOutputStream(this).use { zip ->
 
-                        zip.putNextEntry(ZipEntry("data.json"))
-                        zip.write(allClustersJson.toByteArray())
-                        zip.closeEntry()
+                        collection.find().collect {
+
+                            zip.putNextEntry(ZipEntry(it.coordinate + ".json"))
+                            zip.write(exportJson.encodeToString(it).toByteArray())
+                            zip.closeEntry()
+                        }
                     }
                 }
             }
 
             val duration = System.currentTimeMillis() - start
 
-            logger.info("Exported $counter seeds in $duration ms.")
+            logger.info("Exported data in $duration ms.")
         }
 
         post("/search") {
