@@ -60,7 +60,9 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.cbor.Cbor
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.encodeToStream
 import model.Cluster
+import model.ClusterType
 import model.FailedGenReport
 import model.FailedGenReportDatabase
 import model.ModBinaryChecksumDatabase
@@ -331,18 +333,39 @@ fun Application.configureRouting() {
                     ).toString()
                 )
 
+                /*
+                 * Stream the response, so we can remove from memory what the client already received.
+                 */
                 call.respondOutputStream(
                     contentType = ContentType.Application.Zip,
                     status = HttpStatusCode.OK
                 ) {
 
-                    ZipOutputStream(this).use { zip ->
+                    ZipOutputStream(this).use { zipOutputStream ->
 
-                        collection.find().collect {
+                        for (clusterType in ClusterType.entries) {
 
-                            zip.putNextEntry(ZipEntry(it.coordinate + ".json"))
-                            zip.write(exportJson.encodeToString(it).toByteArray())
-                            zip.closeEntry()
+                            /*
+                             * We can't collect everything at once. This is too big in memory.
+                             * That's why we split the maps by cluster. We don't expect more than
+                             * 5000 maps per cluster (= 160k maps in total).
+                             */
+                            val maps = collection.find(
+                                Filters.eq("cluster", clusterType.prefix)
+                            ).toList()
+
+                            zipOutputStream.putNextEntry(ZipEntry(clusterType.name + ".json"))
+
+                            /*
+                             * Encode directly to the stream. This avoids creating a new
+                             * ByteArray on the heap which might let the server go out of memory.
+                             */
+                            strictAllFieldsJson.encodeToStream(maps, zipOutputStream)
+
+                            zipOutputStream.closeEntry()
+
+                            /* Clean up to prevent out of memory. */
+                            System.gc()
                         }
                     }
                 }
@@ -351,6 +374,9 @@ fun Application.configureRouting() {
             val duration = System.currentTimeMillis() - start
 
             logger.info("Exported data in $duration ms.")
+
+            /* Final extra clean-up */
+            System.gc()
         }
 
         post("/search") {
