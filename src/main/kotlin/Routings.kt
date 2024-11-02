@@ -689,11 +689,11 @@ fun Application.configureRouting() {
 
                 val database = mongoClient.getDatabase("oni")
 
-                val collection = database.getCollection<FailedGenReportDatabase>("failedWorldGenReports")
+                val collection = database.getCollection<Document>("failedWorldGenReports")
 
                 val coordinates: List<String> = collection.find()
                     .projection(Projections.fields(Projections.include("coordinate")))
-                    .map { it.coordinate }
+                    .map { it["coordinate"] as String }
                     .toList()
 
                 logger.info("The database contains ${coordinates.size} seeds reported as world gen failures.")
