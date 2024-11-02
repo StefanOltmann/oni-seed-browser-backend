@@ -284,24 +284,6 @@ fun Application.configureRouting() {
             }
         }
 
-        get("/list-mod-binary-checksums") {
-
-            val start = System.currentTimeMillis()
-
-            MongoClient.create(mongoClientSettings).use { mongoClient ->
-
-                val database = mongoClient.getDatabase("oni")
-
-                val collection = database.getCollection<ModBinaryChecksumDatabase>("modBinaryChecksums")
-
-                call.respond(collection.find().toList())
-            }
-
-            val duration = System.currentTimeMillis() - start
-
-            logger.info("Returned mod binary checksums in $duration ms.")
-        }
-
         get("/export") {
 
             val start = System.currentTimeMillis()
