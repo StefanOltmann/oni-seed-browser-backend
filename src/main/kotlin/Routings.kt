@@ -232,7 +232,7 @@ fun Application.configureRouting() {
 
             val start = System.currentTimeMillis()
 
-            val apiKey = this.context.request.headers["DATABASE_EXPORT_API_KEY"]
+            val apiKey = this.context.request.headers["API_KEY"]
 
             if (apiKey != System.getenv("DATABASE_EXPORT_API_KEY")) {
 
@@ -308,7 +308,7 @@ fun Application.configureRouting() {
 
             val ipAddress = call.getIpAddress()
 
-            val apiKey = this.context.request.headers["DATABASE_EXPORT_API_KEY"]
+            val apiKey = this.context.request.headers["API_KEY"]
 
             if (apiKey != System.getenv("DATABASE_EXPORT_API_KEY")) {
 
