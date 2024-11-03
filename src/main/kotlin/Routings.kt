@@ -697,7 +697,7 @@ fun Application.configureRouting() {
         /**
          * Returns the next requested coordinate
          */
-        get("/next-requested-coordinate") {
+        get("/requested-coordinate") {
 
             val start = System.currentTimeMillis()
 
