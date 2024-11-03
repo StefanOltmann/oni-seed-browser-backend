@@ -760,6 +760,23 @@ fun Application.configureRouting() {
                                 )
                             }
 
+                            val cluster: Cluster? = database
+                                .getCollection<Cluster>("worlds")
+                                .find(
+                                    Filters.eq("coordinate", cleanCoordinate)
+                                ).firstOrNull()
+
+                            if (cluster != null) {
+
+                                /* Mark the coordinate status as duplicated. */
+                                collection.updateOne(
+                                    Filters.eq(RequestedCoordinate::coordinate.name, cleanCoordinate),
+                                    Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.DUPLICATED)
+                                )
+
+                                continue@findseed
+                            }
+
                             call.respond(HttpStatusCode.OK, cleanCoordinate)
 
                             /*
@@ -779,6 +796,8 @@ fun Application.configureRouting() {
                                 Filters.eq(RequestedCoordinate::coordinate.name, ex.coordinate),
                                 Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.ILLEGAL)
                             )
+
+                            continue@findseed
                         }
                     }
                 }

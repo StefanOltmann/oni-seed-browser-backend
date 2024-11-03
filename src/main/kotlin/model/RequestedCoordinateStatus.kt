@@ -26,5 +26,6 @@ enum class RequestedCoordinateStatus {
     ILLEGAL,
     DELIVERED,
     COMPLETED,
-    FAILED
+    FAILED,
+    DUPLICATED
 }
