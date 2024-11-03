@@ -408,27 +408,28 @@ fun Application.configureRouting() {
             }
         }
 
-        get("/distinct") {
-
-            val start = System.currentTimeMillis()
-
-            MongoClient.create(mongoClientSettings).use { mongoClient ->
-
-                val database = mongoClient.getDatabase("oni")
-
-                val collection = database.getCollection<Cluster>("worlds")
-
-                val allDistinctClusters = collection.find().toList().distinctBy {
-                    it.cluster
-                }
-
-                call.respond(allDistinctClusters)
-            }
-
-            val duration = System.currentTimeMillis() - start
-
-            logger.info("Returned distinct clusters in $duration ms.")
-        }
+        // Expensive operation, right now not needed
+//        get("/distinct") {
+//
+//            val start = System.currentTimeMillis()
+//
+//            MongoClient.create(mongoClientSettings).use { mongoClient ->
+//
+//                val database = mongoClient.getDatabase("oni")
+//
+//                val collection = database.getCollection<Cluster>("worlds")
+//
+//                val allDistinctClusters = collection.find().toList().distinctBy {
+//                    it.cluster
+//                }
+//
+//                call.respond(allDistinctClusters)
+//            }
+//
+//            val duration = System.currentTimeMillis() - start
+//
+//            logger.info("Returned distinct clusters in $duration ms.")
+//        }
 
         get("/count") {
 
