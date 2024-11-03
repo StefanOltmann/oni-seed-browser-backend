@@ -179,19 +179,6 @@ fun Application.configureRouting() {
             call.respondText("ONI Seed Browser Backend $VERSION (up since $uptimeHours hours)")
         }
 
-//        get("/bench") {
-//
-//            val start = System.nanoTime()
-//
-//            strictAllFieldsJson.decodeFromString<List<Cluster>>(sampleSeedsJson)
-//
-//            val durationNanos = System.nanoTime() - start
-//
-//            val millis = durationNanos / 1000000.0
-//
-//            call.respondText("Parsing of sample took $millis ms.")
-//        }
-
         get("/coordinate/{coordinate}") {
 
             val coordinate = call.parameters["coordinate"]
