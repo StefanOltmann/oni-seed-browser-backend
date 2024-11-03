@@ -24,6 +24,7 @@ import com.mongodb.ServerApiVersion
 import com.mongodb.client.model.Filters
 import com.mongodb.client.model.IndexOptions
 import com.mongodb.client.model.Projections
+import com.mongodb.client.model.Updates
 import com.mongodb.kotlin.client.coroutine.MongoClient
 import io.ktor.http.ContentDisposition
 import io.ktor.http.ContentType
@@ -64,6 +65,8 @@ import model.Cluster
 import model.FailedGenReport
 import model.FailedGenReportDatabase
 import model.ModBinaryChecksumDatabase
+import model.RequestedCoordinate
+import model.RequestedCoordinateStatus
 import model.Upload
 import model.UploadDatabase
 import model.filter.FilterQuery
@@ -156,17 +159,16 @@ fun Application.configureRouting() {
 
         MongoClient.create(mongoClientSettings).use { mongoClient ->
 
+            val uniqueIndexOptions = IndexOptions().unique(true)
+
             val database = mongoClient.getDatabase("oni")
 
-            val worldsCollection = database.getCollection<Cluster>("worlds")
-            val uploadsCollection = database.getCollection<Cluster>("uploads")
-            val failedWorldGenReportsCollection = database.getCollection<Cluster>("failedWorldGenReports")
-
-            val indexOptions = IndexOptions().unique(true)
-
-            worldsCollection.createIndex(Document("coordinate", 1), indexOptions)
-            uploadsCollection.createIndex(Document("coordinate", 1), indexOptions)
-            failedWorldGenReportsCollection.createIndex(Document("coordinate", 1), indexOptions)
+            database.getCollection<Cluster>("worlds").createIndex(Document("coordinate", 1), uniqueIndexOptions)
+            database.getCollection<Cluster>("uploads").createIndex(Document("coordinate", 1), uniqueIndexOptions)
+            database.getCollection<Cluster>("failedWorldGenReports")
+                .createIndex(Document("coordinate", 1), uniqueIndexOptions)
+            database.getCollection<Cluster>("requestedCoordinates")
+                .createIndex(Document("coordinate", 1), uniqueIndexOptions)
         }
     }
 
@@ -454,9 +456,9 @@ fun Application.configureRouting() {
 
         post("/upload") {
 
-            val ipAddress = call.getIpAddress()
-
             val start = System.currentTimeMillis()
+
+            val ipAddress = call.getIpAddress()
 
             val apiKey = this.context.request.headers["MNI_API_KEY"]
 
@@ -543,6 +545,14 @@ fun Application.configureRouting() {
                     val clusterCollection = database.getCollection<Cluster>("worlds")
 
                     clusterCollection.insertOne(optimizedCluster)
+
+                    /* Mark any requested coordinates as completed */
+                    database
+                        .getCollection<RequestedCoordinate>("requestedCoordinates")
+                        .updateOne(
+                            Filters.eq(RequestedCoordinate::coordinate.name, optimizedCluster.coordinate),
+                            Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.COMPLETED)
+                        )
                 }
 
                 call.respond(HttpStatusCode.OK, "Data was saved.")
@@ -566,9 +576,9 @@ fun Application.configureRouting() {
 
         post("/report-worldgen-failure") {
 
-            val ipAddress = call.getIpAddress()
-
             val start = System.currentTimeMillis()
+
+            val ipAddress = call.getIpAddress()
 
             val apiKey = this.context.request.headers["MNI_API_KEY"]
 
@@ -633,6 +643,14 @@ fun Application.configureRouting() {
                         database.getCollection<FailedGenReportDatabase>("failedWorldGenReports")
 
                     failedWorldGenReportsCollection.insertOne(failedGenReportDatabase)
+
+                    /* Mark any requested coordinates as completed */
+                    database
+                        .getCollection<RequestedCoordinate>("requestedCoordinates")
+                        .updateOne(
+                            Filters.eq(RequestedCoordinate::coordinate.name, failedGenReportDatabase.coordinate),
+                            Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.FAILED)
+                        )
                 }
 
                 call.respond(HttpStatusCode.OK, "Report was saved.")
@@ -676,9 +694,104 @@ fun Application.configureRouting() {
             logger.info("Returned world gen failures in $duration ms.")
         }
 
+        /**
+         * Returns the next requested coordinate
+         */
+        get("/next-requested-coordinate") {
+
+            val start = System.currentTimeMillis()
+
+            val ipAddress = call.getIpAddress()
+
+            val apiKey = this.context.request.headers["MNI_API_KEY"]
+
+            if (apiKey != System.getenv("MNI_API_KEY")) {
+
+                logger.warn("Unauthorized API key used by $ipAddress.")
+
+                call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
+
+                return@get
+            }
+
+            MongoClient.create(mongoClientSettings).use { mongoClient ->
+
+                val database = mongoClient.getDatabase("oni")
+
+                val collection = database.getCollection<RequestedCoordinate>("requestedCoordinates")
+
+                /* Loop through the requests until we find something valid. */
+                findseed@ while (true) {
+
+                    /*
+                     * Get the next coordinate waiting and set it to processing state.
+                     */
+                    val requestedCoordinate = collection.findOneAndUpdate(
+                        Filters.eq(RequestedCoordinate::status.name, RequestedCoordinateStatus.REQUESTED),
+                        Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.PROCESSING)
+                    )
+
+                    if (requestedCoordinate == null) {
+
+                        /*
+                         * Respond with an empty string if we don't have requests right now.
+                         */
+
+                        call.respond(HttpStatusCode.OK, "")
+
+                        break@findseed
+
+                    } else {
+
+                        val coordinate = requestedCoordinate.coordinate
+
+                        try {
+
+                            val cleanCoordinate = cleanCoordinate(coordinate)
+
+                            /*
+                             * Update the coordinate to a clean one.
+                             */
+                            if (coordinate != cleanCoordinate) {
+
+                                collection.updateOne(
+                                    Filters.eq(RequestedCoordinate::coordinate.name, coordinate),
+                                    Updates.set(RequestedCoordinate::coordinate.name, cleanCoordinate)
+                                )
+                            }
+
+                            call.respond(HttpStatusCode.OK, cleanCoordinate)
+
+                            /*
+                             * Mark the coordinate as delivered to a mod for processing
+                             */
+                            collection.updateOne(
+                                Filters.eq(RequestedCoordinate::coordinate.name, cleanCoordinate),
+                                Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.DELIVERED)
+                            )
+
+                            break@findseed
+
+                        } catch (ex: IllegalCoordinateException) {
+
+                            /* Mark the coordinate status as illegal */
+                            collection.updateOne(
+                                Filters.eq(RequestedCoordinate::coordinate.name, ex.coordinate),
+                                Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.ILLEGAL)
+                            )
+                        }
+                    }
+                }
+            }
+
+            val duration = System.currentTimeMillis() - start
+
+            logger.info("Returned next requested coordinate in $duration ms.")
+        }
+
         get("/health") {
 
-            if (connectionString.isNullOrBlank()) {
+            if (connectionString.isBlank()) {
                 logger.error("No connection string set.")
                 call.respond(HttpStatusCode.InternalServerError, "No connection string set.")
                 return@get
