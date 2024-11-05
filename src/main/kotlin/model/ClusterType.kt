@@ -23,166 +23,199 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 enum class ClusterType(
-    val prefix: String
+    val prefix: String,
+    val gameMode: GameMode
 ) {
 
     /** Terra */
     BASE_TERRA(
-        prefix = "SNDST-A"
+        prefix = "SNDST-A",
+        gameMode = GameMode.BASEGAME
     ),
 
     /** Ceres */
     BASE_CERES(
-        prefix = "CER-A"
+        prefix = "CER-A",
+        gameMode = GameMode.BASEGAME
     ),
 
     /** Ceres */
     BASE_BLASTED_CERES(
-        prefix = "CERS-A"
+        prefix = "CERS-A",
+        gameMode = GameMode.BASEGAME
     ),
 
     /** Oceania */
     BASE_OCEANIA(
-        prefix = "OCAN-A"
+        prefix = "OCAN-A",
+        gameMode = GameMode.BASEGAME
     ),
 
     /** Rime */
     BASE_RIME(
-        prefix = "S-FRZ"
+        prefix = "S-FRZ",
+        gameMode = GameMode.BASEGAME
     ),
 
     /** Verdante */
     BASE_VERDANTE(
-        prefix = "LUSH-A"
+        prefix = "LUSH-A",
+        gameMode = GameMode.BASEGAME
     ),
 
     /** Arboria */
     BASE_ARBORIA(
-        prefix = "FRST-A"
+        prefix = "FRST-A",
+        gameMode = GameMode.BASEGAME
     ),
 
     /** Volcanea */
     BASE_VOLCANEA(
-        prefix = "VOLCA"
+        prefix = "VOLCA",
+        gameMode = GameMode.BASEGAME
     ),
 
     /** The Badlands */
     BASE_THE_BADLANDS(
-        prefix = "BAD-A"
+        prefix = "BAD-A",
+        gameMode = GameMode.BASEGAME
     ),
 
     /** Aridio */
     BASE_ARIDIO(
-        prefix = "HTFST-A"
+        prefix = "HTFST-A",
+        gameMode = GameMode.BASEGAME
     ),
 
     /** Oasisse */
     BASE_OASISSE(
-        prefix = "OASIS-A"
+        prefix = "OASIS-A",
+        gameMode = GameMode.BASEGAME
     ),
 
     /** Terra */
     DLC_TERRA(
-        prefix = "V-SNDST-C"
+        prefix = "V-SNDST-C",
+        gameMode = GameMode.SPACEDOUT
     ),
 
     /** Ceres */
     DLC_CERES(
-        prefix = "V-CER-C"
+        prefix = "V-CER-C",
+        gameMode = GameMode.SPACEDOUT
     ),
 
     /** Ceres (lab) */
     DLC_BLASTED_CERES(
-        prefix = "V-CERS-C"
+        prefix = "V-CERS-C",
+        gameMode = GameMode.SPACEDOUT
     ),
 
     /** Oceania */
     DLC_OCEANIA(
-        prefix = "V-OCAN-C"
+        prefix = "V-OCAN-C",
+        gameMode = GameMode.SPACEDOUT
     ),
 
     /** Squelchy */
     DLC_SQUELCHY(
-        prefix = "V-SWMP-C"
+        prefix = "V-SWMP-C",
+        gameMode = GameMode.SPACEDOUT
     ),
 
     /** Rime */
     DLC_RIME(
-        prefix = "V-SFRZ-C"
+        prefix = "V-SFRZ-C",
+        gameMode = GameMode.SPACEDOUT
     ),
 
     /** Verdante */
     DLC_VERDANTE(
-        prefix = "V-LUSH-C"
+        prefix = "V-LUSH-C",
+        gameMode = GameMode.SPACEDOUT
     ),
 
     /** Arboria */
     DLC_ARBORIA(
-        prefix = "V-FRST-C"
+        prefix = "V-FRST-C",
+        gameMode = GameMode.SPACEDOUT
     ),
 
     /** Volcanea */
     DLC_VOLCANEA(
-        prefix = "V-VOLCA-C"
+        prefix = "V-VOLCA-C",
+        gameMode = GameMode.SPACEDOUT
     ),
 
     /** The Badlands */
     DLC_THE_BADLANDS(
-        prefix = "V-BAD-C"
+        prefix = "V-BAD-C",
+        gameMode = GameMode.SPACEDOUT
     ),
 
     /** Aridio */
     DLC_ARIDIO(
-        prefix = "V-HTFST-C"
+        prefix = "V-HTFST-C",
+        gameMode = GameMode.SPACEDOUT
     ),
 
     /** Oasisse */
     DLC_OASISSE(
-        prefix = "V-OASIS-C"
+        prefix = "V-OASIS-C",
+        gameMode = GameMode.SPACEDOUT
     ),
 
     /** Terrania */
     DLC_TERRANIA(
-        prefix = "SNDST-C"
+        prefix = "SNDST-C",
+        gameMode = GameMode.SPACEDOUT
     ),
 
     /** Ceres Minor */
     DLC_CERES_MINOR(
-        prefix = "CER-C"
+        prefix = "CER-C",
+        gameMode = GameMode.SPACEDOUT
     ),
 
     /** Folia */
     DLC_FOLIA(
-        prefix = "FRST-C"
+        prefix = "FRST-C",
+        gameMode = GameMode.SPACEDOUT
     ),
 
     /** Quagmiris */
     DLC_QUAGMIRIS(
-        prefix = "SWMP-C"
+        prefix = "SWMP-C",
+        gameMode = GameMode.SPACEDOUT
     ),
 
     /** Metallic Swampy Moonlet */
     DLC_METALLIC_SWAMPY_MOONLET(
-        prefix = "M-SWMP-C"
+        prefix = "M-SWMP-C",
+        gameMode = GameMode.SPACEDOUT
     ),
 
     /** The Desolands Moonlet */
     DLC_THE_DESOLANDS_MOONLET(
-        prefix = "M-BAD-C"
+        prefix = "M-BAD-C",
+        gameMode = GameMode.SPACEDOUT
     ),
 
     /** Frozen Forest Moonlet */
     DLC_FROZEN_FOREST_MOONLET(
-        prefix = "M-FRZ-C"
+        prefix = "M-FRZ-C",
+        gameMode = GameMode.SPACEDOUT
     ),
 
     /** Flipped Moonlet */
     DLC_FLIPPED_MOONLET(
-        prefix = "M-FLIP-C"
+        prefix = "M-FLIP-C",
+        gameMode = GameMode.SPACEDOUT
     ),
 
     /** Radioactive Ocean Moonlet */
     DLC_RADIOACTIVE_OCEAN_MOONLET(
-        prefix = "M-RAD-C"
+        prefix = "M-RAD-C",
+        gameMode = GameMode.SPACEDOUT
     );
 }
