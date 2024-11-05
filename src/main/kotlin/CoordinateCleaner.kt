@@ -19,6 +19,18 @@
 
 import model.ClusterType
 
+val baseGamePrefixes = "SNDST-A|CER-A|CERS-A|OCAN-A|S-FRZ|LUSH-A|FRST-A|VOLCA|BAD-A|HTFST-A|OASIS-A"
+val spacedOutPrefix =
+    "V-SNDST-C|V-CER-C|V-CERS-C|V-OCAN-C|V-SWMP-C|V-SFRZ-C|V-LUSH-C|V-FRST-C|V-VOLCA-C|V-BAD-C|V-HTFST-C|V-OASIS-C|SNDST-C|CER-C|FRST-C|SWMP-C|M-SWMP-C|M-BAD-C|M-FRZ-C|M-FLIP-C|M-RAD-C"
+
+val allClusterTypesRegex = Regex("^($baseGamePrefixes|$spacedOutPrefix)-\\d+-[^-]*-[^-]*-[^-]*")
+
+val baseGameClusterTypesRegex = Regex("^($baseGamePrefixes)-\\d+-[^-]*-[^-]*-[^-]*")
+val spacedOutClusterTypesRegex = Regex("^($spacedOutPrefix)-\\d+-[^-]*-[^-]*-[^-]*")
+
+fun isValidCoordinate(coordinate: String): Boolean =
+    allClusterTypesRegex.matches(coordinate)
+
 /**
  * Set story traits & game settings to zero.
  *

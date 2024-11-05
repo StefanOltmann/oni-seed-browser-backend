@@ -1,6 +1,9 @@
+import junit.framework.TestCase.assertFalse
+import model.ClusterType
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 
 /*
  * ONI Seed Browser Backend
@@ -22,6 +25,32 @@ import kotlin.test.assertFailsWith
  */
 
 class CoordinateCleanerTest {
+
+    @Test
+    fun testIsValidCoordinate() {
+
+        /* Check sample */
+        assertTrue(isValidCoordinate("V-SNDST-C-101520169-0-0-0"))
+
+        /* Ensure all cluster types are in the RegEx */
+        for (clusterType in ClusterType.entries)
+            assertTrue(isValidCoordinate(clusterType.prefix + "-1337-0-0-0"))
+
+        /* Unknown cluster */
+        assertFalse(isValidCoordinate("V-WTF-A-101520169-0-0-0"))
+
+        /* Missing options */
+        assertFalse(isValidCoordinate("V-SNDST-C-101520169-0-0"))
+        assertFalse(isValidCoordinate("V-SNDST-C-101520169-0"))
+        assertFalse(isValidCoordinate("V-SNDST-C-101520169"))
+
+        /* Too many options */
+        assertFalse(isValidCoordinate("V-SNDST-C-101520169-0-0-0-0"))
+
+        /* Random stuff */
+        assertFalse(isValidCoordinate("hello"))
+        assertFalse(isValidCoordinate("blubb"))
+    }
 
     @Test
     fun testCleanCoordinate() {
