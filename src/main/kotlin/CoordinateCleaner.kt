@@ -19,14 +19,16 @@
 
 import model.ClusterType
 
-val baseGamePrefixes = "SNDST-A|CER-A|CERS-A|OCAN-A|S-FRZ|LUSH-A|FRST-A|VOLCA|BAD-A|HTFST-A|OASIS-A"
-val spacedOutPrefix =
+val baseGameClusterPrefixes =
+    "SNDST-A|CER-A|CERS-A|OCAN-A|S-FRZ|LUSH-A|FRST-A|VOLCA|BAD-A|HTFST-A|OASIS-A"
+
+val spacedOutClusterPrefixes =
     "V-SNDST-C|V-CER-C|V-CERS-C|V-OCAN-C|V-SWMP-C|V-SFRZ-C|V-LUSH-C|V-FRST-C|V-VOLCA-C|V-BAD-C|V-HTFST-C|V-OASIS-C|SNDST-C|CER-C|FRST-C|SWMP-C|M-SWMP-C|M-BAD-C|M-FRZ-C|M-FLIP-C|M-RAD-C"
 
-val allClusterTypesRegex = Regex("^($baseGamePrefixes|$spacedOutPrefix)-\\d+-[^-]*-[^-]*-[^-]*")
+val allClusterTypesRegex = Regex("^($baseGameClusterPrefixes|$spacedOutClusterPrefixes)-\\d+-[^-]*-[^-]*-[^-]*")
 
-val baseGameClusterTypesRegex = Regex("^($baseGamePrefixes)-\\d+-[^-]*-[^-]*-[^-]*")
-val spacedOutClusterTypesRegex = Regex("^($spacedOutPrefix)-\\d+-[^-]*-[^-]*-[^-]*")
+val baseGameClusterTypesRegex = Regex("^($baseGameClusterPrefixes)-\\d+-[^-]*-[^-]*-[^-]*")
+val spacedOutClusterTypesRegex = Regex("^($spacedOutClusterPrefixes)-\\d+-[^-]*-[^-]*-[^-]*")
 
 fun isValidCoordinate(coordinate: String): Boolean =
     allClusterTypesRegex.matches(coordinate)
@@ -40,20 +42,15 @@ fun isValidCoordinate(coordinate: String): Boolean =
  */
 fun cleanCoordinate(coordinate: String): String {
 
-    /*
-     * Sample: V-SNDST-C-101520169-0-0-0
-     */
-    val uppercaseCoordinate = coordinate.uppercase()
-
     val clusterType = ClusterType.entries.find {
-        uppercaseCoordinate.startsWith(it.prefix)
+        coordinate.startsWith(it.prefix, ignoreCase = true)
     }
 
     /* If we don't find a matching cluster it's illegal. */
     if (clusterType == null)
         throw IllegalCoordinateException(coordinate)
 
-    val coordinatePartsWithoutCluster = uppercaseCoordinate
+    val coordinatePartsWithoutCluster = coordinate
         .substring(clusterType.prefix.length + 1)
         .split('-')
 
@@ -75,7 +72,6 @@ fun cleanCoordinate(coordinate: String): String {
      */
     return clusterType.prefix + "-" + seedAsInteger + "-0-0-0"
 }
-
 
 class IllegalCoordinateException(val coordinate: String) :
     RuntimeException("Coordinate was illegal: $coordinate")

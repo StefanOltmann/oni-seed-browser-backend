@@ -64,6 +64,7 @@ import kotlinx.serialization.json.encodeToStream
 import model.Cluster
 import model.FailedGenReport
 import model.FailedGenReportDatabase
+import model.GameMode
 import model.ModBinaryChecksumDatabase
 import model.RequestedCoordinate
 import model.RequestedCoordinateStatus
@@ -694,118 +695,14 @@ fun Application.configureRouting() {
             logger.info("Returned world gen failures in $duration ms.")
         }
 
-        /**
-         * Returns the next requested coordinate
-         */
-        get("/requested-coordinate") {
+        get("/requested-coordinate-basegame") {
 
-            val start = System.currentTimeMillis()
+            handleGetRequestedCoordinate(call, GameMode.BASEGAME)
+        }
 
-            val ipAddress = call.getIpAddress()
+        get("/requested-coordinate-spacedout") {
 
-            val apiKey = this.context.request.headers["MNI_API_KEY"]
-
-            if (apiKey != System.getenv("MNI_API_KEY")) {
-
-                logger.warn("Unauthorized API key used by $ipAddress.")
-
-                call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
-
-                return@get
-            }
-
-            MongoClient.create(mongoClientSettings).use { mongoClient ->
-
-                val database = mongoClient.getDatabase("oni")
-
-                val collection = database.getCollection<RequestedCoordinate>("requestedCoordinates")
-
-                /* Loop through the requests until we find something valid. */
-                findseed@ while (true) {
-
-                    /*
-                     * Get the next coordinate waiting and set it to processing state.
-                     */
-                    val requestedCoordinate = collection.findOneAndUpdate(
-                        Filters.eq(RequestedCoordinate::status.name, RequestedCoordinateStatus.REQUESTED),
-                        Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.PROCESSING)
-                    )
-
-                    if (requestedCoordinate == null) {
-
-                        /*
-                         * Respond with an empty string if we don't have requests right now.
-                         */
-
-                        call.respond(HttpStatusCode.OK, "")
-
-                        break@findseed
-
-                    } else {
-
-                        val coordinate = requestedCoordinate.coordinate
-
-                        try {
-
-                            val cleanCoordinate = cleanCoordinate(coordinate)
-
-                            /*
-                             * Update the coordinate to a clean one.
-                             */
-                            if (coordinate != cleanCoordinate) {
-
-                                collection.updateOne(
-                                    Filters.eq(RequestedCoordinate::coordinate.name, coordinate),
-                                    Updates.set(RequestedCoordinate::coordinate.name, cleanCoordinate)
-                                )
-                            }
-
-                            val cluster: Cluster? = database
-                                .getCollection<Cluster>("worlds")
-                                .find(
-                                    Filters.eq("coordinate", cleanCoordinate)
-                                ).firstOrNull()
-
-                            if (cluster != null) {
-
-                                /* Mark the coordinate status as duplicated. */
-                                collection.updateOne(
-                                    Filters.eq(RequestedCoordinate::coordinate.name, cleanCoordinate),
-                                    Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.DUPLICATED)
-                                )
-
-                                continue@findseed
-                            }
-
-                            call.respond(HttpStatusCode.OK, cleanCoordinate)
-
-                            /*
-                             * Mark the coordinate as delivered to a mod for processing
-                             */
-                            collection.updateOne(
-                                Filters.eq(RequestedCoordinate::coordinate.name, cleanCoordinate),
-                                Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.DELIVERED)
-                            )
-
-                            break@findseed
-
-                        } catch (ex: IllegalCoordinateException) {
-
-                            /* Mark the coordinate status as illegal */
-                            collection.updateOne(
-                                Filters.eq(RequestedCoordinate::coordinate.name, ex.coordinate),
-                                Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.ILLEGAL)
-                            )
-
-                            continue@findseed
-                        }
-                    }
-                }
-            }
-
-            val duration = System.currentTimeMillis() - start
-
-            logger.info("Returned next requested coordinate in $duration ms.")
+            handleGetRequestedCoordinate(call, GameMode.SPACEDOUT)
         }
 
         get("/health") {
@@ -819,6 +716,131 @@ fun Application.configureRouting() {
             call.respondText("OK", ContentType.Text.Plain, HttpStatusCode.OK)
         }
     }
+}
+
+private suspend fun handleGetRequestedCoordinate(
+    call: ApplicationCall,
+    gameMode: GameMode
+) {
+
+    val start = System.currentTimeMillis()
+
+    val ipAddress = call.getIpAddress()
+
+    val apiKey = call.request.headers["MNI_API_KEY"]
+
+    if (apiKey != System.getenv("MNI_API_KEY")) {
+
+        logger.warn("Unauthorized API key used by $ipAddress.")
+
+        call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
+
+        return
+    }
+
+    MongoClient.create(mongoClientSettings).use { mongoClient ->
+
+        val database = mongoClient.getDatabase("oni")
+
+        val collection = database.getCollection<RequestedCoordinate>("requestedCoordinates")
+
+        /* Loop through the requests until we find something valid. */
+        findseed@ while (true) {
+
+            /*
+             * Get the next coordinate waiting and set it to processing state so that
+             * other mods won't get the same coordinate.
+             */
+            val requestedCoordinate = collection.findOneAndUpdate(
+                Filters.and(
+                    Filters.eq(RequestedCoordinate::status.name, RequestedCoordinateStatus.REQUESTED),
+                    Filters.regex(
+                        RequestedCoordinate::coordinate.name,
+                        if (gameMode == GameMode.BASEGAME)
+                            baseGameClusterTypesRegex.pattern
+                        else
+                            spacedOutClusterTypesRegex.pattern
+                    )
+                ),
+                Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.PROCESSING)
+            )
+
+            if (requestedCoordinate == null) {
+
+                /*
+                 * Respond with an empty string if we don't have requests right now.
+                 */
+
+                call.respond(HttpStatusCode.OK, "")
+
+                break@findseed
+
+            } else {
+
+                val coordinate = requestedCoordinate.coordinate
+
+                try {
+
+                    val cleanCoordinate = cleanCoordinate(coordinate)
+
+                    /*
+                     * Update the coordinate to a clean one.
+                     */
+                    if (coordinate != cleanCoordinate) {
+
+                        collection.updateOne(
+                            Filters.eq(RequestedCoordinate::coordinate.name, coordinate),
+                            Updates.set(RequestedCoordinate::coordinate.name, cleanCoordinate)
+                        )
+                    }
+
+                    val existingWorld: Cluster? = database
+                        .getCollection<Cluster>("worlds")
+                        .find(
+                            Filters.eq("coordinate", cleanCoordinate)
+                        ).firstOrNull()
+
+                    if (existingWorld != null) {
+
+                        /* Mark the coordinate status as duplicated. */
+                        collection.updateOne(
+                            Filters.eq(RequestedCoordinate::coordinate.name, cleanCoordinate),
+                            Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.DUPLICATED)
+                        )
+
+                        continue@findseed
+                    }
+
+                    call.respond(HttpStatusCode.OK, cleanCoordinate)
+
+                    /*
+                     * Mark the coordinate as delivered to a mod for processing
+                     */
+                    collection.updateOne(
+                        Filters.eq(RequestedCoordinate::coordinate.name, cleanCoordinate),
+                        Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.DELIVERED)
+                    )
+
+                    /* Stop execution as we delivered one seed to a mod. */
+                    break@findseed
+
+                } catch (ex: IllegalCoordinateException) {
+
+                    /* Mark the coordinate status as illegal */
+                    collection.updateOne(
+                        Filters.eq(RequestedCoordinate::coordinate.name, ex.coordinate),
+                        Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.ILLEGAL)
+                    )
+
+                    continue@findseed
+                }
+            }
+        }
+    }
+
+    val duration = System.currentTimeMillis() - start
+
+    logger.info("Returned next requested coordinate in $duration ms.")
 }
 
 /**
