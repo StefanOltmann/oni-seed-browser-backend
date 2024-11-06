@@ -62,9 +62,9 @@ import kotlinx.serialization.cbor.Cbor
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToStream
 import model.Cluster
+import model.Dlc
 import model.FailedGenReport
 import model.FailedGenReportDatabase
-import model.GameMode
 import model.ModBinaryChecksumDatabase
 import model.RequestedCoordinate
 import model.RequestedCoordinateStatus
@@ -695,32 +695,25 @@ fun Application.configureRouting() {
             logger.info("Returned world gen failures in $duration ms.")
         }
 
-        get("/requested-coordinate/{dlcs}") {
+        post("/requested-coordinate") {
 
-            val dlcs = call.parameters["dlcs"]
+            val dlcs = call.receive<List<Dlc>>().toMutableList()
 
-            val gameMode = GameMode.entries.find {
-                it.requestString == dlcs
-            }
+            /* If it's not SpacedOut, it's for the base game. */
+            if (!dlcs.contains(Dlc.SpacedOut))
+                dlcs.add(Dlc.BaseGame)
 
-            if (gameMode == null) {
-
-                call.respond(HttpStatusCode.NotAcceptable, "Unrecognized string")
-
-                return@get
-            }
-
-            handleGetRequestedCoordinate(call, gameMode)
+            handleGetRequestedCoordinate(call, dlcs)
         }
 
         get("/requested-coordinate-basegame") {
 
-            handleGetRequestedCoordinate(call, GameMode.BaseGame)
+            handleGetRequestedCoordinate(call, listOf(Dlc.BaseGame))
         }
 
         get("/requested-coordinate-spacedout") {
 
-            handleGetRequestedCoordinate(call, GameMode.SpacedOut)
+            handleGetRequestedCoordinate(call, listOf(Dlc.SpacedOut))
         }
 
         get("/health") {
@@ -738,7 +731,7 @@ fun Application.configureRouting() {
 
 private suspend fun handleGetRequestedCoordinate(
     call: ApplicationCall,
-    gameMode: GameMode
+    dlcs: List<Dlc>
 ) {
 
     val start = System.currentTimeMillis()
@@ -774,12 +767,7 @@ private suspend fun handleGetRequestedCoordinate(
                     Filters.eq(RequestedCoordinate::status.name, RequestedCoordinateStatus.REQUESTED),
                     Filters.regex(
                         RequestedCoordinate::coordinate.name,
-                        when (gameMode) {
-                            GameMode.BaseGame -> baseGameClusterTypesRegex.pattern
-                            GameMode.BaseGameWithFrostyPlanet -> baseGamePlusFrostyPlanetClusterTypesRegex.pattern
-                            GameMode.SpacedOut -> spacedOutClusterTypesRegex.pattern
-                            GameMode.SpacedOutWithFrostyPlanet -> spacedOutPlusFrostyPlanetClusterTypesRegex.pattern
-                        }
+                        createRegexPattern(dlcs)
                     )
                 ),
                 Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.PROCESSING)

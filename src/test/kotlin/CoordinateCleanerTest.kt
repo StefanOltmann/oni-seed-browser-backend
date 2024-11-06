@@ -1,5 +1,6 @@
 import junit.framework.TestCase.assertFalse
 import model.ClusterType
+import model.Dlc
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -25,6 +26,35 @@ import kotlin.test.assertTrue
  */
 
 class CoordinateCleanerTest {
+
+    @Test
+    fun testCreateRegexPattern() {
+
+        assertEquals(
+            expected = "^(SNDST-A|CER-A|CERS-A|OCAN-A|S-FRZ|LUSH-A|FRST-A|VOLCA|BAD-A|HTFST-A|OASIS-A|V-SNDST-C|V-CER-C|V-CERS-C|V-OCAN-C|V-SWMP-C|V-SFRZ-C|V-LUSH-C|V-FRST-C|V-VOLCA-C|V-BAD-C|V-HTFST-C|V-OASIS-C|SNDST-C|CER-C|FRST-C|SWMP-C|M-SWMP-C|M-BAD-C|M-FRZ-C|M-FLIP-C|M-RAD-C)-\\d+-[^-]*-[^-]*-[^-]*",
+            actual = createRegexPattern(Dlc.entries)
+        )
+
+        assertEquals(
+            expected = "^(SNDST-A|OCAN-A|S-FRZ|LUSH-A|FRST-A|VOLCA|BAD-A|HTFST-A|OASIS-A)-\\d+-[^-]*-[^-]*-[^-]*",
+            actual = createRegexPattern(listOf(Dlc.BaseGame))
+        )
+
+        assertEquals(
+            expected = "^(SNDST-A|CER-A|CERS-A|OCAN-A|S-FRZ|LUSH-A|FRST-A|VOLCA|BAD-A|HTFST-A|OASIS-A)-\\d+-[^-]*-[^-]*-[^-]*",
+            actual = createRegexPattern(listOf(Dlc.BaseGame, Dlc.FrostyPlanet))
+        )
+
+        assertEquals(
+            expected = "^(V-SNDST-C|V-OCAN-C|V-SWMP-C|V-SFRZ-C|V-LUSH-C|V-FRST-C|V-VOLCA-C|V-BAD-C|V-HTFST-C|V-OASIS-C|SNDST-C|CER-C|FRST-C|SWMP-C|M-SWMP-C|M-BAD-C|M-FRZ-C|M-FLIP-C|M-RAD-C)-\\d+-[^-]*-[^-]*-[^-]*",
+            actual = createRegexPattern(listOf(Dlc.SpacedOut))
+        )
+
+        assertEquals(
+            expected = "^(V-SNDST-C|V-CER-C|V-CERS-C|V-OCAN-C|V-SWMP-C|V-SFRZ-C|V-LUSH-C|V-FRST-C|V-VOLCA-C|V-BAD-C|V-HTFST-C|V-OASIS-C|SNDST-C|CER-C|FRST-C|SWMP-C|M-SWMP-C|M-BAD-C|M-FRZ-C|M-FLIP-C|M-RAD-C)-\\d+-[^-]*-[^-]*-[^-]*",
+            actual = createRegexPattern(listOf(Dlc.SpacedOut, Dlc.FrostyPlanet))
+        )
+    }
 
     @Test
     fun testIsValidCoordinate() {
