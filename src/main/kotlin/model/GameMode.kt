@@ -19,8 +19,12 @@
 
 package model
 
-enum class GameMode {
+enum class GameMode(
+    val requestString: String
+) {
 
-    BASEGAME,
-    SPACEDOUT
+    BaseGame("BaseGame"),
+    BaseGameWithFrostyPlanet("BaseGame+FrostyPlanet"),
+    SpacedOut("SpacedOut"),
+    SpacedOutWithFrostyPlanet("SpacedOut+FrostyPlanet")
 }

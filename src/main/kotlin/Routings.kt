@@ -695,14 +695,32 @@ fun Application.configureRouting() {
             logger.info("Returned world gen failures in $duration ms.")
         }
 
+        get("/requested-coordinate/{dlcs}") {
+
+            val dlcs = call.parameters["dlcs"]
+
+            val gameMode = GameMode.entries.find {
+                it.requestString == dlcs
+            }
+
+            if (gameMode == null) {
+
+                call.respond(HttpStatusCode.NotAcceptable, "Unrecognized string")
+
+                return@get
+            }
+
+            handleGetRequestedCoordinate(call, gameMode)
+        }
+
         get("/requested-coordinate-basegame") {
 
-            handleGetRequestedCoordinate(call, GameMode.BASEGAME)
+            handleGetRequestedCoordinate(call, GameMode.BaseGame)
         }
 
         get("/requested-coordinate-spacedout") {
 
-            handleGetRequestedCoordinate(call, GameMode.SPACEDOUT)
+            handleGetRequestedCoordinate(call, GameMode.SpacedOut)
         }
 
         get("/health") {
@@ -756,10 +774,12 @@ private suspend fun handleGetRequestedCoordinate(
                     Filters.eq(RequestedCoordinate::status.name, RequestedCoordinateStatus.REQUESTED),
                     Filters.regex(
                         RequestedCoordinate::coordinate.name,
-                        if (gameMode == GameMode.BASEGAME)
-                            baseGameClusterTypesRegex.pattern
-                        else
-                            spacedOutClusterTypesRegex.pattern
+                        when (gameMode) {
+                            GameMode.BaseGame -> baseGameClusterTypesRegex.pattern
+                            GameMode.BaseGameWithFrostyPlanet -> baseGamePlusFrostyPlanetClusterTypesRegex.pattern
+                            GameMode.SpacedOut -> spacedOutClusterTypesRegex.pattern
+                            GameMode.SpacedOutWithFrostyPlanet -> spacedOutPlusFrostyPlanetClusterTypesRegex.pattern
+                        }
                     )
                 ),
                 Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.PROCESSING)

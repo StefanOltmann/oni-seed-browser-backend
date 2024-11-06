@@ -20,15 +20,26 @@
 import model.ClusterType
 
 val baseGameClusterPrefixes =
-    "SNDST-A|CER-A|CERS-A|OCAN-A|S-FRZ|LUSH-A|FRST-A|VOLCA|BAD-A|HTFST-A|OASIS-A"
+    "SNDST-A|OCAN-A|S-FRZ|LUSH-A|FRST-A|VOLCA|BAD-A|HTFST-A|OASIS-A"
+
+val baseGameFrostyPlanetClusterPrefixes =
+    "CER-A|CERS-A"
 
 val spacedOutClusterPrefixes =
-    "V-SNDST-C|V-CER-C|V-CERS-C|V-OCAN-C|V-SWMP-C|V-SFRZ-C|V-LUSH-C|V-FRST-C|V-VOLCA-C|V-BAD-C|V-HTFST-C|V-OASIS-C|SNDST-C|CER-C|FRST-C|SWMP-C|M-SWMP-C|M-BAD-C|M-FRZ-C|M-FLIP-C|M-RAD-C"
+    "V-SNDST-C|V-OCAN-C|V-SWMP-C|V-SFRZ-C|V-LUSH-C|V-FRST-C|V-VOLCA-C|V-BAD-C|V-HTFST-C|V-OASIS-C|SNDST-C|CER-C|FRST-C|SWMP-C|M-SWMP-C|M-BAD-C|M-FRZ-C|M-FLIP-C|M-RAD-C"
 
-val allClusterTypesRegex = Regex("^($baseGameClusterPrefixes|$spacedOutClusterPrefixes)-\\d+-[^-]*-[^-]*-[^-]*")
+val spacedOutFrostyPlanetClusterPrefixes =
+    "V-CER-C|V-CERS-C"
+
+val allClusterTypesRegex =
+    Regex("^($baseGameClusterPrefixes|$baseGameFrostyPlanetClusterPrefixes|$spacedOutClusterPrefixes|$spacedOutFrostyPlanetClusterPrefixes)-\\d+-[^-]*-[^-]*-[^-]*")
 
 val baseGameClusterTypesRegex = Regex("^($baseGameClusterPrefixes)-\\d+-[^-]*-[^-]*-[^-]*")
+val baseGamePlusFrostyPlanetClusterTypesRegex =
+    Regex("^($baseGameClusterPrefixes|$baseGameFrostyPlanetClusterPrefixes)-\\d+-[^-]*-[^-]*-[^-]*")
 val spacedOutClusterTypesRegex = Regex("^($spacedOutClusterPrefixes)-\\d+-[^-]*-[^-]*-[^-]*")
+val spacedOutPlusFrostyPlanetClusterTypesRegex =
+    Regex("^($spacedOutClusterPrefixes|$spacedOutFrostyPlanetClusterPrefixes)-\\d+-[^-]*-[^-]*-[^-]*")
 
 fun isValidCoordinate(coordinate: String): Boolean =
     allClusterTypesRegex.matches(coordinate)
