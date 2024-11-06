@@ -24,198 +24,207 @@ import kotlinx.serialization.Serializable
 @Serializable
 enum class ClusterType(
     val prefix: String,
-    val gameMode: GameMode
+    val requiredDlcs: List<Dlc>
 ) {
 
     /** Terra */
     BASE_TERRA(
         prefix = "SNDST-A",
-        gameMode = GameMode.BaseGame
+        requiredDlcs = listOf(Dlc.BaseGame)
     ),
 
     /** Ceres */
     BASE_CERES(
         prefix = "CER-A",
-        gameMode = GameMode.BaseGameWithFrostyPlanet
+        requiredDlcs = listOf(Dlc.BaseGame, Dlc.FrostyPlanet)
     ),
 
     /** Ceres */
     BASE_BLASTED_CERES(
         prefix = "CERS-A",
-        gameMode = GameMode.BaseGameWithFrostyPlanet
+        requiredDlcs = listOf(Dlc.BaseGame, Dlc.FrostyPlanet)
     ),
 
     /** Oceania */
     BASE_OCEANIA(
         prefix = "OCAN-A",
-        gameMode = GameMode.BaseGame
+        requiredDlcs = listOf(Dlc.BaseGame)
     ),
 
     /** Rime */
     BASE_RIME(
         prefix = "S-FRZ",
-        gameMode = GameMode.BaseGame
+        requiredDlcs = listOf(Dlc.BaseGame)
     ),
 
     /** Verdante */
     BASE_VERDANTE(
         prefix = "LUSH-A",
-        gameMode = GameMode.BaseGame
+        requiredDlcs = listOf(Dlc.BaseGame)
     ),
 
     /** Arboria */
     BASE_ARBORIA(
         prefix = "FRST-A",
-        gameMode = GameMode.BaseGame
+        requiredDlcs = listOf(Dlc.BaseGame)
     ),
 
     /** Volcanea */
     BASE_VOLCANEA(
         prefix = "VOLCA",
-        gameMode = GameMode.BaseGame
+        requiredDlcs = listOf(Dlc.BaseGame)
     ),
 
     /** The Badlands */
     BASE_THE_BADLANDS(
         prefix = "BAD-A",
-        gameMode = GameMode.BaseGame
+        requiredDlcs = listOf(Dlc.BaseGame)
     ),
 
     /** Aridio */
     BASE_ARIDIO(
         prefix = "HTFST-A",
-        gameMode = GameMode.BaseGame
+        requiredDlcs = listOf(Dlc.BaseGame)
     ),
 
     /** Oasisse */
     BASE_OASISSE(
         prefix = "OASIS-A",
-        gameMode = GameMode.BaseGame
+        requiredDlcs = listOf(Dlc.BaseGame)
     ),
 
     /** Terra */
     DLC_TERRA(
         prefix = "V-SNDST-C",
-        gameMode = GameMode.SpacedOut
+        requiredDlcs = listOf(Dlc.SpacedOut)
     ),
 
     /** Ceres */
     DLC_CERES(
         prefix = "V-CER-C",
-        gameMode = GameMode.SpacedOutWithFrostyPlanet
+        requiredDlcs = listOf(Dlc.SpacedOut, Dlc.FrostyPlanet)
     ),
 
     /** Ceres (lab) */
     DLC_BLASTED_CERES(
         prefix = "V-CERS-C",
-        gameMode = GameMode.SpacedOutWithFrostyPlanet
+        requiredDlcs = listOf(Dlc.SpacedOut, Dlc.FrostyPlanet)
     ),
 
     /** Oceania */
     DLC_OCEANIA(
         prefix = "V-OCAN-C",
-        gameMode = GameMode.SpacedOut
+        requiredDlcs = listOf(Dlc.SpacedOut)
     ),
 
     /** Squelchy */
     DLC_SQUELCHY(
         prefix = "V-SWMP-C",
-        gameMode = GameMode.SpacedOut
+        requiredDlcs = listOf(Dlc.SpacedOut)
     ),
 
     /** Rime */
     DLC_RIME(
         prefix = "V-SFRZ-C",
-        gameMode = GameMode.SpacedOut
+        requiredDlcs = listOf(Dlc.SpacedOut)
     ),
 
     /** Verdante */
     DLC_VERDANTE(
         prefix = "V-LUSH-C",
-        gameMode = GameMode.SpacedOut
+        requiredDlcs = listOf(Dlc.SpacedOut)
     ),
 
     /** Arboria */
     DLC_ARBORIA(
         prefix = "V-FRST-C",
-        gameMode = GameMode.SpacedOut
+        requiredDlcs = listOf(Dlc.SpacedOut)
     ),
 
     /** Volcanea */
     DLC_VOLCANEA(
         prefix = "V-VOLCA-C",
-        gameMode = GameMode.SpacedOut
+        requiredDlcs = listOf(Dlc.SpacedOut)
     ),
 
     /** The Badlands */
     DLC_THE_BADLANDS(
         prefix = "V-BAD-C",
-        gameMode = GameMode.SpacedOut
+        requiredDlcs = listOf(Dlc.SpacedOut)
     ),
 
     /** Aridio */
     DLC_ARIDIO(
         prefix = "V-HTFST-C",
-        gameMode = GameMode.SpacedOut
+        requiredDlcs = listOf(Dlc.SpacedOut)
     ),
 
     /** Oasisse */
     DLC_OASISSE(
         prefix = "V-OASIS-C",
-        gameMode = GameMode.SpacedOut
+        requiredDlcs = listOf(Dlc.SpacedOut)
     ),
 
     /** Terrania */
     DLC_TERRANIA(
         prefix = "SNDST-C",
-        gameMode = GameMode.SpacedOut
+        requiredDlcs = listOf(Dlc.SpacedOut)
     ),
 
     /** Ceres Minor */
     DLC_CERES_MINOR(
         prefix = "CER-C",
-        gameMode = GameMode.SpacedOut
+        requiredDlcs = listOf(Dlc.SpacedOut)
     ),
 
     /** Folia */
     DLC_FOLIA(
         prefix = "FRST-C",
-        gameMode = GameMode.SpacedOut
+        requiredDlcs = listOf(Dlc.SpacedOut)
     ),
 
     /** Quagmiris */
     DLC_QUAGMIRIS(
         prefix = "SWMP-C",
-        gameMode = GameMode.SpacedOut
+        requiredDlcs = listOf(Dlc.SpacedOut)
     ),
 
     /** Metallic Swampy Moonlet */
     DLC_METALLIC_SWAMPY_MOONLET(
         prefix = "M-SWMP-C",
-        gameMode = GameMode.SpacedOut
+        requiredDlcs = listOf(Dlc.SpacedOut)
     ),
 
     /** The Desolands Moonlet */
     DLC_THE_DESOLANDS_MOONLET(
         prefix = "M-BAD-C",
-        gameMode = GameMode.SpacedOut
+        requiredDlcs = listOf(Dlc.SpacedOut)
     ),
 
     /** Frozen Forest Moonlet */
     DLC_FROZEN_FOREST_MOONLET(
         prefix = "M-FRZ-C",
-        gameMode = GameMode.SpacedOut
+        requiredDlcs = listOf(Dlc.SpacedOut)
     ),
 
     /** Flipped Moonlet */
     DLC_FLIPPED_MOONLET(
         prefix = "M-FLIP-C",
-        gameMode = GameMode.SpacedOut
+        requiredDlcs = listOf(Dlc.SpacedOut)
     ),
 
     /** Radioactive Ocean Moonlet */
     DLC_RADIOACTIVE_OCEAN_MOONLET(
         prefix = "M-RAD-C",
-        gameMode = GameMode.SpacedOut
+        requiredDlcs = listOf(Dlc.SpacedOut)
     );
+
+    fun dlcRequirementsFulfilled(requirements: List<Dlc>): Boolean =
+        requirements.containsAll(requiredDlcs)
+
+    fun isFrostyPlanet(): Boolean =
+        requiredDlcs.contains(Dlc.FrostyPlanet)
+
+    fun isBaseGame(): Boolean =
+        requiredDlcs.contains(Dlc.BaseGame)
 }

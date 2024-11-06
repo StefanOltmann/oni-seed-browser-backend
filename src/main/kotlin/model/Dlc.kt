@@ -24,6 +24,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 enum class Dlc {
 
+    BaseGame,
     SpacedOut,
     FrostyPlanet;
 }
