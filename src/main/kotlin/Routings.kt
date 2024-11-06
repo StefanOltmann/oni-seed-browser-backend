@@ -796,10 +796,24 @@ private suspend fun handleGetRequestedCoordinate(
                      */
                     if (coordinate != cleanCoordinate) {
 
-                        collection.updateOne(
-                            Filters.eq(RequestedCoordinate::coordinate.name, coordinate),
-                            Updates.set(RequestedCoordinate::coordinate.name, cleanCoordinate)
-                        )
+                        try {
+
+                            collection.updateOne(
+                                Filters.eq(RequestedCoordinate::coordinate.name, coordinate),
+                                Updates.set(RequestedCoordinate::coordinate.name, cleanCoordinate)
+                            )
+
+                        } catch (ex: Exception) {
+
+                            /* If we can't update to the new name, the request already existed and is duplicated. */
+
+                            collection.updateOne(
+                                Filters.eq(RequestedCoordinate::coordinate.name, coordinate),
+                                Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.DUPLICATED)
+                            )
+
+                            continue@findseed
+                        }
                     }
 
                     val existingWorld: Cluster? = database
