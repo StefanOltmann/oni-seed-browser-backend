@@ -1,5 +1,5 @@
 /*
- * ONI Seed Browser Backend
+ * ONI Seed Browser
  * Copyright (C) 2024 Stefan Oltmann
  * https://stefan-oltmann.de/oni-seed-browser
  *
@@ -19,10 +19,31 @@
 
 package model
 
-import kotlinx.serialization.Serializable
+@Suppress("UNUSED")
+enum class VanillaSpacePOI {
 
-@Serializable
-data class StarMapEntryVanilla(
-    val id: VanillaSpacePOI,
-    val distance: Int
-)
+    CarbonaceousAsteroid,
+    ChlorinePlanet,
+    DLC2CeresSpaceDestination,
+    DustyMoon,
+    Earth,
+    ForestPlanet,
+    GasGiant,
+    GoldAsteroid,
+    HeliumGiant,
+    IceGiant,
+    IcyDwarf,
+    MetallicAsteroid,
+    OilyAsteriod,
+    OrganicDwarf,
+    RedDwarf,
+    RockyAsteroid,
+    RustPlanet,
+    SaltDesertPlanet,
+    SaltDwarf,
+    Satellite,
+    ShinyPlanet,
+    TerraPlanet,
+    VolcanoPlanet,
+    Wormhole
+}
