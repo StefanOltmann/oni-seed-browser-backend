@@ -687,7 +687,9 @@ fun Application.configureRouting() {
 
                 logger.info("The database contains ${coordinates.size} seeds reported as world gen failures.")
 
-                call.respond(coordinates)
+                val asSimpleString = coordinates.joinToString("\n")
+
+                call.respond(asSimpleString)
             }
 
             val duration = System.currentTimeMillis() - start
