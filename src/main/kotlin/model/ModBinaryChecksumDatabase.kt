@@ -24,7 +24,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class ModBinaryChecksumDatabase(
 
-    val tag: String,
+    val gitTag: String,
 
     val checksum: String,
 

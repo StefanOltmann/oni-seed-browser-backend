@@ -234,17 +234,23 @@ fun Application.configureRouting() {
                 return@post
             }
 
+            val gitTag = this.context.request.headers["GIT_TAG"]
+
+            if (gitTag.isNullOrBlank()) {
+
+                call.respond(HttpStatusCode.BadRequest, "Missing git tag.")
+
+                return@post
+            }
+
             try {
 
-                val tagAndChecksum = call.receive<String>()
+                val checksum = call.receive<String>()
 
-                if (tagAndChecksum.isBlank()) {
+                if (checksum.isBlank()) {
                     call.respond(HttpStatusCode.NotAcceptable, "checksum was not set.")
                     return@post
                 }
-
-                val tag = tagAndChecksum.substringBefore(';')
-                val checksum = tagAndChecksum.substringAfter(';')
 
                 /* Save to MongoDB */
                 MongoClient.create(mongoClientSettings).use { mongoClient ->
@@ -256,7 +262,7 @@ fun Application.configureRouting() {
 
                     modBinaryChecksumCollection.insertOne(
                         ModBinaryChecksumDatabase(
-                            tag = tag,
+                            gitTag = gitTag,
                             checksum = checksum,
                             timestamp = System.currentTimeMillis()
                         )
@@ -267,7 +273,7 @@ fun Application.configureRouting() {
 
                 val duration = System.currentTimeMillis() - start
 
-                logger.info("Accepted new checksum $tagAndChecksum in $duration ms.")
+                logger.info("Accepted new checksum $checksum in $duration ms.")
 
             } catch (ex: Exception) {
 
@@ -297,7 +303,7 @@ fun Application.configureRouting() {
                 if (currentEntry == null)
                     call.respond(HttpStatusCode.OK, "UNKNOWN")
                 else
-                    call.respond(HttpStatusCode.OK, currentEntry.tag)
+                    call.respond(HttpStatusCode.OK, currentEntry.gitTag)
             }
 
             val duration = System.currentTimeMillis() - start
