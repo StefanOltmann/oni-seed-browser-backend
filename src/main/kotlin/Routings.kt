@@ -24,6 +24,7 @@ import com.mongodb.ServerApiVersion
 import com.mongodb.client.model.Filters
 import com.mongodb.client.model.IndexOptions
 import com.mongodb.client.model.Projections
+import com.mongodb.client.model.Sorts
 import com.mongodb.client.model.Updates
 import com.mongodb.kotlin.client.coroutine.MongoClient
 import io.ktor.http.ContentDisposition
@@ -235,12 +236,15 @@ fun Application.configureRouting() {
 
             try {
 
-                val checksum = call.receive<String>()
+                val tagAndChecksum = call.receive<String>()
 
-                if (checksum.isBlank()) {
+                if (tagAndChecksum.isBlank()) {
                     call.respond(HttpStatusCode.NotAcceptable, "checksum was not set.")
                     return@post
                 }
+
+                val tag = tagAndChecksum.substringBefore(';')
+                val checksum = tagAndChecksum.substringAfter(';')
 
                 /* Save to MongoDB */
                 MongoClient.create(mongoClientSettings).use { mongoClient ->
@@ -252,6 +256,7 @@ fun Application.configureRouting() {
 
                     modBinaryChecksumCollection.insertOne(
                         ModBinaryChecksumDatabase(
+                            tag = tag,
                             checksum = checksum,
                             timestamp = System.currentTimeMillis()
                         )
@@ -262,7 +267,7 @@ fun Application.configureRouting() {
 
                 val duration = System.currentTimeMillis() - start
 
-                logger.info("Accepted new checksum $checksum in $duration ms.")
+                logger.info("Accepted new checksum $tagAndChecksum in $duration ms.")
 
             } catch (ex: Exception) {
 
@@ -272,6 +277,32 @@ fun Application.configureRouting() {
 
                 call.respond(HttpStatusCode.InternalServerError)
             }
+        }
+
+        get("/current-mod-version") {
+
+            val start = System.currentTimeMillis()
+
+            MongoClient.create(mongoClientSettings).use { mongoClient ->
+
+                val database = mongoClient.getDatabase("oni")
+
+                val collection = database.getCollection<ModBinaryChecksumDatabase>("modBinaryChecksums")
+
+                val currentEntry = collection.find()
+                    .sort(Sorts.descending("timestamp"))
+                    .limit(1)
+                    .firstOrNull()
+
+                if (currentEntry == null)
+                    call.respond(HttpStatusCode.OK, "UNKNOWN")
+                else
+                    call.respond(HttpStatusCode.OK, currentEntry.tag)
+            }
+
+            val duration = System.currentTimeMillis() - start
+
+            logger.info("Returned current mod version in $duration ms.")
         }
 
         get("/export") {

@@ -24,6 +24,8 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class ModBinaryChecksumDatabase(
 
+    val tag: String,
+
     val checksum: String,
 
     val timestamp: Long
