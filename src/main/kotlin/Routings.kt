@@ -724,7 +724,7 @@ fun Application.configureRouting() {
 
                 logger.info("The database contains ${coordinates.size} seeds reported as world gen failures.")
 
-                val asSimpleString = coordinates.joinToString("\n")
+                val asSimpleString = coordinates.sorted().joinToString("\n")
 
                 call.respond(asSimpleString)
             }
