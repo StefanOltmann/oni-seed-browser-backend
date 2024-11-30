@@ -204,5 +204,12 @@ enum class AsteroidType {
 
     MixingCeresAsteroid,
 
-    CeresClassicShatteredAsteroid
+    CeresClassicShatteredAsteroid,
+
+    MiniShatteredStartAsteroid,
+
+    MiniShatteredWarpAsteroid,
+
+    MiniShatteredGeoAsteroid
+
 }

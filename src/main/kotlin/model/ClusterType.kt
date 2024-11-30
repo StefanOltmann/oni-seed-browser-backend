@@ -217,14 +217,15 @@ enum class ClusterType(
     DLC_RADIOACTIVE_OCEAN_MOONLET(
         prefix = "M-RAD-C",
         requiredDlcs = listOf(Dlc.SpacedOut)
+    ),
+
+    /** Ceres Mantle */
+    DLC_CERES_MANTLE(
+        prefix = "M-CERS-C",
+        requiredDlcs = listOf(Dlc.SpacedOut, Dlc.FrostyPlanet)
     );
 
     fun dlcRequirementsFulfilled(requirements: List<Dlc>): Boolean =
         requirements.containsAll(requiredDlcs)
 
-    fun isFrostyPlanet(): Boolean =
-        requiredDlcs.contains(Dlc.FrostyPlanet)
-
-    fun isBaseGame(): Boolean =
-        requiredDlcs.contains(Dlc.BaseGame)
 }
