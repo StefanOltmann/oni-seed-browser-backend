@@ -29,3 +29,14 @@ jobs:
           context: .
           push: true
           tags: ghcr.io/stefanoltmann/oni-seed-browser-backend:latest
+
+      - name: Save Docker image as a tar archive
+        run: |
+          docker pull ghcr.io/stefanoltmann/oni-seed-browser-backend:latest
+          docker save -o oni-seed-browser-backend-latest.tar ghcr.io/stefanoltmann/oni-seed-browser-backend:latest
+
+      - name: Upload Docker image as an artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: oni-seed-browser-backend-latest.tar
+          path: oni-seed-browser-backend-latest.tar
