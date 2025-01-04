@@ -223,7 +223,7 @@ fun Application.configureRouting() {
 
             val start = System.currentTimeMillis()
 
-            val apiKey = this.context.request.headers["API_KEY"]
+            val apiKey: String? = this.call.request.headers["API_KEY"]
 
             if (apiKey != System.getenv("DATABASE_EXPORT_API_KEY")) {
 
@@ -234,7 +234,7 @@ fun Application.configureRouting() {
                 return@post
             }
 
-            val gitTag = this.context.request.headers["GIT_TAG"]
+            val gitTag: String? = this.call.request.headers["GIT_TAG"]
 
             if (gitTag.isNullOrBlank()) {
 
@@ -317,7 +317,7 @@ fun Application.configureRouting() {
 
             val ipAddress = call.getIpAddress()
 
-            val apiKey = this.context.request.headers["API_KEY"]
+            val apiKey: String? = this.call.request.headers["API_KEY"]
 
             if (apiKey != System.getenv("DATABASE_EXPORT_API_KEY")) {
 
@@ -498,7 +498,7 @@ fun Application.configureRouting() {
 
             val ipAddress = call.getIpAddress()
 
-            val apiKey = this.context.request.headers["MNI_API_KEY"]
+            val apiKey: String? = this.call.request.headers["MNI_API_KEY"]
 
             if (apiKey != System.getenv("MNI_API_KEY")) {
 
@@ -618,7 +618,7 @@ fun Application.configureRouting() {
 
             val ipAddress = call.getIpAddress()
 
-            val apiKey = this.context.request.headers["MNI_API_KEY"]
+            val apiKey: String? = this.call.request.headers["MNI_API_KEY"]
 
             if (apiKey != System.getenv("MNI_API_KEY")) {
 

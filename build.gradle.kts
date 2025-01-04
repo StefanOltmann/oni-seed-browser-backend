@@ -1,8 +1,8 @@
 plugins {
     application
-    kotlin("jvm") version "1.9.21"
-    kotlin("plugin.serialization") version "1.9.21"
-    id("io.ktor.plugin") version "2.3.7"
+    kotlin("jvm") version "2.1.0"
+    kotlin("plugin.serialization") version "2.1.0"
+    id("io.ktor.plugin") version "3.0.3"
     id("me.qoomon.git-versioning") version "6.4.4"
 }
 
