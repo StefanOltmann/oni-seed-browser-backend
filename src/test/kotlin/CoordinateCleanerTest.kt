@@ -8,7 +8,7 @@ import kotlin.test.assertTrue
 
 /*
  * ONI Seed Browser Backend
- * Copyright (C) 2024 Stefan Oltmann
+ * Copyright (C) 2025 Stefan Oltmann
  * https://stefan-oltmann.de/oni-seed-browser
  *
  * This program is free software: you can redistribute it and/or modify

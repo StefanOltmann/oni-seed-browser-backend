@@ -1,6 +1,6 @@
 /*
  * ONI Seed Browser Backend
- * Copyright (C) 2024 Stefan Oltmann
+ * Copyright (C) 2025 Stefan Oltmann
  * https://stefan-oltmann.de/oni-seed-browser
  *
  * This program is free software: you can redistribute it and/or modify
@@ -24,8 +24,8 @@ import com.menecats.polybool.helpers.PolyBoolHelper.polygon
 import com.menecats.polybool.models.Polygon
 import model.Asteroid
 import model.BiomePaths
-import model.Point
 import model.Cluster
+import model.Point
 import kotlin.math.roundToInt
 
 fun BiomePaths.optimize(): BiomePaths {
