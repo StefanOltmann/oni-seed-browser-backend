@@ -27,6 +27,7 @@ import com.mongodb.client.model.Projections
 import com.mongodb.client.model.Sorts
 import com.mongodb.client.model.Updates
 import com.mongodb.kotlin.client.coroutine.MongoClient
+import com.mongodb.kotlin.client.coroutine.MongoDatabase
 import io.ktor.http.ContentDisposition
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
@@ -56,6 +57,7 @@ import io.ktor.server.routing.routing
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.flow.toSet
 import kotlinx.coroutines.launch
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.cbor.Cbor
@@ -71,13 +73,14 @@ import model.RequestedCoordinateStatus
 import model.Upload
 import model.UploadDatabase
 import model.filter.FilterQuery
+import model.search.ClusterSummary
 import org.bson.Document
 import org.slf4j.LoggerFactory
 import java.util.UUID
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
-private val connectionString = System.getenv("MONGO_DB_CONNECTION_STRING") ?: ""
+private val connectionString = "mongodb://mni:Fjh9833d3d2e2ef3r3jie32ead2epd@10.147.20.24:27017/oni"
 
 private val serverApi = ServerApi.builder()
     .version(ServerApiVersion.V1)
@@ -88,11 +91,11 @@ private val mongoClientSettings = MongoClientSettings.builder()
     .serverApi(serverApi)
     .build()
 
-private val exportJson = Json {
-    ignoreUnknownKeys = false
-    encodeDefaults = true
-    prettyPrint = true
-}
+//private val exportJson = Json {
+//    ignoreUnknownKeys = false
+//    encodeDefaults = true
+//    prettyPrint = true
+//}
 
 private val strictAllFieldsJson = Json {
     ignoreUnknownKeys = false
@@ -160,17 +163,29 @@ fun Application.configureRouting() {
 
         MongoClient.create(mongoClientSettings).use { mongoClient ->
 
+            logger.info("Setting missing indices...")
+
             val uniqueIndexOptions = IndexOptions().unique(true)
 
             val database = mongoClient.getDatabase("oni")
 
-            database.getCollection<Cluster>("worlds").createIndex(Document("coordinate", 1), uniqueIndexOptions)
-            database.getCollection<Cluster>("uploads").createIndex(Document("coordinate", 1), uniqueIndexOptions)
+            database.getCollection<Cluster>("worlds")
+                .createIndex(Document("coordinate", 1), uniqueIndexOptions)
+
+            database.getCollection<Cluster>("uploads")
+                .createIndex(Document("coordinate", 1), uniqueIndexOptions)
+
             database.getCollection<Cluster>("failedWorldGenReports")
                 .createIndex(Document("coordinate", 1), uniqueIndexOptions)
+
             database.getCollection<Cluster>("requestedCoordinates")
                 .createIndex(Document("coordinate", 1), uniqueIndexOptions)
+
+            database.getCollection<Cluster>("summaries")
+                .createIndex(Document("coordinate", 1), uniqueIndexOptions)
         }
+
+        populateSummaries()
     }
 
     routing {
@@ -909,3 +924,73 @@ private suspend fun handleGetRequestedCoordinate(
 private fun ApplicationCall.getIpAddress(): String =
     request.headers["X-Forwarded-For"]?.split(",")?.firstOrNull()?.trim()
         ?: request.origin.remoteAddress
+
+private suspend fun populateSummaries() {
+
+    logger.info("populateSummaries()")
+
+    val start = System.currentTimeMillis()
+
+    MongoClient.create(mongoClientSettings).use { mongoClient ->
+
+        val database = mongoClient.getDatabase("oni")
+
+        val coordinates = findAllExistingCoordinates(database)
+
+        val searchIndexCoordinates = findAllSearchIndexCoordinates(database)
+
+        val missingCoordinates = coordinates.minus(searchIndexCoordinates)
+
+        if (missingCoordinates.isNotEmpty()) {
+
+            logger.info("Adding ${missingCoordinates.size} to search index...")
+
+            val clustersCollection = database.getCollection<Cluster>("worlds")
+
+            val summariesCollection = database.getCollection<ClusterSummary>("summaries")
+
+            val clustersToIndex = clustersCollection.find(
+                Filters.`in`("coordinate", missingCoordinates)
+            )
+
+            clustersToIndex.collect { world ->
+
+                summariesCollection.insertOne(ClusterSummary.create(world))
+
+                logger.info("Created search index for ${world.coordinate}")
+            }
+
+        } else {
+
+            logger.info("Search index is up to date.")
+        }
+    }
+
+    val duration = System.currentTimeMillis() - start
+
+    logger.info("Created search index in $duration ms.")
+}
+
+private suspend fun findAllExistingCoordinates(database: MongoDatabase): Set<String> {
+
+    val collection = database.getCollection<Document>("worlds")
+
+    val coordinates: Set<String> = collection.find()
+        .projection(Projections.fields(Projections.include("coordinate")))
+        .map { it["coordinate"] as String }
+        .toSet()
+
+    return coordinates
+}
+
+private suspend fun findAllSearchIndexCoordinates(database: MongoDatabase): Set<String> {
+
+    val collection = database.getCollection<Document>("summaries")
+
+    val coordinates: Set<String> = collection.find()
+        .projection(Projections.fields(Projections.include("coordinate")))
+        .map { it["coordinate"] as String }
+        .toSet()
+
+    return coordinates
+}
