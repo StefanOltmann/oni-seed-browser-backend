@@ -22,13 +22,11 @@ package model.filter
 import kotlinx.serialization.Serializable
 
 @Serializable
-enum class FilterCondition(
-    val displayString: String
-) {
+enum class FilterCondition {
 
-    EXACTLY("="),
-    AT_LEAST(">="),
-    AT_MOST("<=");
+    EXACTLY,
+    AT_LEAST,
+    AT_MOST;
 
     fun next(): FilterCondition =
         when (this) {

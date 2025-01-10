@@ -24,7 +24,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class FilterQuery(
 
-    val cluster: String?,
+    val cluster: String,
 
     val dlcs: List<String>,
 

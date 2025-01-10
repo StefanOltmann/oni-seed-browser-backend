@@ -24,8 +24,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class FilterRule(
 
-    /* NULL = All asteroids */
-    val asteroid: String?,
+    val asteroid: String,
 
     /* Items */
     val geyserCount: FilterItemGeyserCount?,

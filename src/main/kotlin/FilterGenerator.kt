@@ -88,89 +88,55 @@ fun generateFilter(filterQuery: FilterQuery): Bson {
 }
 
 private fun generateGeyserOutputFilter(
-    asteroid: String?,
+    asteroid: String,
     geyserOutput: FilterItemGeyserOutput
 ): Bson {
 
-    if (asteroid == null) {
+    return Filters.elemMatch(
+        "asteroids",
+        Filters.and(
+            Filters.eq("id", asteroid),
+            Filters.elemMatch(
+                "geysers",
+                Filters.and(
+                    Filters.eq("id", geyserOutput.geyser),
 
-        return Filters.elemMatch(
-            "asteroids.geysers",
-            Filters.and(
-                Filters.eq("id", geyserOutput.geyser),
+                    when (geyserOutput.condition) {
 
-                when (geyserOutput.condition) {
+                        FilterCondition.EXACTLY ->
+                            Filters.eq("avgEmitRate", geyserOutput.outputInGramPerSecond)
 
-                    FilterCondition.EXACTLY ->
-                        Filters.eq("avgEmitRate", geyserOutput.outputInGramPerSecond)
+                        FilterCondition.AT_LEAST ->
+                            Filters.gte("avgEmitRate", geyserOutput.outputInGramPerSecond)
 
-                    FilterCondition.AT_LEAST ->
-                        Filters.gte("avgEmitRate", geyserOutput.outputInGramPerSecond)
-
-                    FilterCondition.AT_MOST ->
-                        Filters.lte("avgEmitRate", geyserOutput.outputInGramPerSecond)
-                }
-            )
-        )
-
-    } else {
-
-        return Filters.elemMatch(
-            "asteroids",
-            Filters.and(
-                Filters.eq("id", asteroid),
-                Filters.elemMatch(
-                    "geysers",
-                    Filters.and(
-                        Filters.eq("id", geyserOutput.geyser),
-
-                        when (geyserOutput.condition) {
-
-                            FilterCondition.EXACTLY ->
-                                Filters.eq("avgEmitRate", geyserOutput.outputInGramPerSecond)
-
-                            FilterCondition.AT_LEAST ->
-                                Filters.gte("avgEmitRate", geyserOutput.outputInGramPerSecond)
-
-                            FilterCondition.AT_MOST ->
-                                Filters.lte("avgEmitRate", geyserOutput.outputInGramPerSecond)
-                        }
-                    )
+                        FilterCondition.AT_MOST ->
+                            Filters.lte("avgEmitRate", geyserOutput.outputInGramPerSecond)
+                    }
                 )
             )
         )
-    }
+    )
 }
 
 private fun generateWorldTraitFilter(
-    asteroid: String?,
+    asteroid: String,
     worldTrait: FilterItemWorldTrait
 ): Bson {
 
-    if (asteroid == null) {
-
-        if (worldTrait.has)
-            return Filters.eq("asteroids.worldTraits", worldTrait.worldTrait)
-
-        return Filters.ne("asteroids.worldTraits", worldTrait.worldTrait)
-
-    } else {
-
-        if (worldTrait.has)
-            return Filters.elemMatch(
-                "asteroids",
-                Filters.and(
-                    Filters.eq("id", asteroid),
-                    Filters.eq("worldTraits", worldTrait.worldTrait)
-                )
-            )
-
+    if (worldTrait.has)
         return Filters.elemMatch(
             "asteroids",
             Filters.and(
                 Filters.eq("id", asteroid),
-                Filters.ne("worldTraits", worldTrait.worldTrait)
+                Filters.eq("worldTraits", worldTrait.worldTrait)
             )
         )
-    }
+
+    return Filters.elemMatch(
+        "asteroids",
+        Filters.and(
+            Filters.eq("id", asteroid),
+            Filters.ne("worldTraits", worldTrait.worldTrait)
+        )
+    )
 }
