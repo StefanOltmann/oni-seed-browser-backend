@@ -80,7 +80,7 @@ import java.util.UUID
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
-private val connectionString = "mongodb://mni:Fjh9833d3d2e2ef3r3jie32ead2epd@10.147.20.24:27017/oni"
+private val connectionString = System.getenv("MONGO_DB_CONNECTION_STRING") ?: ""
 
 private val serverApi = ServerApi.builder()
     .version(ServerApiVersion.V1)
@@ -90,12 +90,6 @@ private val mongoClientSettings = MongoClientSettings.builder()
     .applyConnectionString(ConnectionString(connectionString))
     .serverApi(serverApi)
     .build()
-
-//private val exportJson = Json {
-//    ignoreUnknownKeys = false
-//    encodeDefaults = true
-//    prettyPrint = true
-//}
 
 private val strictAllFieldsJson = Json {
     ignoreUnknownKeys = false
@@ -615,6 +609,8 @@ fun Application.configureRouting() {
                     "Completed upload in $duration ms. " +
                         "Optimization took $durationForOptimization ms."
                 )
+
+                populateSummaries()
 
             } catch (ex: Exception) {
 
