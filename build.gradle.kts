@@ -53,10 +53,14 @@ dependencies {
 
     implementation("io.ktor:ktor-server-content-negotiation:$ktorVersion")
     implementation("io.ktor:ktor-server-compression:$ktorVersion")
+    implementation("io.ktor:ktor-server-cors:$ktorVersion")
+
+    implementation("io.ktor:ktor-server-auth:$ktorVersion")
+    implementation("io.ktor:ktor-server-sessions:$ktorVersion")
+    implementation("io.ktor:ktor-server-html-builder:$ktorVersion")
+
     implementation("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
     implementation("io.ktor:ktor-serialization-kotlinx-cbor:$ktorVersion")
-
-    implementation("io.ktor:ktor-server-cors:$ktorVersion")
 
     implementation("org.mongodb:mongodb-driver-kotlin-coroutine:5.2.0")
     implementation("org.mongodb:bson-kotlinx:5.2.0")

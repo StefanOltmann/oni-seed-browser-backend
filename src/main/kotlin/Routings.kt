@@ -33,6 +33,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.path
 import io.ktor.serialization.kotlinx.cbor.cbor
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
@@ -46,14 +47,19 @@ import io.ktor.server.plugins.compression.minimumSize
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.cors.routing.CORS
 import io.ktor.server.plugins.origin
+import io.ktor.server.request.host
 import io.ktor.server.request.receive
 import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondOutputStream
+import io.ktor.server.response.respondRedirect
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
+import io.ktor.server.sessions.Sessions
+import io.ktor.server.sessions.cookie
+import io.ktor.server.util.url
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
@@ -146,6 +152,10 @@ fun Application.configureRouting() {
         anyHost()
     }
 
+    install(Sessions) {
+        cookie<UserSession>("USER_SESSION")
+    }
+
     launch {
 
         /*
@@ -189,6 +199,26 @@ fun Application.configureRouting() {
             val minutes = uptimeMinutes % 60
 
             call.respondText("ONI Seed Browser Backend $VERSION (up since $uptimeHours hours and $minutes minutes)")
+        }
+
+        get("/login") {
+
+            val steamLoginUrl = "https://steamcommunity.com/openid/login?" +
+                "openid.ns=http://specs.openid.net/auth/2.0" +
+                "&openid.mode=checkid_setup" +
+                "&openid.return_to=${call.url { path("auth/callback") }}" +
+                "&openid.realm=${call.request.origin.scheme}://${call.request.host()}/" +
+                "&openid.identity=http://specs.openid.net/auth/2.0/identifier_select" +
+                "&openid.claimed_id=http://specs.openid.net/auth/2.0/identifier_select"
+
+            call.respondRedirect(steamLoginUrl)
+        }
+
+        get("/auth/callback") {
+
+            val params = call.request.queryParameters
+
+            println("Callback parameters: $params")
         }
 
         get("/coordinate/{coordinate}") {
@@ -1019,3 +1049,5 @@ private suspend fun findAllSearchIndexCoordinates(database: MongoDatabase): Set<
 
     return coordinates
 }
+
+
