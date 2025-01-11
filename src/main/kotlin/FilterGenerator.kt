@@ -92,7 +92,7 @@ private fun generateGeyserOutputFilter(
     filterItem: FilterItemGeyserOutput
 ): Bson {
 
-    val output = filterItem.outputInGramPerSecond
+    val output: Int = requireNotNull(filterItem.outputInGramPerSecond)
 
     return Filters.elemMatch(
         "asteroidSummaries",

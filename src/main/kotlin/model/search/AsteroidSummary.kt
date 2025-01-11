@@ -21,7 +21,6 @@ package model.search
 
 import kotlinx.serialization.Serializable
 import model.AsteroidType
-import model.GeyserType
 import serializer.AsteroidTypeSerializer
 
 @Serializable
@@ -35,11 +34,11 @@ data class AsteroidSummary(
     /**
      * Count of all geysers of that type
      */
-    val geyserCounts: Map<GeyserType, Int>,
+    val geyserCounts: Map<String, Int>,
 
     /**
      * Sum of all avgEmitRate values for the geyser type
      */
-    val geyserTotalOutputs: Map<GeyserType, Int>
+    val geyserTotalOutputs: Map<String, Int>
 
 )

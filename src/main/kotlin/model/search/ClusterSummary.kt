@@ -54,11 +54,11 @@ data class ClusterSummary(
                             worldTraits = asteroid.worldTraits,
                             geyserCounts = asteroid.geysers
                                 .groupBy(Geyser::id)
-                                .map { it.key to it.value.size }
+                                .map { it.key.type to it.value.size }
                                 .toMap(),
                             geyserTotalOutputs = asteroid.geysers
                                 .groupBy(Geyser::id)
-                                .map { it.key to it.value.sumOf { cluster -> cluster.avgEmitRate } }
+                                .map { it.key.type to it.value.sumOf { cluster -> cluster.avgEmitRate } }
                                 .toMap()
                         )
                     )
