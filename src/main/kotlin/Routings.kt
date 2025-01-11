@@ -186,7 +186,7 @@ fun Application.configureRouting() {
             val uptimeMinutes = (System.currentTimeMillis() - startTime) / 1000 / 60
 
             val uptimeHours = uptimeMinutes / 60
-            val minutes = uptimeHours % 60
+            val minutes = uptimeMinutes % 60
 
             call.respondText("ONI Seed Browser Backend $VERSION (up since $uptimeHours hours and $minutes minutes)")
         }
