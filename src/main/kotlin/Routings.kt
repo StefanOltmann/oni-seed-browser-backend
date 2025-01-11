@@ -67,10 +67,7 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import io.ktor.server.sessions.Sessions
-import io.ktor.server.sessions.cookie
-import io.ktor.server.sessions.get
 import io.ktor.server.sessions.sessions
-import io.ktor.server.sessions.set
 import io.ktor.server.util.url
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
@@ -126,6 +123,8 @@ const val RESULT_LIMIT = 100
 
 const val EXPORT_BATCH_SIZE = 10000
 
+const val STEAMID = "steamid"
+
 @OptIn(ExperimentalSerializationApi::class)
 fun Application.configureRouting() {
 
@@ -167,7 +166,6 @@ fun Application.configureRouting() {
     }
 
     install(Sessions) {
-        cookie<UserSession>("USER_SESSION")
     }
 
     launch {
@@ -232,19 +230,17 @@ fun Application.configureRouting() {
 
             try {
 
-                println("Trying authentication...")
-
                 val params = call.request.queryParameters
 
                 val steamId = validateSteamLogin(params)
 
                 if (steamId != null) {
 
-                    call.sessions.set(UserSession(steamId = steamId))
+                    call.sessions.set(STEAMID, steamId)
 
-                    println("Authentication as steamId $steamId successful!")
+                    println("Authentication as $steamId successful!")
 
-                    call.respond(HttpStatusCode.OK, "Login successful! Steam ID: $steamId")
+                    call.respond(HttpStatusCode.OK, "$steamId")
 
                 } else {
 
@@ -255,22 +251,22 @@ fun Application.configureRouting() {
 
             } catch (ex: Throwable) {
 
-                println("Error during authentication.")
-
                 ex.printStackTrace()
+
+                call.respond(HttpStatusCode.InternalServerError, "Something went wrong!")
             }
         }
 
-        get("/userid") {
+        get("/steamid") {
 
-            val session = call.sessions.get<UserSession>()
+            val steamId = call.sessions.get(STEAMID)
 
-            if (session == null) {
-                call.respond(HttpStatusCode.Unauthorized, "You need to log in.")
+            if (steamId == null) {
+                call.respond(HttpStatusCode.Unauthorized, "Unauthorized")
                 return@get
             }
 
-            call.respond(HttpStatusCode.OK, "Your steam ID: $session")
+            call.respond(HttpStatusCode.OK, "$steamId")
         }
 
         get("/coordinate/{coordinate}") {
