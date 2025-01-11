@@ -8,7 +8,6 @@ plugins {
 
 val ktorVersion: String by project
 val kotlinVersion: String by project
-val logbackVersion: String by project
 
 group = "org.mapsnotincluded"
 
@@ -51,7 +50,6 @@ dependencies {
 
     implementation("io.ktor:ktor-server-core-jvm:$ktorVersion")
     implementation("io.ktor:ktor-server-netty-jvm:$ktorVersion")
-    implementation("ch.qos.logback:logback-classic:$logbackVersion")
 
     implementation("io.ktor:ktor-server-content-negotiation:$ktorVersion")
     implementation("io.ktor:ktor-server-compression:$ktorVersion")

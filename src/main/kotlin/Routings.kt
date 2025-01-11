@@ -75,7 +75,6 @@ import model.UploadDatabase
 import model.filter.FilterQuery
 import model.search.ClusterSummary
 import org.bson.Document
-import org.slf4j.LoggerFactory
 import java.util.UUID
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
@@ -101,8 +100,6 @@ private val strictAllFieldsCbor = Cbor {
     ignoreUnknownKeys = false
     encodeDefaults = true
 }
-
-private val logger = LoggerFactory.getLogger("Routings")
 
 /* Limit the results to avoid memory issues */
 const val RESULT_LIMIT = 100
@@ -157,7 +154,7 @@ fun Application.configureRouting() {
 
         MongoClient.create(mongoClientSettings).use { mongoClient ->
 
-            logger.info("Setting missing indices...")
+            println("Setting missing indices...")
 
             val uniqueIndexOptions = IndexOptions().unique(true)
 
@@ -222,7 +219,7 @@ fun Application.configureRouting() {
 
             val duration = System.currentTimeMillis() - start
 
-            logger.info("Returned data for coordinate $coordinate in $duration ms.")
+            println("Returned data for coordinate $coordinate in $duration ms.")
         }
 
         post("/add-mod-binary-checksum") {
@@ -235,7 +232,7 @@ fun Application.configureRouting() {
 
             if (apiKey != System.getenv("DATABASE_EXPORT_API_KEY")) {
 
-                logger.warn("Unauthorized API key used by $ipAddress.")
+                println("Unauthorized API key used by $ipAddress.")
 
                 call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
 
@@ -281,13 +278,13 @@ fun Application.configureRouting() {
 
                 val duration = System.currentTimeMillis() - start
 
-                logger.info("Accepted new checksum $checksum in $duration ms.")
+                println("Accepted new checksum $checksum in $duration ms.")
 
             } catch (ex: Exception) {
 
                 ex.printStackTrace()
 
-                logger.error("Exception on reporting.", ex)
+                println("Exception on reporting.")
 
                 call.respond(HttpStatusCode.InternalServerError)
             }
@@ -316,7 +313,7 @@ fun Application.configureRouting() {
 
             val duration = System.currentTimeMillis() - start
 
-            logger.info("Returned current mod version in $duration ms.")
+            println("Returned current mod version in $duration ms.")
         }
 
         get("/export") {
@@ -329,7 +326,7 @@ fun Application.configureRouting() {
 
             if (apiKey != System.getenv("DATABASE_EXPORT_API_KEY")) {
 
-                logger.warn("Unauthorized API key used by ip address $ipAddress.")
+                println("Unauthorized API key used by ip address $ipAddress.")
 
                 call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
 
@@ -415,7 +412,7 @@ fun Application.configureRouting() {
 
             val duration = System.currentTimeMillis() - start
 
-            logger.info("Exported data in $duration ms.")
+            println("Exported data in $duration ms.")
 
             /* Final extra clean-up */
             System.gc()
@@ -444,13 +441,13 @@ fun Application.configureRouting() {
 
                 val duration = System.currentTimeMillis() - start
 
-                logger.info("Returned search results for filter $filterQuery in $duration ms.")
+                println("Returned search results for filter $filterQuery in $duration ms.")
 
             } catch (ex: Exception) {
 
                 ex.printStackTrace()
 
-                logger.error("Exception on submitting.", ex)
+                println("Exception on submitting.")
 
                 call.respond(HttpStatusCode.InternalServerError)
             }
@@ -476,7 +473,7 @@ fun Application.configureRouting() {
 //
 //            val duration = System.currentTimeMillis() - start
 //
-//            logger.info("Returned distinct clusters in $duration ms.")
+//            println("Returned distinct clusters in $duration ms.")
 //        }
 
         get("/count") {
@@ -497,7 +494,7 @@ fun Application.configureRouting() {
 
             val duration = System.currentTimeMillis() - start
 
-            logger.info("Returned count of seeds in $duration ms.")
+            println("Returned count of seeds in $duration ms.")
         }
 
         post("/upload") {
@@ -510,7 +507,7 @@ fun Application.configureRouting() {
 
             if (apiKey != System.getenv("MNI_API_KEY")) {
 
-                logger.warn("Unauthorized API key used by $ipAddress.")
+                println("Unauthorized API key used by $ipAddress.")
 
                 call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
 
@@ -529,7 +526,7 @@ fun Application.configureRouting() {
                 try {
                     UUID.fromString(upload.installationId)
                 } catch (ex: IllegalArgumentException) {
-                    logger.info("InstallationID was not UUID: ${upload.installationId}")
+                    println("InstallationID was not UUID: ${upload.installationId}")
                     call.respond(HttpStatusCode.NotAcceptable, "installationId must be UUID.")
                     return@post
                 }
@@ -605,7 +602,7 @@ fun Application.configureRouting() {
 
                 val duration = System.currentTimeMillis() - start
 
-                logger.info(
+                println(
                     "Completed upload in $duration ms. " +
                         "Optimization took $durationForOptimization ms."
                 )
@@ -616,7 +613,7 @@ fun Application.configureRouting() {
 
                 ex.printStackTrace()
 
-                logger.error("Exception on submitting.", ex)
+                println("Exception on submitting.")
 
                 call.respond(HttpStatusCode.InternalServerError)
             }
@@ -632,7 +629,7 @@ fun Application.configureRouting() {
 
             if (apiKey != System.getenv("MNI_API_KEY")) {
 
-                logger.warn("Unauthorized API key used by $ipAddress.")
+                println("Unauthorized API key used by $ipAddress.")
 
                 call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
 
@@ -651,7 +648,7 @@ fun Application.configureRouting() {
                 try {
                     UUID.fromString(failedGenReport.installationId)
                 } catch (ex: IllegalArgumentException) {
-                    logger.info("InstallationID was not UUID: ${failedGenReport.installationId}")
+                    println("InstallationID was not UUID: ${failedGenReport.installationId}")
                     call.respond(HttpStatusCode.NotAcceptable, "installationId must be UUID.")
                     return@post
                 }
@@ -705,13 +702,13 @@ fun Application.configureRouting() {
 
                 val duration = System.currentTimeMillis() - start
 
-                logger.info("Completed failed worldgen report in $duration ms.")
+                println("Completed failed worldgen report in $duration ms.")
 
             } catch (ex: Exception) {
 
                 ex.printStackTrace()
 
-                logger.error("Exception on reporting.", ex)
+                println("Exception on reporting.")
 
                 call.respond(HttpStatusCode.InternalServerError)
             }
@@ -732,7 +729,7 @@ fun Application.configureRouting() {
                     .map { it["coordinate"] as String }
                     .toList()
 
-                logger.info("The database contains ${coordinates.size} seeds reported as world gen failures.")
+                println("The database contains ${coordinates.size} seeds reported as world gen failures.")
 
                 val asSimpleString = coordinates.sorted().joinToString("\n")
 
@@ -741,7 +738,7 @@ fun Application.configureRouting() {
 
             val duration = System.currentTimeMillis() - start
 
-            logger.info("Returned world gen failures in $duration ms.")
+            println("Returned world gen failures in $duration ms.")
         }
 
         post("/requested-coordinate") {
@@ -768,7 +765,7 @@ fun Application.configureRouting() {
         get("/health") {
 
             if (connectionString.isBlank()) {
-                logger.error("No connection string set.")
+                println("No connection string set.")
                 call.respond(HttpStatusCode.InternalServerError, "No connection string set.")
                 return@get
             }
@@ -791,7 +788,7 @@ private suspend fun handleGetRequestedCoordinate(
 
     if (apiKey != System.getenv("MNI_API_KEY")) {
 
-        logger.warn("Unauthorized API key used by $ipAddress.")
+        println("Unauthorized API key used by $ipAddress.")
 
         call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
 
@@ -911,7 +908,7 @@ private suspend fun handleGetRequestedCoordinate(
 
     val duration = System.currentTimeMillis() - start
 
-    logger.info("Returned next requested coordinate in $duration ms.")
+    println("Returned next requested coordinate in $duration ms.")
 }
 
 /**
@@ -923,7 +920,7 @@ private fun ApplicationCall.getIpAddress(): String =
 
 private suspend fun populateSummaries() {
 
-    logger.info("populateSummaries()")
+    println("Starting populate entries...")
 
     val start = System.currentTimeMillis()
 
@@ -939,7 +936,7 @@ private suspend fun populateSummaries() {
 
         if (missingCoordinates.isNotEmpty()) {
 
-            logger.info("Adding ${missingCoordinates.size} to search index...")
+            println("Adding ${missingCoordinates.size} to search index...")
 
             val clustersCollection = database.getCollection<Cluster>("worlds")
 
@@ -953,18 +950,18 @@ private suspend fun populateSummaries() {
 
                 summariesCollection.insertOne(ClusterSummary.create(world))
 
-                logger.info("Created search index for ${world.coordinate}")
+                println("Created search index for ${world.coordinate}")
             }
 
         } else {
 
-            logger.info("Search index is up to date.")
+            println("Search index is up to date.")
         }
     }
 
     val duration = System.currentTimeMillis() - start
 
-    logger.info("Created search index in $duration ms.")
+    println("Created search index in $duration ms.")
 }
 
 private suspend fun findAllExistingCoordinates(database: MongoDatabase): Set<String> {
