@@ -26,7 +26,7 @@ import org.bson.conversions.Bson
 
 fun generateFilter(filterQuery: FilterQuery): Bson {
 
-    val clusterFilter = Filters.eq("cluster", filterQuery.cluster)
+    val clusterFilter = Filters.eq("clusterType", filterQuery.cluster)
 
     if (filterQuery.rules.isEmpty())
         return clusterFilter
@@ -37,7 +37,7 @@ fun generateFilter(filterQuery: FilterQuery): Bson {
 
     for (orRules in filterQuery.rules) {
 
-        val orRulesBson = mutableListOf<Bson>()
+        val orRulesBsonList = mutableListOf<Bson>()
 
         for (orRule in orRules)
             when {
@@ -74,69 +74,58 @@ fun generateFilter(filterQuery: FilterQuery): Bson {
 //                }
 
                 orRule.geyserOutput != null ->
-                    orRulesBson.add(generateGeyserOutputFilter(orRule.asteroid, orRule.geyserOutput))
+                    orRulesBsonList.add(generateGeyserOutputFilter(orRule.asteroid, orRule.geyserOutput))
 
                 orRule.worldTrait != null ->
-                    orRulesBson.add(generateWorldTraitFilter(orRule.asteroid, orRule.worldTrait))
+                    orRulesBsonList.add(generateWorldTraitFilter(orRule.asteroid, orRule.worldTrait))
             }
 
-        if (orRulesBson.isNotEmpty())
-            andRulesBson.add(Filters.or(orRulesBson))
+        if (orRulesBsonList.isNotEmpty())
+            andRulesBson.add(Filters.or(orRulesBsonList))
     }
 
     return Filters.and(andRulesBson)
 }
 
 private fun generateGeyserOutputFilter(
-    asteroid: String,
-    geyserOutput: FilterItemGeyserOutput
+    asteroidId: String,
+    filterItem: FilterItemGeyserOutput
 ): Bson {
 
+    val output = filterItem.outputInGramPerSecond
+
     return Filters.elemMatch(
-        "asteroids",
+        "asteroidSummaries",
         Filters.and(
-            Filters.eq("id", asteroid),
-            Filters.elemMatch(
-                "geysers",
-                Filters.and(
-                    Filters.eq("id", geyserOutput.geyser),
+            Filters.eq("id", asteroidId),
+            when (filterItem.condition) {
 
-                    when (geyserOutput.condition) {
+                FilterCondition.EXACTLY ->
+                    Filters.eq("geyserTotalOutputs.${filterItem.geyser}", output)
 
-                        FilterCondition.EXACTLY ->
-                            Filters.eq("avgEmitRate", geyserOutput.outputInGramPerSecond)
+                FilterCondition.AT_LEAST ->
+                    Filters.gte("geyserTotalOutputs.${filterItem.geyser}", output)
 
-                        FilterCondition.AT_LEAST ->
-                            Filters.gte("avgEmitRate", geyserOutput.outputInGramPerSecond)
-
-                        FilterCondition.AT_MOST ->
-                            Filters.lte("avgEmitRate", geyserOutput.outputInGramPerSecond)
-                    }
-                )
-            )
+                FilterCondition.AT_MOST ->
+                    Filters.lte("geyserTotalOutputs.${filterItem.geyser}", output)
+            }
         )
     )
 }
 
 private fun generateWorldTraitFilter(
-    asteroid: String,
-    worldTrait: FilterItemWorldTrait
+    asteroidId: String,
+    filterItem: FilterItemWorldTrait
 ): Bson {
 
-    if (worldTrait.has)
-        return Filters.elemMatch(
-            "asteroids",
-            Filters.and(
-                Filters.eq("id", asteroid),
-                Filters.eq("worldTraits", worldTrait.worldTrait)
-            )
-        )
-
     return Filters.elemMatch(
-        "asteroids",
+        "asteroidSummaries",
         Filters.and(
-            Filters.eq("id", asteroid),
-            Filters.ne("worldTraits", worldTrait.worldTrait)
+            Filters.eq("id", asteroidId),
+            if (filterItem.has)
+                Filters.eq("worldTraits", filterItem.worldTrait)
+            else
+                Filters.ne("worldTraits", filterItem.worldTrait)
         )
     )
 }

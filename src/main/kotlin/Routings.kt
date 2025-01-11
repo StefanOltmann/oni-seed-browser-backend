@@ -429,15 +429,41 @@ fun Application.configureRouting() {
 
                 val filterQuery = call.receive<FilterQuery>()
 
+//                val filter = Filters.and(
+//                    Filters.eq("clusterType", filterQuery.cluster),
+//                    Filters.or(
+//
+//                        Filters.elemMatch(
+//                            "asteroidSummaries",
+//                            Filters.and(
+//                                Filters.eq("id", AsteroidType.Badlands.name),
+//                                Filters.eq("worldTraits", "Geodes")
+//                            )
+//                        )
+//                    )
+//                )
+
                 val filter = generateFilter(filterQuery)
 
                 MongoClient.create(mongoClientSettings).use { mongoClient ->
 
                     val database = mongoClient.getDatabase("oni")
 
-                    val collection = database.getCollection<Cluster>("worlds")
+                    val matchingSummaries: List<ClusterSummary> = database
+                        .getCollection<ClusterSummary>("summaries")
+                        .find(filter)
+                        .limit(RESULT_LIMIT)
+                        .toList()
 
-                    val resultClusters = collection.find(filter).limit(RESULT_LIMIT).toList()
+                    println("Found ${matchingSummaries.size} matches for filter.")
+
+                    val matchingCoordinates: List<String> =
+                        matchingSummaries.map { it.coordinate }.toList()
+
+                    val resultClusters: List<Cluster> = database
+                        .getCollection<Cluster>("worlds")
+                        .find(Filters.`in`("coordinate", matchingCoordinates))
+                        .toList()
 
                     call.respond(resultClusters)
                 }
