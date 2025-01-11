@@ -19,6 +19,7 @@
 
 import com.mongodb.client.model.Filters
 import model.filter.FilterCondition
+import model.filter.FilterItemGeyserCount
 import model.filter.FilterItemGeyserOutput
 import model.filter.FilterItemWorldTrait
 import model.filter.FilterQuery
@@ -42,36 +43,8 @@ fun generateFilter(filterQuery: FilterQuery): Bson {
         for (orRule in orRules)
             when {
 
-                // FIXME Implement geyser count
-//                orRule.geyserCount != null -> {
-//
-//                    val geyserCount = orRule.geyserCount
-//
-//                    if (orRule.asteroid != null) {
-//
-//                        val conditionString = when (geyserCount.condition) {
-//                            FilterCondition.EXACTLY -> "eq"
-//                            FilterCondition.AT_LEAST -> "gte"
-//                            FilterCondition.AT_MOST -> "lte"
-//                        }
-//
-//                        val bson = Document.parse(
-//                            "{\n" +
-//                                "  \"asteroids\": {\n" +
-//                                "    \"\$elemMatch\": {\n" +
-//                                "      \"id\": \"${orRule.asteroid}\",\n" +
-//                                "      \"geysers\": {\n" +
-//                                "        \"\$elemMatch\": { \"id\": \"steam\" },\n" +
-//                                "        \"\$size\": { \"$conditionString\": ${geyserCount.count} }\n" +
-//                                "      }\n" +
-//                                "    }\n" +
-//                                "  }\n" +
-//                                "}"
-//                        )
-//
-//                        orRulesBson.add(bson)
-//                    }
-//                }
+                orRule.geyserCount != null ->
+                    orRulesBsonList.add(generateGeyserCountFilter(orRule.asteroid, orRule.geyserCount))
 
                 orRule.geyserOutput != null ->
                     orRulesBsonList.add(generateGeyserOutputFilter(orRule.asteroid, orRule.geyserOutput))
@@ -85,6 +58,32 @@ fun generateFilter(filterQuery: FilterQuery): Bson {
     }
 
     return Filters.and(andRulesBson)
+}
+
+private fun generateGeyserCountFilter(
+    asteroidId: String,
+    filterItem: FilterItemGeyserCount
+): Bson {
+
+    val count: Int = requireNotNull(filterItem.count)
+
+    return Filters.elemMatch(
+        "asteroidSummaries",
+        Filters.and(
+            Filters.eq("id", asteroidId),
+            when (filterItem.condition) {
+
+                FilterCondition.EXACTLY ->
+                    Filters.eq("geyserCounts.${filterItem.geyser}", count)
+
+                FilterCondition.AT_LEAST ->
+                    Filters.gte("geyserCounts.${filterItem.geyser}", count)
+
+                FilterCondition.AT_MOST ->
+                    Filters.lte("geyserCounts.${filterItem.geyser}", count)
+            }
+        )
+    )
 }
 
 private fun generateGeyserOutputFilter(
