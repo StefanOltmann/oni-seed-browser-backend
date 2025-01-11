@@ -226,19 +226,34 @@ fun Application.configureRouting() {
 
         get("/auth/callback") {
 
-            val params = call.request.queryParameters
+            try {
 
-            val validationResponse = validateSteamLogin(params)
+                println("Trying authentication...")
 
-            if (validationResponse != null) {
+                val params = call.request.queryParameters
 
-                call.sessions.set(UserSession(steamId = validationResponse))
+                val steamId = validateSteamLogin(params)
 
-                call.respondText("Login successful! Steam ID: $validationResponse")
+                if (steamId != null) {
 
-            } else {
+                    call.sessions.set(UserSession(steamId = steamId))
 
-                call.respondText("Authentication failed!")
+                    call.respondText("Login successful! Steam ID: $steamId")
+
+                    println("Authentication as steamId $steamId successful!")
+
+                } else {
+
+                    call.respondText("Authentication failed!")
+
+                    println("Authentication failed!")
+                }
+
+            } catch (ex: Exception) {
+
+                println("Error during authentication.")
+
+                ex.printStackTrace()
             }
         }
 
@@ -1083,8 +1098,6 @@ private suspend fun findAllSearchIndexCoordinates(database: MongoDatabase): Set<
     return coordinates
 }
 
-
-// Function to validate the OpenID response
 suspend fun validateSteamLogin(params: Parameters): String? {
 
     val steamOpenIdEndpoint = "https://steamcommunity.com/openid/login"
@@ -1093,13 +1106,17 @@ suspend fun validateSteamLogin(params: Parameters): String? {
 
     val client = HttpClient()
 
+    println("Contacting endpoint...")
+
     val response = client.post(steamOpenIdEndpoint) {
         setBody(FormDataContent(validationParams))
     }
 
-    println("Response: ${response.bodyAsText()}")
+    val responseText = response.bodyAsText()
 
-    return if (response.bodyAsText().contains("is_valid:true")) {
+    println("Response: $responseText")
+
+    return if (responseText.contains("is_valid:true")) {
         params["openid.claimed_id"]?.substringAfterLast("/")
     } else null
 }
