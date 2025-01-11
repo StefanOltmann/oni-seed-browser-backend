@@ -29,6 +29,7 @@ import com.mongodb.client.model.Updates
 import com.mongodb.kotlin.client.coroutine.MongoClient
 import com.mongodb.kotlin.client.coroutine.MongoDatabase
 import io.ktor.client.HttpClient
+import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.request.forms.FormDataContent
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -116,6 +117,8 @@ private val strictAllFieldsCbor = Cbor {
     ignoreUnknownKeys = false
     encodeDefaults = true
 }
+
+val httpClient = HttpClient(OkHttp)
 
 /* Limit the results to avoid memory issues */
 const val RESULT_LIMIT = 100
@@ -1108,11 +1111,9 @@ suspend fun validateSteamLogin(params: Parameters): String? {
 
     println("Creating HTTP client for $validationParams")
 
-    val client = HttpClient()
-
     println("Contacting endpoint...")
 
-    val response = client.post(steamOpenIdEndpoint) {
+    val response = httpClient.post(steamOpenIdEndpoint) {
         setBody(FormDataContent(validationParams))
     }
 
