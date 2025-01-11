@@ -66,9 +66,15 @@ import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
+import io.ktor.server.sessions.SessionTransportTransformerEncrypt
+import io.ktor.server.sessions.SessionTransportTransformerMessageAuthentication
 import io.ktor.server.sessions.Sessions
+import io.ktor.server.sessions.cookie
+import io.ktor.server.sessions.get
 import io.ktor.server.sessions.sessions
+import io.ktor.server.sessions.set
 import io.ktor.server.util.url
+import io.ktor.util.hex
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
@@ -96,6 +102,9 @@ import java.util.zip.ZipOutputStream
 
 private val connectionString = System.getenv("MONGO_DB_CONNECTION_STRING") ?: ""
 
+private val signingKey = hex(System.getenv("SESSION_SIGNING_KEY"))
+private val encryptionKey = hex(System.getenv("SESSION_ENCRYPTION_KEY"))
+
 private val serverApi = ServerApi.builder()
     .version(ServerApiVersion.V1)
     .build()
@@ -122,8 +131,6 @@ val httpClient = HttpClient(OkHttp)
 const val RESULT_LIMIT = 100
 
 const val EXPORT_BATCH_SIZE = 10000
-
-const val STEAMID = "steamid"
 
 @OptIn(ExperimentalSerializationApi::class)
 fun Application.configureRouting() {
@@ -166,6 +173,36 @@ fun Application.configureRouting() {
     }
 
     install(Sessions) {
+
+        cookie<UserSession>("USER_SESSION") {
+
+            /* Valid for the entire site */
+            cookie.path = "/"
+
+            /* Protected from JavaScript access */
+            cookie.httpOnly = true
+
+            /* Only for HTTPS */
+            cookie.secure = true
+
+            /* Signing */
+            transform(
+                SessionTransportTransformerMessageAuthentication(
+                    key = signingKey,
+                    algorithm = "HmacSHA256"
+                )
+            )
+
+            /* Encryption */
+            transform(
+                SessionTransportTransformerEncrypt(
+                    encryptionKey = encryptionKey,
+                    signKey = signingKey,
+                    encryptAlgorithm = "AES",
+                    signAlgorithm = "HmacSHA256"
+                )
+            )
+        }
     }
 
     launch {
@@ -236,7 +273,7 @@ fun Application.configureRouting() {
 
                 if (steamId != null) {
 
-                    call.sessions.set(STEAMID, steamId)
+                    call.sessions.set(UserSession(steamId = steamId))
 
                     println("Authentication as $steamId successful!")
 
@@ -259,14 +296,14 @@ fun Application.configureRouting() {
 
         get("/steamid") {
 
-            val steamId = call.sessions.get(STEAMID)
+            val session = call.sessions.get<UserSession>()
 
-            if (steamId == null) {
+            if (session == null) {
                 call.respond(HttpStatusCode.Unauthorized, "Unauthorized")
                 return@get
             }
 
-            call.respond(HttpStatusCode.OK, "$steamId")
+            call.respond(HttpStatusCode.OK, session.steamId)
         }
 
         get("/coordinate/{coordinate}") {
