@@ -238,18 +238,18 @@ fun Application.configureRouting() {
 
                     call.sessions.set(UserSession(steamId = steamId))
 
-                    call.respondText("Login successful! Steam ID: $steamId")
-
                     println("Authentication as steamId $steamId successful!")
+
+                    call.respond(HttpStatusCode.OK, "Login successful! Steam ID: $steamId")
 
                 } else {
 
-                    call.respondText("Authentication failed!")
-
                     println("Authentication failed!")
+
+                    call.respond(HttpStatusCode.Unauthorized, "Authentication failed!")
                 }
 
-            } catch (ex: Exception) {
+            } catch (ex: Throwable) {
 
                 println("Error during authentication.")
 
@@ -1102,7 +1102,11 @@ suspend fun validateSteamLogin(params: Parameters): String? {
 
     val steamOpenIdEndpoint = "https://steamcommunity.com/openid/login"
 
+    println("Build validation parameters...")
+
     val validationParams = params.buildValidationParameters()
+
+    println("Creating HTTP client for $validationParams")
 
     val client = HttpClient()
 
