@@ -28,11 +28,18 @@ import com.mongodb.client.model.Sorts
 import com.mongodb.client.model.Updates
 import com.mongodb.kotlin.client.coroutine.MongoClient
 import com.mongodb.kotlin.client.coroutine.MongoDatabase
+import io.ktor.client.HttpClient
+import io.ktor.client.request.forms.FormDataContent
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentDisposition
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.Parameters
+import io.ktor.http.ParametersBuilder
 import io.ktor.http.path
 import io.ktor.serialization.kotlinx.cbor.cbor
 import io.ktor.serialization.kotlinx.json.json
@@ -59,6 +66,9 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import io.ktor.server.sessions.Sessions
 import io.ktor.server.sessions.cookie
+import io.ktor.server.sessions.get
+import io.ktor.server.sessions.sessions
+import io.ktor.server.sessions.set
 import io.ktor.server.util.url
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
@@ -218,7 +228,30 @@ fun Application.configureRouting() {
 
             val params = call.request.queryParameters
 
-            println("Callback parameters: $params")
+            val validationResponse = validateSteamLogin(params)
+
+            if (validationResponse != null) {
+
+                call.sessions.set(UserSession(steamId = validationResponse))
+
+                call.respondText("Login successful! Steam ID: $validationResponse")
+
+            } else {
+
+                call.respondText("Authentication failed!")
+            }
+        }
+
+        get("/userid") {
+
+            val session = call.sessions.get<UserSession>()
+
+            if (session == null) {
+                call.respond(HttpStatusCode.Unauthorized, "You need to log in.")
+                return@get
+            }
+
+            call.respond(HttpStatusCode.OK, "Your steam ID: $session")
         }
 
         get("/coordinate/{coordinate}") {
@@ -1051,3 +1084,37 @@ private suspend fun findAllSearchIndexCoordinates(database: MongoDatabase): Set<
 }
 
 
+// Function to validate the OpenID response
+suspend fun validateSteamLogin(params: Parameters): String? {
+
+    val steamOpenIdEndpoint = "https://steamcommunity.com/openid/login"
+
+    val validationParams = params.buildValidationParameters()
+
+    val client = HttpClient()
+
+    val response = client.post(steamOpenIdEndpoint) {
+        setBody(FormDataContent(validationParams))
+    }
+
+    println("Response: ${response.bodyAsText()}")
+
+    return if (response.bodyAsText().contains("is_valid:true")) {
+        params["openid.claimed_id"]?.substringAfterLast("/")
+    } else null
+}
+
+fun Parameters.buildValidationParameters(): Parameters {
+
+    val builder = ParametersBuilder()
+
+    builder.append("openid.mode", "check_authentication")
+
+    this.forEach { key, values ->
+        values.forEach { value ->
+            builder.append(key, value)
+        }
+    }
+
+    return builder.build()
+}
