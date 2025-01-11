@@ -41,6 +41,7 @@ import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.Parameters
 import io.ktor.http.ParametersBuilder
+import io.ktor.http.isSuccess
 import io.ktor.http.path
 import io.ktor.serialization.kotlinx.cbor.cbor
 import io.ktor.serialization.kotlinx.json.json
@@ -1111,15 +1112,20 @@ suspend fun validateSteamLogin(params: Parameters): String? {
 
     println("Creating HTTP client for $validationParams")
 
-    println("Contacting endpoint...")
-
     val response = httpClient.post(steamOpenIdEndpoint) {
         setBody(FormDataContent(validationParams))
     }
 
+    if (!response.status.isSuccess()) {
+
+        println("Auth was not successful: ${response.status} ${response.bodyAsText()}")
+
+        return null
+    }
+
     val responseText = response.bodyAsText()
 
-    println("Response: $responseText")
+    println("Response: ${response.status} $responseText")
 
     return if (responseText.contains("is_valid:true")) {
         params["openid.claimed_id"]?.substringAfterLast("/")
@@ -1128,15 +1134,21 @@ suspend fun validateSteamLogin(params: Parameters): String? {
 
 fun Parameters.buildValidationParameters(): Parameters {
 
-    val builder = ParametersBuilder()
+    val parametersBuilder = ParametersBuilder()
 
-    builder.append("openid.mode", "check_authentication")
+    parametersBuilder.append("openid.mode", "check_authentication")
 
     this.forEach { key, values ->
         values.forEach { value ->
-            builder.append(key, value)
+
+            /*
+             * Forward all other parameters except for openid.mode
+             */
+
+            if (key != "openid.mode")
+                parametersBuilder.append(key, value)
         }
     }
 
-    return builder.build()
+    return parametersBuilder.build()
 }
