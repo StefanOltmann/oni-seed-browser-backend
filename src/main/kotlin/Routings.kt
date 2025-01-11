@@ -70,6 +70,7 @@ import io.ktor.server.sessions.SessionTransportTransformerMessageAuthentication
 import io.ktor.server.sessions.Sessions
 import io.ktor.server.sessions.cookie
 import io.ktor.server.sessions.get
+import io.ktor.server.sessions.maxAge
 import io.ktor.server.sessions.sessions
 import io.ktor.server.sessions.set
 import io.ktor.server.util.url
@@ -98,6 +99,7 @@ import org.bson.Document
 import java.util.UUID
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
+import kotlin.time.Duration.Companion.days
 
 private val connectionString = System.getenv("MONGO_DB_CONNECTION_STRING") ?: ""
 
@@ -182,6 +184,9 @@ fun Application.configureRouting() {
 
             /* Only for HTTPS */
             cookie.secure = true
+
+            /* Keep it for three months */
+            cookie.maxAge = 90.days
 
             /* Signing */
             transform(
