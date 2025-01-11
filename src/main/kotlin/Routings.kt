@@ -189,7 +189,7 @@ fun Application.configureRouting() {
             transform(
                 SessionTransportTransformerMessageAuthentication(
                     key = signingKey,
-                    algorithm = "HmacSHA256"
+//                    algorithm = "HmacSHA256"
                 )
             )
 
@@ -198,8 +198,8 @@ fun Application.configureRouting() {
                 SessionTransportTransformerEncrypt(
                     encryptionKey = encryptionKey,
                     signKey = signingKey,
-                    encryptAlgorithm = "AES",
-                    signAlgorithm = "HmacSHA256"
+//                    encryptAlgorithm = "AES",
+//                    signAlgorithm = "HmacSHA256"
                 )
             )
         }
