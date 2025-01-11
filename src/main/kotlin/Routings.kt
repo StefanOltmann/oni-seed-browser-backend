@@ -183,9 +183,12 @@ fun Application.configureRouting() {
 
         get("/") {
 
-            val uptimeHours = (System.currentTimeMillis() - startTime) / 1000 / 60 / 60
+            val uptimeMinutes = (System.currentTimeMillis() - startTime) / 1000 / 60
 
-            call.respondText("ONI Seed Browser Backend $VERSION (up since $uptimeHours hours)")
+            val uptimeHours = uptimeMinutes / 60
+            val minutes = uptimeHours % 60
+
+            call.respondText("ONI Seed Browser Backend $VERSION (up since $uptimeHours hours and $minutes minutes)")
         }
 
         get("/coordinate/{coordinate}") {
@@ -593,9 +596,14 @@ fun Application.configureRouting() {
                     database
                         .getCollection<RequestedCoordinate>("requestedCoordinates")
                         .updateOne(
-                            Filters.eq(RequestedCoordinate::coordinate.name, optimizedCluster.coordinate),
+                            Filters.eq(RequestedCoordinate::coordinate.name, cluster.coordinate),
                             Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.COMPLETED)
                         )
+
+                    /* Add to search index */
+                    database
+                        .getCollection<ClusterSummary>("summaries")
+                        .insertOne(ClusterSummary.create(cluster))
                 }
 
                 call.respond(HttpStatusCode.OK, "Data was saved.")
@@ -606,8 +614,6 @@ fun Application.configureRouting() {
                     "Completed upload in $duration ms. " +
                         "Optimization took $durationForOptimization ms."
                 )
-
-                populateSummaries()
 
             } catch (ex: Exception) {
 
