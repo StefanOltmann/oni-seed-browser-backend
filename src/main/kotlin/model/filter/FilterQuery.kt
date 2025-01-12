@@ -28,6 +28,9 @@ data class FilterQuery(
 
     val dlcs: List<String>,
 
+    /* Ignored field */
+    val mode: String? = null,
+
     /**
      * List of connected OR-rules.
      *
