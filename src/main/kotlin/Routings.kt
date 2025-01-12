@@ -101,6 +101,13 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import kotlin.time.Duration.Companion.days
 
+/* Limit the results to avoid memory issues */
+const val RESULT_LIMIT = 100
+
+const val EXPORT_BATCH_SIZE = 10000
+
+const val USER_HEADER = "User"
+
 private val connectionString = System.getenv("MONGO_DB_CONNECTION_STRING") ?: ""
 
 private val signingKey = hex(System.getenv("SESSION_SIGNING_KEY"))
@@ -126,11 +133,6 @@ private val strictAllFieldsCbor = Cbor {
 }
 
 val httpClient = HttpClient(OkHttp)
-
-/* Limit the results to avoid memory issues */
-const val RESULT_LIMIT = 100
-
-const val EXPORT_BATCH_SIZE = 10000
 
 @OptIn(ExperimentalSerializationApi::class)
 fun Application.configureRouting() {
@@ -169,7 +171,7 @@ fun Application.configureRouting() {
 
         allowHeader(HttpHeaders.AccessControlAllowOrigin)
         allowHeader(HttpHeaders.ContentType)
-        allowHeader(header = "User")
+        allowHeader(header = USER_HEADER)
 
         anyHost()
     }
@@ -249,6 +251,11 @@ fun Application.configureRouting() {
 
             val user = call.parameters["user"]
 
+            if (user.isNullOrBlank()) {
+                call.respond(HttpStatusCode.BadRequest, "Missing 'user' path parameter.")
+                return@get
+            }
+
             val steamLoginUrl = "https://steamcommunity.com/openid/login?" +
                 "openid.ns=http://specs.openid.net/auth/2.0" +
                 "&openid.mode=checkid_setup" +
@@ -264,9 +271,14 @@ fun Application.configureRouting() {
 
             try {
 
-                val params = call.request.queryParameters
-
                 val user = call.parameters["user"]
+
+                if (user.isNullOrBlank()) {
+                    call.respond(HttpStatusCode.BadRequest, "Missing 'user' path parameter.")
+                    return@get
+                }
+
+                val params = call.request.queryParameters
 
                 val steamId = validateSteamLogin(params)
 
@@ -300,7 +312,12 @@ fun Application.configureRouting() {
 
         get("/steamid") {
 
-            val userId: String? = this.call.request.headers["User"]
+            val userId: String? = this.call.request.headers[USER_HEADER]
+
+            if (userId.isNullOrBlank()) {
+                call.respond(HttpStatusCode.BadRequest, "Missing '$USER_HEADER' header.")
+                return@get
+            }
 
             val session = call.sessions.get<UserSession>()
 
@@ -316,7 +333,12 @@ fun Application.configureRouting() {
 
         get("/coordinate/{coordinate}") {
 
-            val userId: String? = this.call.request.headers["User"]
+            val userId: String? = this.call.request.headers[USER_HEADER]
+
+            if (userId.isNullOrBlank()) {
+                call.respond(HttpStatusCode.BadRequest, "Missing '$USER_HEADER' header.")
+                return@get
+            }
 
             val coordinate = call.parameters["coordinate"]
 
@@ -548,7 +570,12 @@ fun Application.configureRouting() {
 
         post("/search") {
 
-            val userId: String? = this.call.request.headers["User"]
+            val userId: String? = this.call.request.headers[USER_HEADER]
+
+            if (userId.isNullOrBlank()) {
+                call.respond(HttpStatusCode.BadRequest, "Missing '$USER_HEADER' header.")
+                return@post
+            }
 
             val start = System.currentTimeMillis()
 
@@ -634,7 +661,12 @@ fun Application.configureRouting() {
 
         get("/count") {
 
-            val userId: String? = this.call.request.headers["User"]
+            val userId: String? = this.call.request.headers[USER_HEADER]
+
+            if (userId.isNullOrBlank()) {
+                call.respond(HttpStatusCode.BadRequest, "Missing '$USER_HEADER' header.")
+                return@get
+            }
 
             val start = System.currentTimeMillis()
 
