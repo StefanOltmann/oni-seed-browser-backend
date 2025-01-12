@@ -916,9 +916,20 @@ fun Application.configureRouting() {
 
             val coordinate = call.receive<String>()
 
-            try {
+            val cleanCoordinate = try {
 
-                val cleanCoordinate = cleanCoordinate(coordinate)
+                cleanCoordinate(coordinate)
+
+            } catch (ex: Exception) {
+
+                println("Ignoring invalid coordinate $coordinate")
+
+                call.respond(HttpStatusCode.BadRequest, "Invalid coordinate '$coordinate'")
+
+                return@post
+            }
+
+            try {
 
                 MongoClient.create(mongoClientSettings).use { mongoClient ->
 
@@ -940,7 +951,7 @@ fun Application.configureRouting() {
 
                 ex.printStackTrace()
 
-                call.respond(HttpStatusCode.BadRequest, "Bad coordinate '$coordinate'")
+                call.respond(HttpStatusCode.BadRequest, "Failed to add: $cleanCoordinate")
             }
         }
 
