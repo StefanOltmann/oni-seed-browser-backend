@@ -297,24 +297,15 @@ fun Application.configureRouting() {
                 return@get
             }
 
-            MongoClient.create(mongoClientSettings).use { mongoClient ->
+            val steamId = findSteamId(clientId)
 
-                val database = mongoClient.getDatabase("oni")
+            if (steamId != null) {
 
-                val collection = database.getCollection<Client>("clients")
+                call.respond(HttpStatusCode.OK, steamId)
 
-                val client = collection.find(
-                    Filters.eq("clientId", clientId)
-                ).firstOrNull()
+            } else {
 
-                if (client != null) {
-
-                    call.respond(HttpStatusCode.OK, client.steamId)
-
-                } else {
-
-                    call.respond(HttpStatusCode.Unauthorized, "Unauthorized")
-                }
+                call.respond(HttpStatusCode.Unauthorized, "Unauthorized")
             }
         }
 
@@ -907,6 +898,52 @@ fun Application.configureRouting() {
             println("Returned world gen failures in $duration ms.")
         }
 
+        post("/request-coordinate") {
+
+            val clientId: String? = this.call.request.headers[CLIENT_ID_HEADER]
+
+            if (clientId.isNullOrBlank()) {
+                call.respond(HttpStatusCode.BadRequest, "Missing '$CLIENT_ID_HEADER' header.")
+                return@post
+            }
+
+            val steamId = findSteamId(clientId)
+
+            if (steamId.isNullOrBlank()) {
+                call.respond(HttpStatusCode.BadRequest, "Not connected to STEAM.")
+                return@post
+            }
+
+            val coordinate = call.receive<String>()
+
+            try {
+
+                val cleanCoordinate = cleanCoordinate(coordinate)
+
+                MongoClient.create(mongoClientSettings).use { mongoClient ->
+
+                    val database = mongoClient.getDatabase("oni")
+
+                    val collection = database.getCollection<RequestedCoordinate>("requestedCoordinates")
+
+                    collection.insertOne(
+                        RequestedCoordinate(
+                            steamId = steamId,
+                            date = System.currentTimeMillis(),
+                            coordinate = cleanCoordinate,
+                            status = RequestedCoordinateStatus.REQUESTED
+                        )
+                    )
+                }
+
+            } catch (ex: Exception) {
+
+                ex.printStackTrace()
+
+                call.respond(HttpStatusCode.BadRequest, "Bad coordinate '$coordinate'")
+            }
+        }
+
         post("/requested-coordinate") {
 
             val dlcs = call.receive<List<Dlc>>().toMutableList()
@@ -1197,4 +1234,20 @@ fun Parameters.buildValidationParameters(): Parameters {
     }
 
     return parametersBuilder.build()
+}
+
+private suspend fun findSteamId(clientId: String): String? {
+
+    MongoClient.create(mongoClientSettings).use { mongoClient ->
+
+        val database = mongoClient.getDatabase("oni")
+
+        val collection = database.getCollection<Client>("clients")
+
+        val client = collection.find(
+            Filters.eq("clientId", clientId)
+        ).firstOrNull()
+
+        return client?.steamId
+    }
 }
