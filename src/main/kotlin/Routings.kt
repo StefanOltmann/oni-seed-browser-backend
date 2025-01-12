@@ -81,7 +81,9 @@ import model.Cluster
 import model.Dlc
 import model.FailedGenReport
 import model.FailedGenReportDatabase
+import model.FavoredCoordinate
 import model.ModBinaryChecksumDatabase
+import model.RateCoordinateRequest
 import model.RequestedCoordinate
 import model.RequestedCoordinateStatus
 import model.Upload
@@ -955,6 +957,90 @@ fun Application.configureRouting() {
                 ex.printStackTrace()
 
                 call.respond(HttpStatusCode.BadRequest, "Failed to add: $cleanCoordinate")
+            }
+        }
+
+        get("/favored-coordinates") {
+
+            val clientId: String? = this.call.request.headers[CLIENT_ID_HEADER]
+
+            if (clientId.isNullOrBlank()) {
+                call.respond(HttpStatusCode.BadRequest, "Missing '$CLIENT_ID_HEADER' header.")
+                return@get
+            }
+
+            val steamId = findSteamId(clientId)
+
+            MongoClient.create(mongoClientSettings).use { mongoClient ->
+
+                val database = mongoClient.getDatabase("oni")
+
+                val collection = database.getCollection<FavoredCoordinate>("likes")
+
+                val favoredCoordinates: List<String> = collection
+                    .find(Filters.eq("steamId", steamId))
+                    .map { it.coordinate }
+                    .toList()
+
+                call.respond(favoredCoordinates)
+            }
+        }
+
+        post("/rate-coordinate") {
+
+            val clientId: String? = this.call.request.headers[CLIENT_ID_HEADER]
+
+            if (clientId.isNullOrBlank()) {
+                call.respond(HttpStatusCode.BadRequest, "Missing '$CLIENT_ID_HEADER' header.")
+                return@post
+            }
+
+            val steamId = findSteamId(clientId)
+
+            if (steamId.isNullOrBlank()) {
+                call.respond(HttpStatusCode.BadRequest, "Not connected to STEAM.")
+                return@post
+            }
+
+            val rateCoordinateRequest = call.receive<RateCoordinateRequest>()
+
+            try {
+
+                MongoClient.create(mongoClientSettings).use { mongoClient ->
+
+                    val database = mongoClient.getDatabase("oni")
+
+                    val collection = database.getCollection<FavoredCoordinate>("likes")
+
+                    if (rateCoordinateRequest.like) {
+
+                        collection.insertOne(
+                            FavoredCoordinate(
+                                steamId = steamId,
+                                date = System.currentTimeMillis(),
+                                coordinate = rateCoordinateRequest.coordinate
+                            )
+                        )
+
+                    } else {
+
+                        collection.deleteOne(
+                            Filters.and(
+                                Filters.eq("steamId", steamId),
+                                Filters.eq("coordinate", rateCoordinateRequest.coordinate)
+                            )
+                        )
+                    }
+                }
+
+                /* Send OK status. */
+                call.respond(HttpStatusCode.OK, "Coordinate requested.")
+
+            } catch (ex: Exception) {
+
+                ex.printStackTrace()
+
+                call.respond(HttpStatusCode.BadRequest, "Failed to rate.")
             }
         }
 
