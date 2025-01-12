@@ -300,6 +300,8 @@ fun Application.configureRouting() {
 
         get("/steamid") {
 
+            val userId: String? = this.call.request.headers["User"]
+
             val session = call.sessions.get<UserSession>()
 
             if (session == null) {
@@ -308,9 +310,13 @@ fun Application.configureRouting() {
             }
 
             call.respond(HttpStatusCode.OK, session.steamId)
+
+            println("Responded /steamid to $userId")
         }
 
         get("/coordinate/{coordinate}") {
+
+            val userId: String? = this.call.request.headers["User"]
 
             val coordinate = call.parameters["coordinate"]
 
@@ -341,7 +347,7 @@ fun Application.configureRouting() {
 
             val duration = System.currentTimeMillis() - start
 
-            println("Returned data for coordinate $coordinate in $duration ms.")
+            println("Returned data for coordinate $coordinate to $userId in $duration ms.")
         }
 
         post("/add-mod-binary-checksum") {
@@ -542,6 +548,8 @@ fun Application.configureRouting() {
 
         post("/search") {
 
+            val userId: String? = this.call.request.headers["User"]
+
             val start = System.currentTimeMillis()
 
             try {
@@ -589,7 +597,7 @@ fun Application.configureRouting() {
 
                 val duration = System.currentTimeMillis() - start
 
-                println("Returned search results for filter $filterQuery in $duration ms.")
+                println("Returned search results for filter $filterQuery for $userId in $duration ms.")
 
             } catch (ex: Exception) {
 
@@ -626,6 +634,8 @@ fun Application.configureRouting() {
 
         get("/count") {
 
+            val userId: String? = this.call.request.headers["User"]
+
             val start = System.currentTimeMillis()
 
             MongoClient.create(mongoClientSettings).use { mongoClient ->
@@ -642,7 +652,7 @@ fun Application.configureRouting() {
 
             val duration = System.currentTimeMillis() - start
 
-            println("Returned count of seeds in $duration ms.")
+            println("Returned count of seeds for $userId in $duration ms.")
         }
 
         post("/upload") {
