@@ -66,15 +66,7 @@ import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
-import io.ktor.server.sessions.SessionTransportTransformerMessageAuthentication
-import io.ktor.server.sessions.Sessions
-import io.ktor.server.sessions.cookie
-import io.ktor.server.sessions.get
-import io.ktor.server.sessions.maxAge
-import io.ktor.server.sessions.sessions
-import io.ktor.server.sessions.set
 import io.ktor.server.util.url
-import io.ktor.util.hex
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
@@ -84,6 +76,7 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.cbor.Cbor
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToStream
+import model.Client
 import model.Cluster
 import model.Dlc
 import model.FailedGenReport
@@ -99,18 +92,15 @@ import org.bson.Document
 import java.util.UUID
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
-import kotlin.time.Duration.Companion.days
 
 /* Limit the results to avoid memory issues */
 const val RESULT_LIMIT = 100
 
 const val EXPORT_BATCH_SIZE = 10000
 
-const val USER_HEADER = "User"
+const val CLIENT_ID_HEADER = "Client-ID"
 
 private val connectionString = System.getenv("MONGO_DB_CONNECTION_STRING") ?: ""
-
-private val signingKey = hex(System.getenv("SESSION_SIGNING_KEY"))
 
 private val serverApi = ServerApi.builder()
     .version(ServerApiVersion.V1)
@@ -171,35 +161,9 @@ fun Application.configureRouting() {
 
         allowHeader(HttpHeaders.AccessControlAllowOrigin)
         allowHeader(HttpHeaders.ContentType)
-        allowHeader(header = USER_HEADER)
+        allowHeader(header = CLIENT_ID_HEADER)
 
         anyHost()
-    }
-
-    install(Sessions) {
-
-        cookie<UserSession>("USER_SESSION") {
-
-            /* Valid for the entire site */
-            cookie.path = "/"
-
-            /* Protected from JavaScript access */
-            // cookie.httpOnly = true
-
-            /* Only for HTTPS */
-            cookie.secure = true
-
-            /* Keep it for three months */
-            cookie.maxAge = 90.days
-
-            /* Signing */
-            transform(
-                SessionTransportTransformerMessageAuthentication(
-                    key = signingKey,
-                    algorithm = "HmacSHA256"
-                )
-            )
-        }
     }
 
     launch {
@@ -230,6 +194,9 @@ fun Application.configureRouting() {
 
             database.getCollection<Cluster>("summaries")
                 .createIndex(Document("coordinate", 1), uniqueIndexOptions)
+
+            database.getCollection<Cluster>("clients")
+                .createIndex(Document("clientId", 1), uniqueIndexOptions)
         }
 
         populateSummaries()
@@ -247,19 +214,19 @@ fun Application.configureRouting() {
             call.respondText("ONI Seed Browser Backend $VERSION (up since $uptimeHours hours and $minutes minutes)")
         }
 
-        get("/login/{user}") {
+        get("/login/{clientId}") {
 
-            val user = call.parameters["user"]
+            val clientId = call.parameters["clientId"]
 
-            if (user.isNullOrBlank()) {
-                call.respond(HttpStatusCode.BadRequest, "Missing 'user' path parameter.")
+            if (clientId.isNullOrBlank()) {
+                call.respond(HttpStatusCode.BadRequest, "Missing 'clientId' path parameter.")
                 return@get
             }
 
             val steamLoginUrl = "https://steamcommunity.com/openid/login?" +
                 "openid.ns=http://specs.openid.net/auth/2.0" +
                 "&openid.mode=checkid_setup" +
-                "&openid.return_to=${call.url { path("auth/callback/$user") }}" +
+                "&openid.return_to=${call.url { path("auth/callback/$clientId") }}" +
                 "&openid.realm=${call.request.origin.scheme}://${call.request.host()}/" +
                 "&openid.identity=http://specs.openid.net/auth/2.0/identifier_select" +
                 "&openid.claimed_id=http://specs.openid.net/auth/2.0/identifier_select"
@@ -267,14 +234,14 @@ fun Application.configureRouting() {
             call.respondRedirect(steamLoginUrl)
         }
 
-        get("/auth/callback/{user}") {
+        get("/auth/callback/{clientId}") {
 
             try {
 
-                val user = call.parameters["user"]
+                val clientId = call.parameters["clientId"]
 
-                if (user.isNullOrBlank()) {
-                    call.respond(HttpStatusCode.BadRequest, "Missing 'user' path parameter.")
+                if (clientId.isNullOrBlank()) {
+                    call.respond(HttpStatusCode.BadRequest, "Missing 'clientId' path parameter.")
                     return@get
                 }
 
@@ -284,16 +251,23 @@ fun Application.configureRouting() {
 
                 if (steamId != null) {
 
-                    call.sessions.set(UserSession(steamId = steamId))
+                    MongoClient.create(mongoClientSettings).use { mongoClient ->
 
-                    println("Authentication as $steamId for $user successful!")
+                        val database = mongoClient.getDatabase("oni")
 
-                    val userSession = call.sessions.get("USER_SESSION")
+                        val collection = database.getCollection<Client>("clients")
 
-                    /*
-                     * Redirect back to the frontend.
-                     */
-                    call.respondRedirect("https://stefan-oltmann.de/oni-seed-browser/?userSession=$userSession")
+                        collection.insertOne(
+                            Client(
+                                clientId = clientId,
+                                steamId = steamId
+                            )
+                        )
+                    }
+
+                    println("Authentication as $steamId for $clientId successful!")
+
+                    call.respond(HttpStatusCode.OK, "Authentication successful!")
 
                 } else {
 
@@ -312,31 +286,42 @@ fun Application.configureRouting() {
 
         get("/steamid") {
 
-            val userId: String? = this.call.request.headers[USER_HEADER]
+            val clientId: String? = this.call.request.headers[CLIENT_ID_HEADER]
 
-            if (userId.isNullOrBlank()) {
-                call.respond(HttpStatusCode.BadRequest, "Missing '$USER_HEADER' header.")
+            if (clientId.isNullOrBlank()) {
+                call.respond(HttpStatusCode.BadRequest, "Missing '$CLIENT_ID_HEADER' header.")
                 return@get
             }
 
-            val session = call.sessions.get<UserSession>()
+            MongoClient.create(mongoClientSettings).use { mongoClient ->
 
-            if (session == null) {
-                call.respond(HttpStatusCode.Unauthorized, "Unauthorized")
-                return@get
+                val database = mongoClient.getDatabase("oni")
+
+                val collection = database.getCollection<Client>("clients")
+
+                val client = collection.find(
+                    Filters.eq("clientId", clientId)
+                ).firstOrNull()
+
+                if (client != null) {
+
+                    call.respond(HttpStatusCode.OK, client.steamId)
+
+                    println("Responded on /steamid: $client")
+
+                } else {
+
+                    call.respond(HttpStatusCode.Unauthorized, "Unauthorized")
+                }
             }
-
-            call.respond(HttpStatusCode.OK, session.steamId)
-
-            println("Responded /steamid to $userId")
         }
 
         get("/coordinate/{coordinate}") {
 
-            val userId: String? = this.call.request.headers[USER_HEADER]
+            val clientId: String? = this.call.request.headers[CLIENT_ID_HEADER]
 
-            if (userId.isNullOrBlank()) {
-                call.respond(HttpStatusCode.BadRequest, "Missing '$USER_HEADER' header.")
+            if (clientId.isNullOrBlank()) {
+                call.respond(HttpStatusCode.BadRequest, "Missing '$CLIENT_ID_HEADER' header.")
                 return@get
             }
 
@@ -369,7 +354,7 @@ fun Application.configureRouting() {
 
             val duration = System.currentTimeMillis() - start
 
-            println("Returned data for coordinate $coordinate to $userId in $duration ms.")
+            println("Returned data for coordinate $coordinate to $clientId in $duration ms.")
         }
 
         post("/add-mod-binary-checksum") {
@@ -570,10 +555,10 @@ fun Application.configureRouting() {
 
         post("/search") {
 
-            val userId: String? = this.call.request.headers[USER_HEADER]
+            val clientId: String? = this.call.request.headers[CLIENT_ID_HEADER]
 
-            if (userId.isNullOrBlank()) {
-                call.respond(HttpStatusCode.BadRequest, "Missing '$USER_HEADER' header.")
+            if (clientId.isNullOrBlank()) {
+                call.respond(HttpStatusCode.BadRequest, "Missing '$CLIENT_ID_HEADER' header.")
                 return@post
             }
 
@@ -582,20 +567,6 @@ fun Application.configureRouting() {
             try {
 
                 val filterQuery = call.receive<FilterQuery>()
-
-//                val filter = Filters.and(
-//                    Filters.eq("clusterType", filterQuery.cluster),
-//                    Filters.or(
-//
-//                        Filters.elemMatch(
-//                            "asteroidSummaries",
-//                            Filters.and(
-//                                Filters.eq("id", AsteroidType.Badlands.name),
-//                                Filters.eq("worldTraits", "Geodes")
-//                            )
-//                        )
-//                    )
-//                )
 
                 val filter = generateFilter(filterQuery)
 
@@ -624,7 +595,7 @@ fun Application.configureRouting() {
 
                 val duration = System.currentTimeMillis() - start
 
-                println("Returned search results for filter $filterQuery for $userId in $duration ms.")
+                println("Returned search results for filter $filterQuery for $clientId in $duration ms.")
 
             } catch (ex: Exception) {
 
@@ -661,10 +632,10 @@ fun Application.configureRouting() {
 
         get("/count") {
 
-            val userId: String? = this.call.request.headers[USER_HEADER]
+            val clientId: String? = this.call.request.headers[CLIENT_ID_HEADER]
 
-            if (userId.isNullOrBlank()) {
-                call.respond(HttpStatusCode.BadRequest, "Missing '$USER_HEADER' header.")
+            if (clientId.isNullOrBlank()) {
+                call.respond(HttpStatusCode.BadRequest, "Missing '$CLIENT_ID_HEADER' header.")
                 return@get
             }
 
@@ -684,7 +655,7 @@ fun Application.configureRouting() {
 
             val duration = System.currentTimeMillis() - start
 
-            println("Returned count of seeds for $userId in $duration ms.")
+            println("Returned count of seeds for $clientId in $duration ms.")
         }
 
         post("/upload") {

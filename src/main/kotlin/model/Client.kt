@@ -17,7 +17,15 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+package model
+
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class UserSession(val steamId: String)
+data class Client(
+
+    val clientId: String,
+
+    val steamId: String
+
+)
