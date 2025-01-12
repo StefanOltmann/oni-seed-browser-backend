@@ -66,11 +66,13 @@ import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
+import io.ktor.server.sessions.SameSite
 import io.ktor.server.sessions.SessionTransportTransformerMessageAuthentication
 import io.ktor.server.sessions.Sessions
 import io.ktor.server.sessions.cookie
 import io.ktor.server.sessions.get
 import io.ktor.server.sessions.maxAge
+import io.ktor.server.sessions.sameSite
 import io.ktor.server.sessions.sessions
 import io.ktor.server.sessions.set
 import io.ktor.server.util.url
@@ -180,13 +182,16 @@ fun Application.configureRouting() {
             cookie.path = "/"
 
             /* Protected from JavaScript access */
-            cookie.httpOnly = true
+            // cookie.httpOnly = true
 
             /* Only for HTTPS */
             cookie.secure = true
 
             /* Keep it for three months */
             cookie.maxAge = 90.days
+
+            /* Frontend is hosted on another site */
+            cookie.sameSite = SameSite.None
 
             /* Signing */
             transform(
@@ -270,11 +275,13 @@ fun Application.configureRouting() {
 
                     println("Authentication as $steamId successful!")
 
-                    val userSession = call.sessions.get("USER_SESSION")
+//                    val userSession = call.sessions.get("USER_SESSION")
+//
+//                    call.respondRedirect(
+//                        "https://stefan-oltmann.de/oni-seed-browser/?userSession=$userSession"
+//                    )
 
-                    call.respondRedirect(
-                        "https://stefan-oltmann.de/oni-seed-browser/?userSession=$userSession"
-                    )
+                    call.respond(HttpStatusCode.OK, steamId)
 
                 } else {
 
