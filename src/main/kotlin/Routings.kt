@@ -267,7 +267,10 @@ fun Application.configureRouting() {
 
                     println("Authentication as $steamId for $clientId successful!")
 
-                    call.respond(HttpStatusCode.OK, "Authentication successful!")
+                    call.respond(
+                        status = HttpStatusCode.OK,
+                        message = "Authentication successful! Please refresh the ONI seed browser page."
+                    )
 
                 } else {
 
@@ -280,7 +283,7 @@ fun Application.configureRouting() {
 
                 ex.printStackTrace()
 
-                call.respond(HttpStatusCode.InternalServerError, "Something went wrong!")
+                call.respond(HttpStatusCode.InternalServerError, "Sorry, something went wrong!")
             }
         }
 
