@@ -250,12 +250,14 @@ fun Application.configureRouting() {
             call.respondText("ONI Seed Browser Backend $VERSION (up since $uptimeHours hours and $minutes minutes)")
         }
 
-        get("/login") {
+        get("/login/{user}") {
+
+            val user = call.parameters["user"]
 
             val steamLoginUrl = "https://steamcommunity.com/openid/login?" +
                 "openid.ns=http://specs.openid.net/auth/2.0" +
                 "&openid.mode=checkid_setup" +
-                "&openid.return_to=${call.url { path("auth/callback") }}" +
+                "&openid.return_to=${call.url { path("auth/callback/$user") }}" +
                 "&openid.realm=${call.request.origin.scheme}://${call.request.host()}/" +
                 "&openid.identity=http://specs.openid.net/auth/2.0/identifier_select" +
                 "&openid.claimed_id=http://specs.openid.net/auth/2.0/identifier_select"
@@ -263,11 +265,13 @@ fun Application.configureRouting() {
             call.respondRedirect(steamLoginUrl)
         }
 
-        get("/auth/callback") {
+        get("/auth/callback/{user}") {
 
             try {
 
                 val params = call.request.queryParameters
+
+                val user = call.parameters["user"]
 
                 val steamId = validateSteamLogin(params)
 
@@ -275,7 +279,7 @@ fun Application.configureRouting() {
 
                     call.sessions.set(UserSession(steamId = steamId))
 
-                    println("Authentication as $steamId successful!")
+                    println("Authentication as $steamId for $user successful!")
 
                     val userSession = call.sessions.get("USER_SESSION")
 
