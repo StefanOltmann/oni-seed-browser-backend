@@ -269,7 +269,8 @@ fun Application.configureRouting() {
 
                     call.respond(
                         status = HttpStatusCode.OK,
-                        message = "Authentication successful! Please refresh the ONI seed browser page."
+                        message = "Authentication successful!\n" +
+                            "Please close this page and refresh the seed browser page."
                     )
 
                 } else {
