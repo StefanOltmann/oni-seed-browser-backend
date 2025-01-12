@@ -310,8 +310,6 @@ fun Application.configureRouting() {
 
                     call.respond(HttpStatusCode.OK, client.steamId)
 
-                    println("Responded on /steamid: $client")
-
                 } else {
 
                     call.respond(HttpStatusCode.Unauthorized, "Unauthorized")
@@ -1159,11 +1157,7 @@ suspend fun validateSteamLogin(params: Parameters): String? {
 
     val steamOpenIdEndpoint = "https://steamcommunity.com/openid/login"
 
-    println("Build validation parameters...")
-
     val validationParams = params.buildValidationParameters()
-
-    println("Creating HTTP client for $validationParams")
 
     val response = httpClient.post(steamOpenIdEndpoint) {
         setBody(FormDataContent(validationParams))
@@ -1177,8 +1171,6 @@ suspend fun validateSteamLogin(params: Parameters): String? {
     }
 
     val responseText = response.bodyAsText()
-
-    println("Response: ${response.status} $responseText")
 
     return if (responseText.contains("is_valid:true")) {
         params["openid.claimed_id"]?.substringAfterLast("/")
