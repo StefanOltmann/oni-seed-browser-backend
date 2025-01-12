@@ -66,13 +66,11 @@ import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
-import io.ktor.server.sessions.SameSite
 import io.ktor.server.sessions.SessionTransportTransformerMessageAuthentication
 import io.ktor.server.sessions.Sessions
 import io.ktor.server.sessions.cookie
 import io.ktor.server.sessions.get
 import io.ktor.server.sessions.maxAge
-import io.ktor.server.sessions.sameSite
 import io.ktor.server.sessions.sessions
 import io.ktor.server.sessions.set
 import io.ktor.server.util.url
@@ -165,13 +163,13 @@ fun Application.configureRouting() {
 
     install(CORS) {
 
-        allowCredentials = true
-
         allowMethod(HttpMethod.Options)
         allowMethod(HttpMethod.Post)
         allowMethod(HttpMethod.Get)
+
         allowHeader(HttpHeaders.AccessControlAllowOrigin)
         allowHeader(HttpHeaders.ContentType)
+        allowHeader(header = "User")
 
         anyHost()
     }
@@ -191,9 +189,6 @@ fun Application.configureRouting() {
 
             /* Keep it for three months */
             cookie.maxAge = 90.days
-
-            /* Frontend is hosted on another site */
-            cookie.sameSite = SameSite.None
 
             /* Signing */
             transform(
