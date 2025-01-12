@@ -277,13 +277,12 @@ fun Application.configureRouting() {
 
                     println("Authentication as $steamId successful!")
 
-//                    val userSession = call.sessions.get("USER_SESSION")
-//
-//                    call.respondRedirect(
-//                        "https://stefan-oltmann.de/oni-seed-browser/?userSession=$userSession"
-//                    )
+                    val userSession = call.sessions.get("USER_SESSION")
 
-                    call.respond(HttpStatusCode.OK, steamId)
+                    /*
+                     * Redirect back to the frontend.
+                     */
+                    call.respondRedirect("https://stefan-oltmann.de/oni-seed-browser/?userSession=$userSession")
 
                 } else {
 
