@@ -165,6 +165,8 @@ fun Application.configureRouting() {
 
     install(CORS) {
 
+        allowCredentials = true
+
         allowMethod(HttpMethod.Options)
         allowMethod(HttpMethod.Post)
         allowMethod(HttpMethod.Get)
