@@ -947,6 +947,9 @@ fun Application.configureRouting() {
                     )
                 }
 
+                /* Send OK status. */
+                call.respond(HttpStatusCode.OK, "Coordinate requested.")
+
             } catch (ex: Exception) {
 
                 ex.printStackTrace()
