@@ -67,6 +67,29 @@ private fun generateGeyserCountFilter(
 
     val count: Int = requireNotNull(filterItem.count)
 
+    /*
+     * If an asteroid should be excluded (by setting 0) we need a special logic,
+     * because the collection does not entries with zeros and the regular logic
+     * won't work here.
+     */
+    if (count == 0) {
+
+        return Filters.elemMatch(
+            "asteroidSummaries",
+            Filters.and(
+                Filters.eq("id", asteroidId),
+                when (filterItem.condition) {
+
+                    FilterCondition.EXACTLY, FilterCondition.AT_MOST ->
+                        Filters.exists("geyserCounts.${filterItem.geyser}", false)
+
+                    FilterCondition.AT_LEAST ->
+                        Filters.exists("geyserCounts.${filterItem.geyser}", true)
+                }
+            )
+        )
+    }
+
     return Filters.elemMatch(
         "asteroidSummaries",
         Filters.and(
