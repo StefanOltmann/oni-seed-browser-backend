@@ -960,6 +960,38 @@ fun Application.configureRouting() {
             }
         }
 
+        get("/favored-clusters") {
+
+            val clientId: String? = this.call.request.headers[CLIENT_ID_HEADER]
+
+            if (clientId.isNullOrBlank()) {
+                call.respond(HttpStatusCode.BadRequest, "Missing '$CLIENT_ID_HEADER' header.")
+                return@get
+            }
+
+            val steamId = findSteamId(clientId)
+
+            MongoClient.create(mongoClientSettings).use { mongoClient ->
+
+                val database = mongoClient.getDatabase("oni")
+
+                val likesCollection = database.getCollection<FavoredCoordinate>("likes")
+
+                val favoredCoordinates: List<String> = likesCollection
+                    .find(Filters.eq("steamId", steamId))
+                    .map { it.coordinate }
+                    .toList()
+
+                val clustersCollection = database.getCollection<Cluster>("worlds")
+
+                val favoredClusters = clustersCollection.find(
+                    Filters.`in`("coordinate", favoredCoordinates)
+                ).toList()
+
+                call.respond(favoredClusters)
+            }
+        }
+
         get("/favored-coordinates") {
 
             val clientId: String? = this.call.request.headers[CLIENT_ID_HEADER]
