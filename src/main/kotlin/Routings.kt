@@ -88,6 +88,7 @@ import model.RequestedCoordinate
 import model.RequestedCoordinateStatus
 import model.Upload
 import model.UploadDatabase
+import model.Username
 import model.filter.FilterQuery
 import model.search.ClusterSummary
 import org.bson.Document
@@ -1073,6 +1074,105 @@ fun Application.configureRouting() {
                 ex.printStackTrace()
 
                 call.respond(HttpStatusCode.BadRequest, "Failed to rate.")
+            }
+        }
+
+        get("/username") {
+
+            val clientId: String? = this.call.request.headers[CLIENT_ID_HEADER]
+
+            if (clientId.isNullOrBlank()) {
+                call.respond(HttpStatusCode.BadRequest, "Missing '$CLIENT_ID_HEADER' header.")
+                return@get
+            }
+
+            val steamId = findSteamId(clientId)
+
+            if (steamId.isNullOrBlank()) {
+                call.respond(HttpStatusCode.BadRequest, "Not connected to STEAM.")
+                return@get
+            }
+
+            try {
+
+                MongoClient.create(mongoClientSettings).use { mongoClient ->
+
+                    val database = mongoClient.getDatabase("oni")
+
+                    val collection = database.getCollection<Username>("usernames")
+
+                    /* Delete first in case the name is changed. */
+                    val username = collection.find<Username>(
+                        Filters.eq("steamId", steamId)
+                    ).firstOrNull()
+
+                    if (username == null)
+                        call.respond(HttpStatusCode.NotFound)
+                    else
+                        call.respondText(username.username)
+                }
+
+            } catch (ex: Exception) {
+
+                ex.printStackTrace()
+
+                call.respond(HttpStatusCode.BadRequest, "Failed to get username.")
+            }
+        }
+
+        post("/username") {
+
+            val clientId: String? = this.call.request.headers[CLIENT_ID_HEADER]
+
+            if (clientId.isNullOrBlank()) {
+                call.respond(HttpStatusCode.BadRequest, "Missing '$CLIENT_ID_HEADER' header.")
+                return@post
+            }
+
+            val steamId = findSteamId(clientId)
+
+            if (steamId.isNullOrBlank()) {
+                call.respond(HttpStatusCode.BadRequest, "Not connected to STEAM.")
+                return@post
+            }
+
+            val wantedUsername = call.receive<String>()
+
+            val wantedUsernameTrimmed = wantedUsername.trim()
+
+            try {
+
+                MongoClient.create(mongoClientSettings).use { mongoClient ->
+
+                    val database = mongoClient.getDatabase("oni")
+
+                    val collection = database.getCollection<Username>("usernames")
+
+                    /* Delete first in case the name is changed. */
+                    collection.deleteOne(
+                        Filters.eq("steamId", steamId)
+                    )
+
+                    if (wantedUsernameTrimmed.isNotEmpty()) {
+
+                        /* Insert new name. */
+                        collection.insertOne(
+                            Username(
+                                steamId = steamId,
+                                username = wantedUsernameTrimmed
+                            )
+                        )
+                    }
+                }
+
+                /* Send OK status. */
+                call.respond(HttpStatusCode.OK, "Username updated.")
+
+            } catch (ex: Exception) {
+
+                ex.printStackTrace()
+
+                call.respond(HttpStatusCode.BadRequest, "Failed to set username.")
             }
         }
 
