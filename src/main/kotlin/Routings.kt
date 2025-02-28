@@ -21,6 +21,8 @@ import com.mongodb.ConnectionString
 import com.mongodb.MongoClientSettings
 import com.mongodb.ServerApi
 import com.mongodb.ServerApiVersion
+import com.mongodb.client.model.Accumulators
+import com.mongodb.client.model.Aggregates
 import com.mongodb.client.model.Filters
 import com.mongodb.client.model.IndexOptions
 import com.mongodb.client.model.Projections
@@ -78,6 +80,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToStream
 import model.Client
 import model.Cluster
+import model.ContributorRank
 import model.Dlc
 import model.FailedGenReport
 import model.FailedGenReportDatabase
@@ -179,27 +182,43 @@ fun Application.configureRouting() {
 
             println("Setting missing indices...")
 
+            /*
+             * Unique key indexes
+             */
+
             val uniqueIndexOptions = IndexOptions().unique(true)
 
             val database = mongoClient.getDatabase("oni")
 
-            database.getCollection<Cluster>("worlds")
+            database.getCollection<Document>("worlds")
                 .createIndex(Document("coordinate", 1), uniqueIndexOptions)
 
-            database.getCollection<Cluster>("uploads")
+            database.getCollection<Document>("uploads")
                 .createIndex(Document("coordinate", 1), uniqueIndexOptions)
 
-            database.getCollection<Cluster>("failedWorldGenReports")
+            database.getCollection<Document>("failedWorldGenReports")
                 .createIndex(Document("coordinate", 1), uniqueIndexOptions)
 
-            database.getCollection<Cluster>("requestedCoordinates")
+            database.getCollection<Document>("requestedCoordinates")
                 .createIndex(Document("coordinate", 1), uniqueIndexOptions)
 
-            database.getCollection<Cluster>("summaries")
+            database.getCollection<Document>("summaries")
                 .createIndex(Document("coordinate", 1), uniqueIndexOptions)
 
-            database.getCollection<Cluster>("clients")
+            database.getCollection<Document>("clients")
                 .createIndex(Document("clientId", 1), uniqueIndexOptions)
+
+            database.getCollection<Document>("clients")
+                .createIndex(Document("clientId", 1), uniqueIndexOptions)
+
+            /*
+             * Indexes for aggregation speed
+             */
+
+            database.getCollection<Document>("uploads")
+                .createIndex(Document("userId", 1))
+
+            println("... Done.")
         }
 
         populateSummaries()
@@ -1077,6 +1096,9 @@ fun Application.configureRouting() {
             }
         }
 
+        /**
+         * Returns the current name the user wants to displayed as.
+         */
         get("/username") {
 
             val clientId: String? = this.call.request.headers[CLIENT_ID_HEADER]
@@ -1120,6 +1142,9 @@ fun Application.configureRouting() {
             }
         }
 
+        /**
+         * Allows a user to set his username
+         */
         post("/username") {
 
             val clientId: String? = this.call.request.headers[CLIENT_ID_HEADER]
@@ -1176,6 +1201,9 @@ fun Application.configureRouting() {
             }
         }
 
+        /*
+         * Provides requested coordinates to the running mod.
+         */
         post("/requested-coordinate") {
 
             val dlcs = call.receive<List<Dlc>>().toMutableList()
@@ -1187,14 +1215,82 @@ fun Application.configureRouting() {
             handleGetRequestedCoordinate(call, dlcs)
         }
 
-        get("/requested-coordinate-basegame") {
+        /**
+         * Returns an information for the map contributors leaderboard.
+         */
+        get("/contributor-ranking") {
 
-            handleGetRequestedCoordinate(call, listOf(Dlc.BaseGame))
-        }
+            val clientId: String? = this.call.request.headers[CLIENT_ID_HEADER]
 
-        get("/requested-coordinate-spacedout") {
+            if (clientId.isNullOrBlank()) {
+                call.respond(HttpStatusCode.BadRequest, "Missing '$CLIENT_ID_HEADER' header.")
+                return@get
+            }
 
-            handleGetRequestedCoordinate(call, listOf(Dlc.SpacedOut))
+            try {
+
+                MongoClient.create(mongoClientSettings).use { mongoClient ->
+
+                    val database = mongoClient.getDatabase("oni")
+
+                    val usernameCollection = database.getCollection<Username>("usernames")
+
+                    val usernameMap = usernameCollection.find()
+                        .map { it.steamId to it.username }
+                        .toList()
+                        .toMap()
+
+                    val uploadCollection = database.getCollection<Document>("uploads")
+
+                    val aggregation = listOf(
+                        Aggregates.group("\$userId", Accumulators.sum("count", 1)),
+                        Aggregates.sort(Sorts.descending("count"))
+                    )
+
+                    val counts = uploadCollection.aggregate(aggregation)
+                        .map { it.getString("_id") to it.getInteger("count") } // Extract userId and count
+                        .toList()
+                        .toMap()
+
+                    var rank = 1
+
+                    val rankingList = buildList<ContributorRank> {
+
+                        for (entry in counts) {
+
+                            /*
+                             * We count only Steam users here, because we
+                             * only have a login with Steam.
+                             */
+                            if (!entry.key.startsWith("Steam-"))
+                                continue
+
+                            @SuppressWarnings("MagicNumber")
+                            val steamId = entry.key.drop(6)
+
+                            @SuppressWarnings("MagicNumber")
+                            val username =
+                                usernameMap[steamId] ?: "Steam ...${steamId.takeLast(4)}"
+
+                            add(
+                                ContributorRank(
+                                    rank = rank++,
+                                    username = username,
+                                    mapCount = entry.value
+                                )
+                            )
+                        }
+                    }
+
+                    call.respond(rankingList)
+                }
+
+            } catch (ex: Exception) {
+
+                ex.printStackTrace()
+
+                call.respond(HttpStatusCode.InternalServerError, "Sorry, your request failed.")
+            }
         }
 
         get("/health") {
