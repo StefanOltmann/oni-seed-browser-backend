@@ -236,6 +236,9 @@ fun Application.configureRouting() {
             call.respondText("ONI Seed Browser Backend $VERSION (up since $uptimeHours hours and $minutes minutes)")
         }
 
+        /**
+         * Login with Steam using the Steam backend
+         */
         get("/login/{clientId}") {
 
             val clientId = call.parameters["clientId"]
@@ -308,6 +311,27 @@ fun Application.configureRouting() {
 
                 call.respond(HttpStatusCode.InternalServerError, "Sorry, something went wrong!")
             }
+        }
+
+        /**
+         * Login with Steam using a JWT token
+         */
+        post<String>("/login") {
+
+            val clientId = call.parameters["clientId"]
+
+            if (clientId.isNullOrBlank()) {
+                call.respond(HttpStatusCode.BadRequest, "Missing 'clientId' path parameter.")
+                return@post
+            }
+
+            val jwt = call.receive<String>()
+
+            println("Received token $jwt from $clientId")
+
+            // TODO Validate token
+
+            call.respond(HttpStatusCode.OK, "Received token: $jwt")
         }
 
         get("/steamid") {
