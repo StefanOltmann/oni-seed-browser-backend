@@ -98,6 +98,7 @@ import model.filter.FilterQuery
 import model.search.ClusterSummary
 import org.bson.Document
 import java.security.KeyFactory
+import java.security.MessageDigest
 import java.security.interfaces.RSAPrivateKey
 import java.security.interfaces.RSAPublicKey
 import java.security.spec.PKCS8EncodedKeySpec
@@ -117,17 +118,22 @@ const val CLIENT_ID_HEADER = "Client-ID"
 
 private val connectionString = System.getenv("MONGO_DB_CONNECTION_STRING") ?: ""
 
+private val salt = System.getenv("MNI_SALT")
+    ?: error("Missing SALT environment variable")
+
+private val messageDigest = MessageDigest.getInstance("SHA-256")
+
 private val privateKey: RSAPrivateKey = System.getenv("MNI_JWT_PRIVATE_KEY")?.let { base64Key ->
     val keyBytes = Base64.getDecoder().decode(base64Key)
     val keySpec = PKCS8EncodedKeySpec(keyBytes)
     KeyFactory.getInstance("RSA").generatePrivate(keySpec) as RSAPrivateKey
-} ?: throw IllegalStateException("Missing MNI_JWT_PRIVATE_KEY environment variable")
+} ?: error("Missing MNI_JWT_PRIVATE_KEY environment variable")
 
 private val publicKey: RSAPublicKey = System.getenv("MNI_JWT_PUBLIC_KEY")?.let { base64Key ->
     val keyBytes = Base64.getDecoder().decode(base64Key)
     val keySpec = X509EncodedKeySpec(keyBytes)
     KeyFactory.getInstance("RSA").generatePublic(keySpec) as RSAPublicKey
-} ?: throw IllegalStateException("Missing MNI_JWT_PUBLIC_KEY environment variable")
+} ?: error("Missing MNI_JWT_PUBLIC_KEY environment variable")
 
 private val rsaAlgorithm = Algorithm.RSA256(publicKey, privateKey)
 
@@ -371,6 +377,7 @@ fun Application.configureRouting() {
                     val jwt: String = JWT.create()
                         .withIssuer("mapsnotincluded")
                         .withClaim("steamId", steamId)
+                        .withClaim("steamIdHash", saltedSha256(steamId))
                         .sign(rsaAlgorithm)
 
                     /*
@@ -1662,4 +1669,13 @@ private suspend fun findSteamId(clientId: String): String? {
 
         return client?.steamId
     }
+}
+
+@OptIn(ExperimentalStdlibApi::class)
+private fun saltedSha256(input: String): String {
+
+    val saltedInput = input + salt
+    val bytes = saltedInput.toByteArray(Charsets.UTF_8)
+    val digest = messageDigest.digest(bytes)
+    return digest.toHexString()
 }
