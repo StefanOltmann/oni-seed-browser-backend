@@ -86,12 +86,11 @@ dependencies {
     /*
      * JWT handling
      */
-    implementation("com.appstractive:jwt-kt:1.1.0")
+    implementation("com.auth0:java-jwt:4.5.0")
 
     /*
      * Unit tests
      */
-    testImplementation("io.ktor:ktor-server-tests-jvm:$ktorVersion")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlinVersion")
 }
 
