@@ -275,7 +275,7 @@ fun Application.configureRouting() {
             val steamLoginUrl = "https://steamcommunity.com/openid/login?" +
                 "openid.ns=http://specs.openid.net/auth/2.0" +
                 "&openid.mode=checkid_setup" +
-                "&openid.return_to=${call.url { path("auth/callback") }}" +
+                "&openid.return_to=${call.url { path("auth/callback/{clientId}") }}" +
                 "&openid.realm=${call.request.origin.scheme}://${call.request.host()}/" +
                 "&openid.identity=http://specs.openid.net/auth/2.0/identifier_select" +
                 "&openid.claimed_id=http://specs.openid.net/auth/2.0/identifier_select"
