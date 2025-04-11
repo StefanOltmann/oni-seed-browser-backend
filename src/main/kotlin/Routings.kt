@@ -116,6 +116,7 @@ const val RESULT_LIMIT = 100
 const val EXPORT_BATCH_SIZE = 10000
 
 const val CLIENT_ID_HEADER = "Client-ID"
+const val TOKEN_HEADER = "token"
 
 private val connectionString = System.getenv("MONGO_DB_CONNECTION_STRING") ?: ""
 
@@ -198,6 +199,7 @@ fun Application.configureRouting() {
         allowHeader(HttpHeaders.AccessControlAllowOrigin)
         allowHeader(HttpHeaders.ContentType)
         allowHeader(header = CLIENT_ID_HEADER)
+        allowHeader(header = TOKEN_HEADER)
 
         anyHost()
     }
