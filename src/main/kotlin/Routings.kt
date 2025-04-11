@@ -17,6 +17,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import com.auth0.jwt.JWT
+import com.auth0.jwt.algorithms.Algorithm
 import com.mongodb.ConnectionString
 import com.mongodb.MongoClientSettings
 import com.mongodb.ServerApi
@@ -95,9 +97,16 @@ import model.Username
 import model.filter.FilterQuery
 import model.search.ClusterSummary
 import org.bson.Document
+import java.security.KeyFactory
+import java.security.interfaces.RSAPrivateKey
+import java.security.interfaces.RSAPublicKey
+import java.security.spec.PKCS8EncodedKeySpec
+import java.security.spec.X509EncodedKeySpec
+import java.util.Base64
 import java.util.UUID
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
+
 
 /* Limit the results to avoid memory issues */
 const val RESULT_LIMIT = 100
@@ -107,6 +116,20 @@ const val EXPORT_BATCH_SIZE = 10000
 const val CLIENT_ID_HEADER = "Client-ID"
 
 private val connectionString = System.getenv("MONGO_DB_CONNECTION_STRING") ?: ""
+
+private val privateKey: RSAPrivateKey = System.getenv("MNI_JWT_PRIVATE_KEY")?.let { base64Key ->
+    val keyBytes = Base64.getDecoder().decode(base64Key)
+    val keySpec = PKCS8EncodedKeySpec(keyBytes)
+    KeyFactory.getInstance("RSA").generatePrivate(keySpec) as RSAPrivateKey
+} ?: throw IllegalStateException("Missing MNI_JWT_PRIVATE_KEY environment variable")
+
+private val publicKey: RSAPublicKey = System.getenv("MNI_JWT_PUBLIC_KEY")?.let { base64Key ->
+    val keyBytes = Base64.getDecoder().decode(base64Key)
+    val keySpec = X509EncodedKeySpec(keyBytes)
+    KeyFactory.getInstance("RSA").generatePublic(keySpec) as RSAPublicKey
+} ?: throw IllegalStateException("Missing MNI_JWT_PUBLIC_KEY environment variable")
+
+private val rsaAlgorithm = Algorithm.RSA256(publicKey, privateKey)
 
 private val serverApi = ServerApi.builder()
     .version(ServerApiVersion.V1)
@@ -128,7 +151,7 @@ private val strictAllFieldsCbor = Cbor {
     encodeDefaults = true
 }
 
-val httpClient = HttpClient(OkHttp)
+private val httpClient = HttpClient(OkHttp)
 
 @OptIn(ExperimentalSerializationApi::class)
 fun Application.configureRouting() {
@@ -236,6 +259,7 @@ fun Application.configureRouting() {
             call.respondText("ONI Seed Browser Backend $VERSION (up since $uptimeHours hours and $minutes minutes)")
         }
 
+        // OLD SYSTEM
         /**
          * Login with Steam using the Steam backend
          */
@@ -251,7 +275,7 @@ fun Application.configureRouting() {
             val steamLoginUrl = "https://steamcommunity.com/openid/login?" +
                 "openid.ns=http://specs.openid.net/auth/2.0" +
                 "&openid.mode=checkid_setup" +
-                "&openid.return_to=${call.url { path("auth/callback/$clientId") }}" +
+                "&openid.return_to=${call.url { path("auth/callback") }}" +
                 "&openid.realm=${call.request.origin.scheme}://${call.request.host()}/" +
                 "&openid.identity=http://specs.openid.net/auth/2.0/identifier_select" +
                 "&openid.claimed_id=http://specs.openid.net/auth/2.0/identifier_select"
@@ -259,6 +283,7 @@ fun Application.configureRouting() {
             call.respondRedirect(steamLoginUrl)
         }
 
+        // OLD SYSTEM
         get("/auth/callback/{clientId}") {
 
             try {
@@ -314,24 +339,59 @@ fun Application.configureRouting() {
         }
 
         /**
-         * Login with Steam using a JWT token
+         * Login with Steam using the Steam backend
+         *
+         * This is intended for the standalone version!
          */
-        post<String>("/login") {
+        get("/login") {
 
-            val clientId = call.parameters["clientId"]
+            val steamLoginUrl = "https://steamcommunity.com/openid/login?" +
+                "openid.ns=http://specs.openid.net/auth/2.0" +
+                "&openid.mode=checkid_setup" +
+                "&openid.return_to=${call.url { path("login/callback") }}" +
+                "&openid.realm=${call.request.origin.scheme}://${call.request.host()}/" +
+                "&openid.identity=http://specs.openid.net/auth/2.0/identifier_select" +
+                "&openid.claimed_id=http://specs.openid.net/auth/2.0/identifier_select"
 
-            if (clientId.isNullOrBlank()) {
-                call.respond(HttpStatusCode.BadRequest, "Missing 'clientId' path parameter.")
-                return@post
+            call.respondRedirect(steamLoginUrl)
+        }
+
+        get("/login/callback") {
+
+            try {
+
+                val params = call.request.queryParameters
+
+                val steamId = validateSteamLogin(params)
+
+                if (steamId != null) {
+
+                    println("Login successful")
+
+                    val jwt: String = JWT.create()
+                        .withIssuer("mapsnotincluded")
+                        .withClaim("steamId", steamId)
+                        .sign(rsaAlgorithm)
+
+                    /*
+                     * Redirect to the standalone version.
+                     * The MNI embedded version should get the token from the outer login.
+                     */
+                    call.respondRedirect("https://stefan-oltmann.de/oni-seed-browser?token=$jwt")
+
+                } else {
+
+                    println("Authentication failed!")
+
+                    call.respond(HttpStatusCode.Unauthorized, "Authentication failed!")
+                }
+
+            } catch (ex: Throwable) {
+
+                ex.printStackTrace()
+
+                call.respond(HttpStatusCode.InternalServerError, "Sorry, something went wrong!")
             }
-
-            val jwt = call.receive<String>()
-
-            println("Received token $jwt from $clientId")
-
-            // TODO Validate token
-
-            call.respond(HttpStatusCode.OK, "Received token: $jwt")
         }
 
         get("/steamid") {
@@ -1543,7 +1603,7 @@ private suspend fun findAllSearchIndexCoordinates(database: MongoDatabase): Set<
     return coordinates
 }
 
-suspend fun validateSteamLogin(params: Parameters): String? {
+private suspend fun validateSteamLogin(params: Parameters): String? {
 
     val steamOpenIdEndpoint = "https://steamcommunity.com/openid/login"
 
@@ -1567,7 +1627,7 @@ suspend fun validateSteamLogin(params: Parameters): String? {
     } else null
 }
 
-fun Parameters.buildValidationParameters(): Parameters {
+private fun Parameters.buildValidationParameters(): Parameters {
 
     val parametersBuilder = ParametersBuilder()
 
