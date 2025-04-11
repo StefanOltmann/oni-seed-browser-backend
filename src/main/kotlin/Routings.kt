@@ -82,6 +82,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToStream
 import model.Client
 import model.Cluster
+import model.Contributor
 import model.ContributorRank
 import model.Dlc
 import model.FailedGenReport
@@ -251,6 +252,8 @@ fun Application.configureRouting() {
         }
 
         populateSummaries()
+
+        createContributorTable()
     }
 
     routing {
@@ -1345,7 +1348,7 @@ fun Application.configureRouting() {
 
                     var rank = 1
 
-                    val rankingList = buildList<ContributorRank> {
+                    val rankingList = buildList {
 
                         for (entry in counts) {
 
@@ -1584,6 +1587,81 @@ private suspend fun populateSummaries() {
     val duration = System.currentTimeMillis() - start
 
     println("Created search index in $duration ms.")
+}
+
+private suspend fun createContributorTable() {
+
+    println("Creating contributor table...")
+
+    val start = System.currentTimeMillis()
+
+    try {
+
+        MongoClient.create(mongoClientSettings).use { mongoClient ->
+
+            val database = mongoClient.getDatabase("oni")
+
+            val usernameCollection = database.getCollection<Username>("usernames")
+
+            val usernameMap = usernameCollection.find()
+                .map { it.steamId to it.username }
+                .toList()
+                .toMap()
+
+            val uploadCollection = database.getCollection<Document>("uploads")
+
+            val aggregation = listOf(
+                Aggregates.group("\$userId", Accumulators.sum("count", 1)),
+                Aggregates.sort(Sorts.descending("count"))
+            )
+
+            val counts = uploadCollection.aggregate(aggregation)
+                .map { it.getString("_id") to it.getInteger("count") } // Extract userId and count
+                .toList()
+                .toMap()
+
+            val contributorsCollection = database.getCollection<Contributor>("contributors")
+
+            for (entry in counts) {
+
+                /*
+                 * We count only Steam users here, because we
+                 * only have a login with Steam.
+                 */
+                if (!entry.key.startsWith("Steam-"))
+                    continue
+
+                @SuppressWarnings("MagicNumber")
+                val steamId = entry.key.drop(6)
+
+                val saltedSteamId = saltedSha256(steamId)
+
+                @SuppressWarnings("MagicNumber")
+                val username =
+                    usernameMap[steamId] ?: "Steam ...${steamId.takeLast(4)}"
+
+                contributorsCollection.deleteOne(
+                    Filters.eq("steamIdHash", saltedSteamId)
+                )
+
+                contributorsCollection.insertOne(
+                    Contributor(
+                        steamIdHash = saltedSteamId,
+                        username = username,
+                        mapCount = entry.value
+                    )
+                )
+            }
+        }
+
+        val duration = System.currentTimeMillis() - start
+
+        println("Created contributor table in $duration ms.")
+
+    } catch (ex: Exception) {
+
+        ex.printStackTrace()
+    }
 }
 
 private suspend fun findAllExistingCoordinates(database: MongoDatabase): Set<String> {
