@@ -27,7 +27,12 @@ data class Cluster(
 
     val coordinate: String,
 
-    val gameVersion: Int = 626616,
+    /* Can be NULL if uploaded from EPIC */
+    val uploaderSteamIdHash: String? = null,
+
+    val uploadDate: Long? = null,
+
+    val gameVersion: Int,
 
     @Serializable(with = ClusterTypeSerializer::class)
     val cluster: ClusterType,

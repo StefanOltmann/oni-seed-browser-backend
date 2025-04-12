@@ -757,19 +757,31 @@ fun Application.configureRouting() {
                     return@post
                 }
 
+                val uploadDate: Long = System.currentTimeMillis()
+
                 val uploadDatabase = UploadDatabase(
                     userId = upload.userId,
                     installationId = upload.installationId,
                     gameVersion = upload.gameVersion,
                     fileHashes = upload.fileHashes,
-                    uploadDate = System.currentTimeMillis(),
+                    uploadDate = uploadDate,
                     ipAddress = ipAddress,
                     coordinate = cluster.coordinate
                 )
 
+                val uploaderSteamIdHash: String? = if (upload.userId.startsWith("Steam-"))
+                    saltedSha256(upload.userId.drop(6))
+                else
+                    null
+
                 val startOptimization = System.currentTimeMillis()
 
                 val optimizedCluster = cluster.optimizeBiomePaths()
+
+                val optimizedClusterWithMetadata = optimizedCluster.copy(
+                    uploaderSteamIdHash = uploaderSteamIdHash,
+                    uploadDate = uploadDate
+                )
 
                 val durationForOptimization = System.currentTimeMillis() - startOptimization
 
@@ -784,7 +796,7 @@ fun Application.configureRouting() {
 
                     val clusterCollection = database.getCollection<Cluster>("worlds")
 
-                    clusterCollection.insertOne(optimizedCluster)
+                    clusterCollection.insertOne(optimizedClusterWithMetadata)
 
                     /* Mark any requested coordinates as completed */
                     database
