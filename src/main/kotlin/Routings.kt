@@ -80,7 +80,6 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.cbor.Cbor
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToStream
-import model.Client
 import model.Cluster
 import model.Contributor
 import model.ContributorRank
@@ -115,7 +114,8 @@ const val RESULT_LIMIT = 100
 
 const val EXPORT_BATCH_SIZE = 10000
 
-const val CLIENT_ID_HEADER = "Client-ID"
+const val JWT_ISSUER = "mapsnotincluded"
+
 const val TOKEN_HEADER = "token"
 
 private val connectionString = System.getenv("MONGO_DB_CONNECTION_STRING") ?: ""
@@ -138,6 +138,11 @@ private val publicKey: RSAPublicKey = System.getenv("MNI_JWT_PUBLIC_KEY")?.let {
 } ?: error("Missing MNI_JWT_PUBLIC_KEY environment variable")
 
 private val rsaAlgorithm = Algorithm.RSA256(publicKey, privateKey)
+
+private val jwtVerifier = JWT
+    .require(rsaAlgorithm)
+    .withIssuer(JWT_ISSUER)
+    .build()
 
 private val serverApi = ServerApi.builder()
     .version(ServerApiVersion.V1)
@@ -198,7 +203,7 @@ fun Application.configureRouting() {
 
         allowHeader(HttpHeaders.AccessControlAllowOrigin)
         allowHeader(HttpHeaders.ContentType)
-        allowHeader(header = CLIENT_ID_HEADER)
+        allowHeader(header = "Client-ID") // deprecated
         allowHeader(header = TOKEN_HEADER)
 
         anyHost()
@@ -306,7 +311,7 @@ fun Application.configureRouting() {
                     println("Login successful")
 
                     val jwt: String = JWT.create()
-                        .withIssuer("mapsnotincluded")
+                        .withIssuer(JWT_ISSUER)
                         .withClaim("steamId", steamId)
                         .withClaim("steamIdHash", saltedSha256(steamId))
                         .sign(rsaAlgorithm)
@@ -336,35 +341,7 @@ fun Application.configureRouting() {
             }
         }
 
-        get("/steamid") {
-
-            val clientId: String? = this.call.request.headers[CLIENT_ID_HEADER]
-
-            if (clientId.isNullOrBlank()) {
-                call.respond(HttpStatusCode.BadRequest, "Missing '$CLIENT_ID_HEADER' header.")
-                return@get
-            }
-
-            val steamId = findSteamId(clientId)
-
-            if (steamId != null) {
-
-                call.respond(HttpStatusCode.OK, steamId)
-
-            } else {
-
-                call.respond(HttpStatusCode.Unauthorized, "Unauthorized")
-            }
-        }
-
         get("/coordinate/{coordinate}") {
-
-            val clientId: String? = this.call.request.headers[CLIENT_ID_HEADER]
-
-            if (clientId.isNullOrBlank()) {
-                call.respond(HttpStatusCode.BadRequest, "Missing '$CLIENT_ID_HEADER' header.")
-                return@get
-            }
 
             val coordinate = call.parameters["coordinate"]
 
@@ -395,7 +372,7 @@ fun Application.configureRouting() {
 
             val duration = System.currentTimeMillis() - start
 
-            println("Returned data for coordinate $coordinate to $clientId in $duration ms.")
+            println("Returned data for coordinate $coordinate in $duration ms.")
         }
 
         post("/add-mod-binary-checksum") {
@@ -596,13 +573,6 @@ fun Application.configureRouting() {
 
         post("/search") {
 
-            val clientId: String? = this.call.request.headers[CLIENT_ID_HEADER]
-
-            if (clientId.isNullOrBlank()) {
-                call.respond(HttpStatusCode.BadRequest, "Missing '$CLIENT_ID_HEADER' header.")
-                return@post
-            }
-
             val start = System.currentTimeMillis()
 
             try {
@@ -636,7 +606,7 @@ fun Application.configureRouting() {
 
                 val duration = System.currentTimeMillis() - start
 
-                println("Returned search results for filter $filterQuery for $clientId in $duration ms.")
+                println("Returned search results for filter $filterQuery in $duration ms.")
 
             } catch (ex: Exception) {
 
@@ -673,13 +643,6 @@ fun Application.configureRouting() {
 
         get("/count") {
 
-            val clientId: String? = this.call.request.headers[CLIENT_ID_HEADER]
-
-            if (clientId.isNullOrBlank()) {
-                call.respond(HttpStatusCode.BadRequest, "Missing '$CLIENT_ID_HEADER' header.")
-                return@get
-            }
-
             val start = System.currentTimeMillis()
 
             MongoClient.create(mongoClientSettings).use { mongoClient ->
@@ -696,7 +659,7 @@ fun Application.configureRouting() {
 
             val duration = System.currentTimeMillis() - start
 
-            println("Returned count of seeds for $clientId in $duration ms.")
+            println("Returned count of seeds in $duration ms.")
         }
 
         post("/upload") {
@@ -948,19 +911,16 @@ fun Application.configureRouting() {
 
         post("/request-coordinate") {
 
-            val clientId: String? = this.call.request.headers[CLIENT_ID_HEADER]
+            val token: String? = this.call.request.headers[TOKEN_HEADER]
 
-            if (clientId.isNullOrBlank()) {
-                call.respond(HttpStatusCode.BadRequest, "Missing '$CLIENT_ID_HEADER' header.")
+            if (token.isNullOrBlank()) {
+                call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER' header.")
                 return@post
             }
 
-            val steamId = findSteamId(clientId)
+            val jwt = jwtVerifier.verify(token)
 
-            if (steamId.isNullOrBlank()) {
-                call.respond(HttpStatusCode.BadRequest, "Not connected to STEAM.")
-                return@post
-            }
+            val steamId = jwt.getClaim("steamId").asString()
 
             val coordinate = call.receive<String>()
 
@@ -1008,14 +968,16 @@ fun Application.configureRouting() {
 
         get("/favored-clusters") {
 
-            val clientId: String? = this.call.request.headers[CLIENT_ID_HEADER]
+            val token: String? = this.call.request.headers[TOKEN_HEADER]
 
-            if (clientId.isNullOrBlank()) {
-                call.respond(HttpStatusCode.BadRequest, "Missing '$CLIENT_ID_HEADER' header.")
+            if (token.isNullOrBlank()) {
+                call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER' header.")
                 return@get
             }
 
-            val steamId = findSteamId(clientId)
+            val jwt = jwtVerifier.verify(token)
+
+            val steamId = jwt.getClaim("steamId").asString()
 
             MongoClient.create(mongoClientSettings).use { mongoClient ->
 
@@ -1040,14 +1002,16 @@ fun Application.configureRouting() {
 
         get("/favored-coordinates") {
 
-            val clientId: String? = this.call.request.headers[CLIENT_ID_HEADER]
+            val token: String? = this.call.request.headers[TOKEN_HEADER]
 
-            if (clientId.isNullOrBlank()) {
-                call.respond(HttpStatusCode.BadRequest, "Missing '$CLIENT_ID_HEADER' header.")
+            if (token.isNullOrBlank()) {
+                call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER' header.")
                 return@get
             }
 
-            val steamId = findSteamId(clientId)
+            val jwt = jwtVerifier.verify(token)
+
+            val steamId = jwt.getClaim("steamId")
 
             MongoClient.create(mongoClientSettings).use { mongoClient ->
 
@@ -1066,19 +1030,16 @@ fun Application.configureRouting() {
 
         post("/rate-coordinate") {
 
-            val clientId: String? = this.call.request.headers[CLIENT_ID_HEADER]
+            val token: String? = this.call.request.headers[TOKEN_HEADER]
 
-            if (clientId.isNullOrBlank()) {
-                call.respond(HttpStatusCode.BadRequest, "Missing '$CLIENT_ID_HEADER' header.")
+            if (token.isNullOrBlank()) {
+                call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER' header.")
                 return@post
             }
 
-            val steamId = findSteamId(clientId)
+            val jwt = jwtVerifier.verify(token)
 
-            if (steamId.isNullOrBlank()) {
-                call.respond(HttpStatusCode.BadRequest, "Not connected to STEAM.")
-                return@post
-            }
+            val steamId = jwt.getClaim("steamId").asString()
 
             val rateCoordinateRequest = call.receive<RateCoordinateRequest>()
 
@@ -1127,19 +1088,16 @@ fun Application.configureRouting() {
          */
         get("/username") {
 
-            val clientId: String? = this.call.request.headers[CLIENT_ID_HEADER]
+            val token: String? = this.call.request.headers[TOKEN_HEADER]
 
-            if (clientId.isNullOrBlank()) {
-                call.respond(HttpStatusCode.BadRequest, "Missing '$CLIENT_ID_HEADER' header.")
+            if (token.isNullOrBlank()) {
+                call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER' header.")
                 return@get
             }
 
-            val steamId = findSteamId(clientId)
+            val jwt = jwtVerifier.verify(token)
 
-            if (steamId.isNullOrBlank()) {
-                call.respond(HttpStatusCode.BadRequest, "Not connected to STEAM.")
-                return@get
-            }
+            val steamId = jwt.getClaim("steamId").asString()
 
             try {
 
@@ -1173,19 +1131,16 @@ fun Application.configureRouting() {
          */
         post("/username") {
 
-            val clientId: String? = this.call.request.headers[CLIENT_ID_HEADER]
+            val token: String? = this.call.request.headers[TOKEN_HEADER]
 
-            if (clientId.isNullOrBlank()) {
-                call.respond(HttpStatusCode.BadRequest, "Missing '$CLIENT_ID_HEADER' header.")
+            if (token.isNullOrBlank()) {
+                call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER' header.")
                 return@post
             }
 
-            val steamId = findSteamId(clientId)
+            val jwt = jwtVerifier.verify(token)
 
-            if (steamId.isNullOrBlank()) {
-                call.respond(HttpStatusCode.BadRequest, "Not connected to STEAM.")
-                return@post
-            }
+            val steamId = jwt.getClaim("steamId").asString()
 
             val wantedUsername = call.receive<String>()
 
@@ -1245,13 +1200,6 @@ fun Application.configureRouting() {
          * Returns an information for the map contributors leaderboard.
          */
         get("/contributor-ranking") {
-
-            val clientId: String? = this.call.request.headers[CLIENT_ID_HEADER]
-
-            if (clientId.isNullOrBlank()) {
-                call.respond(HttpStatusCode.BadRequest, "Missing '$CLIENT_ID_HEADER' header.")
-                return@get
-            }
 
             try {
 
@@ -1663,22 +1611,6 @@ private fun Parameters.buildValidationParameters(): Parameters {
     }
 
     return parametersBuilder.build()
-}
-
-private suspend fun findSteamId(clientId: String): String? {
-
-    MongoClient.create(mongoClientSettings).use { mongoClient ->
-
-        val database = mongoClient.getDatabase("oni")
-
-        val collection = database.getCollection<Client>("clients")
-
-        val client = collection.find(
-            Filters.eq("clientId", clientId)
-        ).firstOrNull()
-
-        return client?.steamId
-    }
 }
 
 @OptIn(ExperimentalStdlibApi::class)
