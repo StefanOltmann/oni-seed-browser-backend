@@ -4,6 +4,7 @@ plugins {
     kotlin("plugin.serialization") version "2.1.20"
     id("io.ktor.plugin") version "3.1.1"
     id("me.qoomon.git-versioning") version "6.4.4"
+    id("io.sentry.jvm.gradle") version "5.3.0"
 }
 
 val ktorVersion: String by project

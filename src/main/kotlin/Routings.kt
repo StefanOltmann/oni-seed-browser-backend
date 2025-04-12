@@ -71,6 +71,7 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import io.ktor.server.util.url
+import io.sentry.Sentry
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
@@ -108,7 +109,6 @@ import java.util.UUID
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
-
 /* Limit the results to avoid memory issues */
 const val RESULT_LIMIT = 100
 
@@ -118,7 +118,7 @@ const val JWT_ISSUER = "mapsnotincluded"
 
 const val TOKEN_HEADER = "token"
 
-private val connectionString = System.getenv("MONGO_DB_CONNECTION_STRING") ?: ""
+private val connectionString: String = System.getenv("MONGO_DB_CONNECTION_STRING") ?: ""
 
 private val salt = System.getenv("MNI_SALT")
     ?: error("Missing SALT environment variable")
@@ -217,7 +217,7 @@ fun Application.configureRouting() {
 
         MongoClient.create(mongoClientSettings).use { mongoClient ->
 
-            println("Setting missing indices...")
+            log("Setting missing indices...")
 
             /*
              * Unique key indexes
@@ -255,7 +255,7 @@ fun Application.configureRouting() {
             database.getCollection<Document>("uploads")
                 .createIndex(Document("userId", 1))
 
-            println("... Done.")
+            log("... Done.")
         }
 
         populateSummaries()
@@ -308,7 +308,7 @@ fun Application.configureRouting() {
 
                 if (steamId != null) {
 
-                    println("Login successful")
+                    log("Login successful")
 
                     val jwt: String = JWT.create()
                         .withIssuer(JWT_ISSUER)
@@ -328,14 +328,14 @@ fun Application.configureRouting() {
 
                 } else {
 
-                    println("Authentication failed!")
+                    log("Authentication failed!")
 
                     call.respond(HttpStatusCode.Unauthorized, "Authentication failed!")
                 }
 
             } catch (ex: Throwable) {
 
-                ex.printStackTrace()
+                log(ex)
 
                 call.respond(HttpStatusCode.InternalServerError, "Sorry, something went wrong!")
             }
@@ -374,11 +374,11 @@ fun Application.configureRouting() {
 
                 val duration = System.currentTimeMillis() - start
 
-                println("Returned data for coordinate $coordinate in $duration ms.")
+                log("Returned data for coordinate $coordinate in $duration ms.")
 
             } catch (ex: Exception) {
 
-                ex.printStackTrace()
+                log(ex)
 
                 call.respond(HttpStatusCode.InternalServerError, "Error on getting coordinate")
             }
@@ -396,7 +396,7 @@ fun Application.configureRouting() {
 
                 if (apiKey != System.getenv("DATABASE_EXPORT_API_KEY")) {
 
-                    println("Unauthorized API key used by $ipAddress.")
+                    log("Unauthorized API key used by $ipAddress.")
 
                     call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
 
@@ -440,13 +440,11 @@ fun Application.configureRouting() {
 
                 val duration = System.currentTimeMillis() - start
 
-                println("Accepted new checksum $checksum in $duration ms.")
+                log("Accepted new checksum $checksum in $duration ms.")
 
             } catch (ex: Exception) {
 
-                ex.printStackTrace()
-
-                println("Exception on reporting.")
+                log(ex)
 
                 call.respond(HttpStatusCode.InternalServerError)
             }
@@ -477,11 +475,11 @@ fun Application.configureRouting() {
 
                 val duration = System.currentTimeMillis() - start
 
-                println("Returned current mod version in $duration ms.")
+                log("Returned current mod version in $duration ms.")
 
             } catch (ex: Exception) {
 
-                ex.printStackTrace()
+                log(ex)
 
                 call.respond(HttpStatusCode.InternalServerError, "Error on reporting current mod version")
             }
@@ -499,7 +497,7 @@ fun Application.configureRouting() {
 
                 if (apiKey != System.getenv("DATABASE_EXPORT_API_KEY")) {
 
-                    println("Unauthorized API key used by ip address $ipAddress.")
+                    log("Unauthorized API key used by ip address $ipAddress.")
 
                     call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
 
@@ -585,14 +583,14 @@ fun Application.configureRouting() {
 
                 val duration = System.currentTimeMillis() - start
 
-                println("Exported data in $duration ms.")
+                log("Exported data in $duration ms.")
 
                 /* Final extra clean-up */
                 System.gc()
 
             } catch (ex: Exception) {
 
-                ex.printStackTrace()
+                log(ex)
 
                 call.respond(HttpStatusCode.InternalServerError, "Error on export")
             }
@@ -618,7 +616,7 @@ fun Application.configureRouting() {
                         .limit(RESULT_LIMIT)
                         .toList()
 
-                    println("Found ${matchingSummaries.size} matches for filter.")
+                    log("Found ${matchingSummaries.size} matches for filter.")
 
                     val matchingCoordinates: List<String> =
                         matchingSummaries.map { it.coordinate }.toList()
@@ -633,11 +631,11 @@ fun Application.configureRouting() {
 
                 val duration = System.currentTimeMillis() - start
 
-                println("Returned search results for filter $filterQuery in $duration ms.")
+                log("Returned search results for filter $filterQuery in $duration ms.")
 
             } catch (ex: Exception) {
 
-                ex.printStackTrace()
+                log(ex)
 
                 call.respond(HttpStatusCode.InternalServerError, "Error on search")
             }
@@ -663,7 +661,7 @@ fun Application.configureRouting() {
 //
 //            val duration = System.currentTimeMillis() - start
 //
-//            println("Returned distinct clusters in $duration ms.")
+//            log("Returned distinct clusters in $duration ms.")
 //        }
 
         get("/count") {
@@ -686,13 +684,11 @@ fun Application.configureRouting() {
 
                 val duration = System.currentTimeMillis() - start
 
-                println("Returned count of seeds in $duration ms.")
+                log("Returned count of seeds in $duration ms.")
 
             } catch (ex: Exception) {
 
-                ex.printStackTrace()
-
-                println("Exception on submitting.")
+                log(ex)
 
                 call.respond(HttpStatusCode.InternalServerError)
             }
@@ -710,7 +706,7 @@ fun Application.configureRouting() {
 
                 if (apiKey != System.getenv("MNI_API_KEY")) {
 
-                    println("Unauthorized API key used by $ipAddress.")
+                    log("Unauthorized API key used by $ipAddress.")
 
                     call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
 
@@ -727,7 +723,7 @@ fun Application.configureRouting() {
                 try {
                     UUID.fromString(upload.installationId)
                 } catch (ex: IllegalArgumentException) {
-                    println("InstallationID was not UUID: ${upload.installationId}")
+                    log("InstallationID was not UUID: ${upload.installationId}")
                     call.respond(HttpStatusCode.NotAcceptable, "installationId must be UUID.")
                     return@post
                 }
@@ -808,16 +804,14 @@ fun Application.configureRouting() {
 
                 val duration = System.currentTimeMillis() - start
 
-                println(
+                log(
                     "Completed upload in $duration ms. " +
                         "Optimization took $durationForOptimization ms."
                 )
 
             } catch (ex: Exception) {
 
-                ex.printStackTrace()
-
-                println("Exception on submitting.")
+                log(ex)
 
                 call.respond(HttpStatusCode.InternalServerError)
             }
@@ -835,7 +829,7 @@ fun Application.configureRouting() {
 
                 if (apiKey != System.getenv("MNI_API_KEY")) {
 
-                    println("Unauthorized API key used by $ipAddress.")
+                    log("Unauthorized API key used by $ipAddress.")
 
                     call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
 
@@ -852,7 +846,8 @@ fun Application.configureRouting() {
                 try {
                     UUID.fromString(failedGenReport.installationId)
                 } catch (ex: IllegalArgumentException) {
-                    println("InstallationID was not UUID: ${failedGenReport.installationId}")
+                    log("InstallationID was not UUID: ${failedGenReport.installationId}")
+                    log(ex)
                     call.respond(HttpStatusCode.NotAcceptable, "installationId must be UUID.")
                     return@post
                 }
@@ -906,13 +901,11 @@ fun Application.configureRouting() {
 
                 val duration = System.currentTimeMillis() - start
 
-                println("Completed failed worldgen report in $duration ms.")
+                log("Completed failed worldgen report in $duration ms.")
 
             } catch (ex: Exception) {
 
-                ex.printStackTrace()
-
-                println("Exception on reporting.")
+                log(ex)
 
                 call.respond(HttpStatusCode.InternalServerError)
             }
@@ -935,7 +928,7 @@ fun Application.configureRouting() {
                         .map { it["coordinate"] as String }
                         .toList()
 
-                    println("The database contains ${coordinates.size} seeds reported as world gen failures.")
+                    log("The database contains ${coordinates.size} seeds reported as world gen failures.")
 
                     val asSimpleString = coordinates.sorted().joinToString("\n")
 
@@ -944,11 +937,11 @@ fun Application.configureRouting() {
 
                 val duration = System.currentTimeMillis() - start
 
-                println("Returned world gen failures in $duration ms.")
+                log("Returned world gen failures in $duration ms.")
 
             } catch (ex: Exception) {
 
-                ex.printStackTrace()
+                log(ex)
 
                 call.respond(HttpStatusCode.BadRequest, "Failed to list worldgen failures")
             }
@@ -977,7 +970,9 @@ fun Application.configureRouting() {
 
                 } catch (ex: Exception) {
 
-                    println("Ignoring invalid coordinate $coordinate")
+                    log("Ignoring invalid coordinate $coordinate")
+
+                    log(ex)
 
                     call.respond(HttpStatusCode.BadRequest, "Invalid coordinate '$coordinate'")
 
@@ -1005,7 +1000,7 @@ fun Application.configureRouting() {
 
             } catch (ex: Exception) {
 
-                ex.printStackTrace()
+                log(ex)
 
                 call.respond(HttpStatusCode.BadRequest, "Failed to add coordinate")
             }
@@ -1048,7 +1043,7 @@ fun Application.configureRouting() {
 
             } catch (ex: Exception) {
 
-                ex.printStackTrace()
+                log(ex)
 
                 call.respond(HttpStatusCode.BadRequest, "Failed to get favored clusters.")
             }
@@ -1085,7 +1080,7 @@ fun Application.configureRouting() {
 
             } catch (ex: Exception) {
 
-                ex.printStackTrace()
+                log(ex)
 
                 call.respond(HttpStatusCode.BadRequest, "Failed to get favored coordinates.")
             }
@@ -1140,7 +1135,7 @@ fun Application.configureRouting() {
 
             } catch (ex: Exception) {
 
-                ex.printStackTrace()
+                log(ex)
 
                 call.respond(HttpStatusCode.BadRequest, "Failed to rate.")
             }
@@ -1183,7 +1178,7 @@ fun Application.configureRouting() {
 
             } catch (ex: Exception) {
 
-                ex.printStackTrace()
+                log(ex)
 
                 call.respond(HttpStatusCode.BadRequest, "Failed to get username.")
             }
@@ -1239,7 +1234,7 @@ fun Application.configureRouting() {
 
             } catch (ex: Exception) {
 
-                ex.printStackTrace()
+                log(ex)
 
                 call.respond(HttpStatusCode.BadRequest, "Failed to set username.")
             }
@@ -1324,7 +1319,7 @@ fun Application.configureRouting() {
 
             } catch (ex: Exception) {
 
-                ex.printStackTrace()
+                log(ex)
 
                 call.respond(HttpStatusCode.InternalServerError, "Sorry, your request failed.")
             }
@@ -1333,7 +1328,7 @@ fun Application.configureRouting() {
         get("/health") {
 
             if (connectionString.isBlank()) {
-                println("No connection string set.")
+                log("No connection string set.")
                 call.respond(HttpStatusCode.InternalServerError, "No connection string set.")
                 return@get
             }
@@ -1356,7 +1351,7 @@ private suspend fun handleGetRequestedCoordinate(
 
     if (apiKey != System.getenv("MNI_API_KEY")) {
 
-        println("Unauthorized API key used by $ipAddress.")
+        log("Unauthorized API key used by $ipAddress.")
 
         call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
 
@@ -1417,7 +1412,7 @@ private suspend fun handleGetRequestedCoordinate(
                                 Updates.set(RequestedCoordinate::coordinate.name, cleanCoordinate)
                             )
 
-                        } catch (ex: Exception) {
+                        } catch (ignore: Exception) {
 
                             /* If we can't update to the new name, the request already existed and is duplicated. */
 
@@ -1462,6 +1457,8 @@ private suspend fun handleGetRequestedCoordinate(
 
                 } catch (ex: IllegalCoordinateException) {
 
+                    log(ex)
+
                     /* Mark the coordinate status as illegal */
                     collection.updateOne(
                         Filters.eq(RequestedCoordinate::coordinate.name, ex.coordinate),
@@ -1476,7 +1473,7 @@ private suspend fun handleGetRequestedCoordinate(
 
     val duration = System.currentTimeMillis() - start
 
-    println("Returned next requested coordinate in $duration ms.")
+    log("Returned next requested coordinate in $duration ms.")
 }
 
 /**
@@ -1488,7 +1485,7 @@ private fun ApplicationCall.getIpAddress(): String =
 
 private suspend fun populateSummaries() {
 
-    println("Starting populate entries...")
+    log("Starting populate entries...")
 
     val start = System.currentTimeMillis()
 
@@ -1504,7 +1501,7 @@ private suspend fun populateSummaries() {
 
         if (missingCoordinates.isNotEmpty()) {
 
-            println("Adding ${missingCoordinates.size} to search index...")
+            log("Adding ${missingCoordinates.size} to search index...")
 
             val clustersCollection = database.getCollection<Cluster>("worlds")
 
@@ -1518,23 +1515,23 @@ private suspend fun populateSummaries() {
 
                 summariesCollection.insertOne(ClusterSummary.create(world))
 
-                println("Created search index for ${world.coordinate}")
+                log("Created search index for ${world.coordinate}")
             }
 
         } else {
 
-            println("Search index is up to date.")
+            log("Search index is up to date.")
         }
     }
 
     val duration = System.currentTimeMillis() - start
 
-    println("Created search index in $duration ms.")
+    log("Created search index in $duration ms.")
 }
 
 private suspend fun createContributorTable() {
 
-    println("Creating contributor table...")
+    log("Creating contributor table...")
 
     val start = System.currentTimeMillis()
 
@@ -1599,11 +1596,11 @@ private suspend fun createContributorTable() {
 
         val duration = System.currentTimeMillis() - start
 
-        println("Created contributor table in $duration ms.")
+        log("Created contributor table in $duration ms.")
 
     } catch (ex: Exception) {
 
-        ex.printStackTrace()
+        log(ex)
     }
 }
 
@@ -1643,7 +1640,7 @@ private suspend fun validateSteamLogin(params: Parameters): String? {
 
     if (!response.status.isSuccess()) {
 
-        println("Auth was not successful: ${response.status} ${response.bodyAsText()}")
+        log("Auth was not successful: ${response.status} ${response.bodyAsText()}")
 
         return null
     }
@@ -1683,4 +1680,18 @@ private fun saltedSha256(input: String): String {
     val bytes = saltedInput.toByteArray(Charsets.UTF_8)
     val digest = messageDigest.digest(bytes)
     return digest.toHexString()
+}
+
+private fun log(message: String) {
+
+    println(message)
+
+    Sentry.addBreadcrumb(message)
+}
+
+private fun log(ex: Throwable) {
+
+    ex.printStackTrace()
+
+    Sentry.captureException(ex)
 }
