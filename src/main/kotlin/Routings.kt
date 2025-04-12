@@ -1264,6 +1264,7 @@ fun Application.configureRouting() {
         /**
          * Returns an information for the map contributors leaderboard.
          */
+        // DEPRECATED
         get("/contributor-ranking") {
 
             try {
@@ -1322,6 +1323,32 @@ fun Application.configureRouting() {
                     }
 
                     call.respond(rankingList)
+                }
+
+            } catch (ex: Exception) {
+
+                log(ex)
+
+                call.respond(HttpStatusCode.InternalServerError, "Sorry, your request failed.")
+            }
+        }
+
+        get("/contributors") {
+
+            try {
+
+                MongoClient.create(mongoClientSettings).use { mongoClient ->
+
+                    val database = mongoClient.getDatabase("oni")
+
+                    val contributorCollection = database.getCollection<Contributor>("contributors")
+
+                    val contributors = contributorCollection
+                        .find()
+                        .toList()
+                        .sortedByDescending { it.mapCount }
+
+                    call.respond(contributors)
                 }
 
             } catch (ex: Exception) {
