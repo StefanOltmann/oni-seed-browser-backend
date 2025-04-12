@@ -29,6 +29,7 @@ import com.mongodb.client.model.Filters
 import com.mongodb.client.model.IndexOptions
 import com.mongodb.client.model.Projections
 import com.mongodb.client.model.Sorts
+import com.mongodb.client.model.Sorts.descending
 import com.mongodb.client.model.Updates
 import com.mongodb.kotlin.client.coroutine.MongoClient
 import com.mongodb.kotlin.client.coroutine.MongoDatabase
@@ -114,6 +115,8 @@ const val POPULATE_SUMMARIES_ON_START = false
 
 /* Limit the results to avoid memory issues */
 const val RESULT_LIMIT = 100
+
+const val LATEST_LIMIT = 10
 
 const val EXPORT_BATCH_SIZE = 10000
 
@@ -220,7 +223,7 @@ fun Application.configureRouting() {
 
         MongoClient.create(mongoClientSettings).use { mongoClient ->
 
-            log("Setting missing indices...")
+            println("Setting missing indices...")
 
             /*
              * Unique key indexes
@@ -255,10 +258,13 @@ fun Application.configureRouting() {
              * Indexes for aggregation speed
              */
 
-            database.getCollection<Document>("uploads")
-                .createIndex(Document("userId", 1))
+            database.getCollection<Document>("worlds")
+                .createIndex(Document("uploaderSteamIdHash", 1))
 
-            log("... Done.")
+            database.getCollection<Document>("worlds")
+                .createIndex(Document("uploadDate", 1))
+
+            println("... Done.")
         }
 
         if (POPULATE_SUMMARIES_ON_START)
@@ -1010,6 +1016,36 @@ fun Application.configureRouting() {
                 log(ex)
 
                 call.respond(HttpStatusCode.BadRequest, "Failed to add coordinate")
+            }
+        }
+
+        /**
+         * Returns the latest maps added to the database.
+         */
+        get("/latest") {
+
+            try {
+
+                MongoClient.create(mongoClientSettings).use { mongoClient ->
+
+                    val database = mongoClient.getDatabase("oni")
+
+                    val clustersCollection = database.getCollection<Cluster>("worlds")
+
+                    val latestClusters = clustersCollection
+                        .find()
+                        .sort(descending(Cluster::uploadDate.name))
+                        .limit(LATEST_LIMIT)
+                        .toList()
+
+                    call.respond(latestClusters)
+                }
+
+            } catch (ex: Exception) {
+
+                log(ex)
+
+                call.respond(HttpStatusCode.BadRequest, "Failed to get latest clusters.")
             }
         }
 
