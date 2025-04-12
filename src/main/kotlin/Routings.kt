@@ -109,6 +109,9 @@ import java.util.UUID
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
+/* Should not be necessary right now; was for migration. */
+const val POPULATE_SUMMARIES_ON_START = false
+
 /* Limit the results to avoid memory issues */
 const val RESULT_LIMIT = 100
 
@@ -258,7 +261,8 @@ fun Application.configureRouting() {
             log("... Done.")
         }
 
-        populateSummaries()
+        if (POPULATE_SUMMARIES_ON_START)
+            populateSummaries()
 
         createContributorTable()
     }
@@ -1497,7 +1501,7 @@ private fun ApplicationCall.getIpAddress(): String =
 
 private suspend fun populateSummaries() {
 
-    log("Starting populate entries...")
+    log("Starting populate summary entries...")
 
     val start = System.currentTimeMillis()
 
