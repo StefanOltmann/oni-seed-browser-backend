@@ -1062,7 +1062,7 @@ fun Application.configureRouting() {
 
                 val jwt = jwtVerifier.verify(token)
 
-                val steamId = jwt.getClaim("steamId")
+                val steamId: String = jwt.getClaim("steamId").asString()
 
                 MongoClient.create(mongoClientSettings).use { mongoClient ->
 
@@ -1099,7 +1099,7 @@ fun Application.configureRouting() {
 
                 val jwt = jwtVerifier.verify(token)
 
-                val steamId = jwt.getClaim("steamId").asString()
+                val steamId: String = jwt.getClaim("steamId").asString()
 
                 val rateCoordinateRequest = call.receive<RateCoordinateRequest>()
 
@@ -1157,7 +1157,7 @@ fun Application.configureRouting() {
 
                 val jwt = jwtVerifier.verify(token)
 
-                val steamId = jwt.getClaim("steamId").asString()
+                val steamId: String = jwt.getClaim("steamId").asString()
 
                 MongoClient.create(mongoClientSettings).use { mongoClient ->
 
@@ -1200,7 +1200,7 @@ fun Application.configureRouting() {
 
                 val jwt = jwtVerifier.verify(token)
 
-                val steamId = jwt.getClaim("steamId").asString()
+                val steamId: String = jwt.getClaim("steamId").asString()
 
                 val wantedUsername = call.receive<String>()
 
