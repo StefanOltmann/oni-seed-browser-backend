@@ -1548,12 +1548,17 @@ private suspend fun setMissingUploaderInfo() {
 
         val clustersCollection = database.getCollection<Cluster>("worlds")
 
-        val uploadsCollection = database.getCollection<Upload>("uploads")
+        val uploadsCollection = database.getCollection<UploadDatabase>("uploads")
 
         while (true) {
 
             val world = clustersCollection
-                .find(Filters.not(Filters.exists("uploaderSteamIdHash")))
+                .find(
+                    Filters.or(
+                        Filters.not(Filters.exists("uploaderSteamIdHash")),
+                        Filters.not(Filters.exists("uploadDate"))
+                    )
+                )
                 .firstOrNull()
 
             if (world == null)
@@ -1568,7 +1573,10 @@ private suspend fun setMissingUploaderInfo() {
 
             clustersCollection.updateOne(
                 Filters.eq("coordinate", world.coordinate),
-                Updates.set("uploaderSteamIdHash", uploaderName)
+                Updates.combine(
+                    Updates.set("uploaderSteamIdHash", uploaderName),
+                    Updates.set("uploadDate", upload?.uploadDate ?: 0)
+                )
             )
 
             // println("Updated ${world.coordinate} = $uploaderName")
