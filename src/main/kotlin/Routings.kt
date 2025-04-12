@@ -622,8 +622,6 @@ fun Application.configureRouting() {
                         .limit(RESULT_LIMIT)
                         .toList()
 
-                    log("Found ${matchingSummaries.size} matches for filter.")
-
                     val matchingCoordinates: List<String> =
                         matchingSummaries.map { it.coordinate }.toList()
 
@@ -674,8 +672,6 @@ fun Application.configureRouting() {
 
             try {
 
-                val start = System.currentTimeMillis()
-
                 MongoClient.create(mongoClientSettings).use { mongoClient ->
 
                     val database = mongoClient.getDatabase("oni")
@@ -687,10 +683,6 @@ fun Application.configureRouting() {
 
                     call.respond(count)
                 }
-
-                val duration = System.currentTimeMillis() - start
-
-                log("Returned count of seeds in $duration ms.")
 
             } catch (ex: Exception) {
 
@@ -822,10 +814,7 @@ fun Application.configureRouting() {
 
                 val duration = System.currentTimeMillis() - start
 
-                log(
-                    "Completed upload in $duration ms. " +
-                        "Optimization took $durationForOptimization ms."
-                )
+                println("[UPLOAD] ${cluster.coordinate} ($duration ms)")
 
             } catch (ex: Exception) {
 
@@ -1491,7 +1480,7 @@ private suspend fun handleGetRequestedCoordinate(
 
     val duration = System.currentTimeMillis() - start
 
-    log("Returned next requested coordinate in $duration ms.")
+    log("Returned next coordinate in $duration ms.")
 }
 
 /**
