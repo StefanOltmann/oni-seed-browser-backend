@@ -343,65 +343,74 @@ fun Application.configureRouting() {
 
         get("/coordinate/{coordinate}") {
 
-            val coordinate = call.parameters["coordinate"]
+            try {
 
-            if (coordinate.isNullOrBlank()) {
+                val coordinate = call.parameters["coordinate"]
 
-                call.respond(HttpStatusCode.BadRequest, "Invalid coordinate '$coordinate'")
+                if (coordinate.isNullOrBlank()) {
 
-                return@get
+                    call.respond(HttpStatusCode.BadRequest, "Invalid coordinate '$coordinate'")
+
+                    return@get
+                }
+
+                val start = System.currentTimeMillis()
+
+                MongoClient.create(mongoClientSettings).use { mongoClient ->
+
+                    val database = mongoClient.getDatabase("oni")
+
+                    val collection = database.getCollection<Cluster>("worlds")
+
+                    val cluster: Cluster? = collection.find(
+                        Filters.eq("coordinate", coordinate)
+                    ).firstOrNull()
+
+                    if (cluster != null)
+                        call.respond(cluster)
+                    else
+                        call.respond(HttpStatusCode.NotFound, "No data found for coordinate: $coordinate")
+                }
+
+                val duration = System.currentTimeMillis() - start
+
+                println("Returned data for coordinate $coordinate in $duration ms.")
+
+            } catch (ex: Exception) {
+
+                ex.printStackTrace()
+
+                call.respond(HttpStatusCode.InternalServerError, "Error on getting coordinate")
             }
-
-            val start = System.currentTimeMillis()
-
-            MongoClient.create(mongoClientSettings).use { mongoClient ->
-
-                val database = mongoClient.getDatabase("oni")
-
-                val collection = database.getCollection<Cluster>("worlds")
-
-                val cluster: Cluster? = collection.find(
-                    Filters.eq("coordinate", coordinate)
-                ).firstOrNull()
-
-                if (cluster != null)
-                    call.respond(cluster)
-                else
-                    call.respond(HttpStatusCode.NotFound, "No data found for coordinate: $coordinate")
-            }
-
-            val duration = System.currentTimeMillis() - start
-
-            println("Returned data for coordinate $coordinate in $duration ms.")
         }
 
         post("/add-mod-binary-checksum") {
 
-            val ipAddress = call.getIpAddress()
-
-            val start = System.currentTimeMillis()
-
-            val apiKey: String? = this.call.request.headers["API_KEY"]
-
-            if (apiKey != System.getenv("DATABASE_EXPORT_API_KEY")) {
-
-                println("Unauthorized API key used by $ipAddress.")
-
-                call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
-
-                return@post
-            }
-
-            val gitTag: String? = this.call.request.headers["GIT_TAG"]
-
-            if (gitTag.isNullOrBlank()) {
-
-                call.respond(HttpStatusCode.BadRequest, "Missing git tag.")
-
-                return@post
-            }
-
             try {
+
+                val ipAddress = call.getIpAddress()
+
+                val start = System.currentTimeMillis()
+
+                val apiKey: String? = this.call.request.headers["API_KEY"]
+
+                if (apiKey != System.getenv("DATABASE_EXPORT_API_KEY")) {
+
+                    println("Unauthorized API key used by $ipAddress.")
+
+                    call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
+
+                    return@post
+                }
+
+                val gitTag: String? = this.call.request.headers["GIT_TAG"]
+
+                if (gitTag.isNullOrBlank()) {
+
+                    call.respond(HttpStatusCode.BadRequest, "Missing git tag.")
+
+                    return@post
+                }
 
                 val checksum = call.receive<String>()
 
@@ -445,82 +454,115 @@ fun Application.configureRouting() {
 
         get("/current-mod-version") {
 
-            val start = System.currentTimeMillis()
+            try {
 
-            MongoClient.create(mongoClientSettings).use { mongoClient ->
+                val start = System.currentTimeMillis()
 
-                val database = mongoClient.getDatabase("oni")
+                MongoClient.create(mongoClientSettings).use { mongoClient ->
 
-                val collection = database.getCollection<ModBinaryChecksumDatabase>("modBinaryChecksums")
+                    val database = mongoClient.getDatabase("oni")
 
-                val currentEntry = collection.find()
-                    .sort(Sorts.descending("timestamp"))
-                    .limit(1)
-                    .firstOrNull()
+                    val collection = database.getCollection<ModBinaryChecksumDatabase>("modBinaryChecksums")
 
-                if (currentEntry == null)
-                    call.respond(HttpStatusCode.OK, "UNKNOWN")
-                else
-                    call.respond(HttpStatusCode.OK, currentEntry.gitTag)
+                    val currentEntry = collection.find()
+                        .sort(Sorts.descending("timestamp"))
+                        .limit(1)
+                        .firstOrNull()
+
+                    if (currentEntry == null)
+                        call.respond(HttpStatusCode.OK, "UNKNOWN")
+                    else
+                        call.respond(HttpStatusCode.OK, currentEntry.gitTag)
+                }
+
+                val duration = System.currentTimeMillis() - start
+
+                println("Returned current mod version in $duration ms.")
+
+            } catch (ex: Exception) {
+
+                ex.printStackTrace()
+
+                call.respond(HttpStatusCode.InternalServerError, "Error on reporting current mod version")
             }
-
-            val duration = System.currentTimeMillis() - start
-
-            println("Returned current mod version in $duration ms.")
         }
 
         get("/export") {
 
-            val start = System.currentTimeMillis()
+            try {
 
-            val ipAddress = call.getIpAddress()
+                val start = System.currentTimeMillis()
 
-            val apiKey: String? = this.call.request.headers["API_KEY"]
+                val ipAddress = call.getIpAddress()
 
-            if (apiKey != System.getenv("DATABASE_EXPORT_API_KEY")) {
+                val apiKey: String? = this.call.request.headers["API_KEY"]
 
-                println("Unauthorized API key used by ip address $ipAddress.")
+                if (apiKey != System.getenv("DATABASE_EXPORT_API_KEY")) {
 
-                call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
+                    println("Unauthorized API key used by ip address $ipAddress.")
 
-                return@get
-            }
+                    call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
 
-            MongoClient.create(mongoClientSettings).use { mongoClient ->
+                    return@get
+                }
 
-                val database = mongoClient.getDatabase("oni")
+                MongoClient.create(mongoClientSettings).use { mongoClient ->
 
-                val collection = database.getCollection<Cluster>("worlds")
+                    val database = mongoClient.getDatabase("oni")
 
-                call.response.header(
-                    HttpHeaders.ContentDisposition,
-                    ContentDisposition.Attachment.withParameter(
-                        key = ContentDisposition.Parameters.FileName,
-                        value = "data.zip"
-                    ).toString()
-                )
+                    val collection = database.getCollection<Cluster>("worlds")
 
-                /*
-                 * Stream the response, so we can remove from memory what the client already received.
-                 */
-                call.respondOutputStream(
-                    contentType = ContentType.Application.Zip,
-                    status = HttpStatusCode.OK
-                ) {
+                    call.response.header(
+                        HttpHeaders.ContentDisposition,
+                        ContentDisposition.Attachment.withParameter(
+                            key = ContentDisposition.Parameters.FileName,
+                            value = "data.zip"
+                        ).toString()
+                    )
 
-                    ZipOutputStream(this).use { zipOutputStream ->
+                    /*
+                     * Stream the response, so we can remove from memory what the client already received.
+                     */
+                    call.respondOutputStream(
+                        contentType = ContentType.Application.Zip,
+                        status = HttpStatusCode.OK
+                    ) {
 
-                        val cursor = collection.find().batchSize(1000)
+                        ZipOutputStream(this).use { zipOutputStream ->
 
-                        var batchNumber = 1
+                            val cursor = collection.find().batchSize(1000)
 
-                        val batchMaps = mutableListOf<Cluster>()
+                            var batchNumber = 1
 
-                        cursor.collect { document ->
+                            val batchMaps = mutableListOf<Cluster>()
 
-                            batchMaps.add(document)
+                            cursor.collect { document ->
 
-                            if (batchMaps.size >= EXPORT_BATCH_SIZE) {
+                                batchMaps.add(document)
+
+                                if (batchMaps.size >= EXPORT_BATCH_SIZE) {
+
+                                    zipOutputStream.putNextEntry(ZipEntry("data-${batchNumber}.json"))
+
+                                    /*
+                                     * Encode directly to the stream. This avoids creating a new
+                                     * ByteArray on the heap which might let the server go out of memory.
+                                     */
+                                    strictAllFieldsJson.encodeToStream(batchMaps, zipOutputStream)
+
+                                    zipOutputStream.closeEntry()
+
+                                    // Clear the batch, increment file number, and force GC
+                                    batchMaps.clear()
+                                    batchNumber++
+
+                                    /* Clean up to prevent out of memory. */
+                                    System.gc()
+                                }
+                            }
+
+                            /* If any remaining documents after loop, save the last batch */
+                            if (batchMaps.isNotEmpty()) {
 
                                 zipOutputStream.putNextEntry(ZipEntry("data-${batchNumber}.json"))
 
@@ -532,50 +574,35 @@ fun Application.configureRouting() {
 
                                 zipOutputStream.closeEntry()
 
-                                // Clear the batch, increment file number, and force GC
                                 batchMaps.clear()
-                                batchNumber++
 
                                 /* Clean up to prevent out of memory. */
                                 System.gc()
                             }
                         }
-
-                        /* If any remaining documents after loop, save the last batch */
-                        if (batchMaps.isNotEmpty()) {
-
-                            zipOutputStream.putNextEntry(ZipEntry("data-${batchNumber}.json"))
-
-                            /*
-                             * Encode directly to the stream. This avoids creating a new
-                             * ByteArray on the heap which might let the server go out of memory.
-                             */
-                            strictAllFieldsJson.encodeToStream(batchMaps, zipOutputStream)
-
-                            zipOutputStream.closeEntry()
-
-                            batchMaps.clear()
-
-                            /* Clean up to prevent out of memory. */
-                            System.gc()
-                        }
                     }
                 }
+
+                val duration = System.currentTimeMillis() - start
+
+                println("Exported data in $duration ms.")
+
+                /* Final extra clean-up */
+                System.gc()
+
+            } catch (ex: Exception) {
+
+                ex.printStackTrace()
+
+                call.respond(HttpStatusCode.InternalServerError, "Error on export")
             }
-
-            val duration = System.currentTimeMillis() - start
-
-            println("Exported data in $duration ms.")
-
-            /* Final extra clean-up */
-            System.gc()
         }
 
         post("/search") {
 
-            val start = System.currentTimeMillis()
-
             try {
+
+                val start = System.currentTimeMillis()
 
                 val filterQuery = call.receive<FilterQuery>()
 
@@ -612,9 +639,7 @@ fun Application.configureRouting() {
 
                 ex.printStackTrace()
 
-                println("Exception on submitting.")
-
-                call.respond(HttpStatusCode.InternalServerError)
+                call.respond(HttpStatusCode.InternalServerError, "Error on search")
             }
         }
 
@@ -643,43 +668,54 @@ fun Application.configureRouting() {
 
         get("/count") {
 
-            val start = System.currentTimeMillis()
+            try {
 
-            MongoClient.create(mongoClientSettings).use { mongoClient ->
+                val start = System.currentTimeMillis()
 
-                val database = mongoClient.getDatabase("oni")
+                MongoClient.create(mongoClientSettings).use { mongoClient ->
 
-                val collection = database.getCollection<Cluster>("worlds")
+                    val database = mongoClient.getDatabase("oni")
 
-                /* Fast count */
-                val count = collection.estimatedDocumentCount()
+                    val collection = database.getCollection<Cluster>("worlds")
 
-                call.respond(count)
+                    /* Fast count */
+                    val count = collection.estimatedDocumentCount()
+
+                    call.respond(count)
+                }
+
+                val duration = System.currentTimeMillis() - start
+
+                println("Returned count of seeds in $duration ms.")
+
+            } catch (ex: Exception) {
+
+                ex.printStackTrace()
+
+                println("Exception on submitting.")
+
+                call.respond(HttpStatusCode.InternalServerError)
             }
-
-            val duration = System.currentTimeMillis() - start
-
-            println("Returned count of seeds in $duration ms.")
         }
 
         post("/upload") {
 
-            val start = System.currentTimeMillis()
-
-            val ipAddress = call.getIpAddress()
-
-            val apiKey: String? = this.call.request.headers["MNI_API_KEY"]
-
-            if (apiKey != System.getenv("MNI_API_KEY")) {
-
-                println("Unauthorized API key used by $ipAddress.")
-
-                call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
-
-                return@post
-            }
-
             try {
+
+                val start = System.currentTimeMillis()
+
+                val ipAddress = call.getIpAddress()
+
+                val apiKey: String? = this.call.request.headers["MNI_API_KEY"]
+
+                if (apiKey != System.getenv("MNI_API_KEY")) {
+
+                    println("Unauthorized API key used by $ipAddress.")
+
+                    call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
+
+                    return@post
+                }
 
                 val upload = call.receive<Upload>()
 
@@ -789,22 +825,22 @@ fun Application.configureRouting() {
 
         post("/report-worldgen-failure") {
 
-            val start = System.currentTimeMillis()
-
-            val ipAddress = call.getIpAddress()
-
-            val apiKey: String? = this.call.request.headers["MNI_API_KEY"]
-
-            if (apiKey != System.getenv("MNI_API_KEY")) {
-
-                println("Unauthorized API key used by $ipAddress.")
-
-                call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
-
-                return@post
-            }
-
             try {
+
+                val start = System.currentTimeMillis()
+
+                val ipAddress = call.getIpAddress()
+
+                val apiKey: String? = this.call.request.headers["MNI_API_KEY"]
+
+                if (apiKey != System.getenv("MNI_API_KEY")) {
+
+                    println("Unauthorized API key used by $ipAddress.")
+
+                    call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
+
+                    return@post
+                }
 
                 val failedGenReport = call.receive<FailedGenReport>()
 
@@ -884,60 +920,69 @@ fun Application.configureRouting() {
 
         get("/list-worldgen-failures") {
 
-            val start = System.currentTimeMillis()
+            try {
 
-            MongoClient.create(mongoClientSettings).use { mongoClient ->
+                val start = System.currentTimeMillis()
 
-                val database = mongoClient.getDatabase("oni")
+                MongoClient.create(mongoClientSettings).use { mongoClient ->
 
-                val collection = database.getCollection<Document>("failedWorldGenReports")
+                    val database = mongoClient.getDatabase("oni")
 
-                val coordinates: List<String> = collection.find()
-                    .projection(Projections.fields(Projections.include("coordinate")))
-                    .map { it["coordinate"] as String }
-                    .toList()
+                    val collection = database.getCollection<Document>("failedWorldGenReports")
 
-                println("The database contains ${coordinates.size} seeds reported as world gen failures.")
+                    val coordinates: List<String> = collection.find()
+                        .projection(Projections.fields(Projections.include("coordinate")))
+                        .map { it["coordinate"] as String }
+                        .toList()
 
-                val asSimpleString = coordinates.sorted().joinToString("\n")
+                    println("The database contains ${coordinates.size} seeds reported as world gen failures.")
 
-                call.respond(asSimpleString)
+                    val asSimpleString = coordinates.sorted().joinToString("\n")
+
+                    call.respond(asSimpleString)
+                }
+
+                val duration = System.currentTimeMillis() - start
+
+                println("Returned world gen failures in $duration ms.")
+
+            } catch (ex: Exception) {
+
+                ex.printStackTrace()
+
+                call.respond(HttpStatusCode.BadRequest, "Failed to list worldgen failures")
             }
-
-            val duration = System.currentTimeMillis() - start
-
-            println("Returned world gen failures in $duration ms.")
         }
 
         post("/request-coordinate") {
 
-            val token: String? = this.call.request.headers[TOKEN_HEADER]
-
-            if (token.isNullOrBlank()) {
-                call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER' header.")
-                return@post
-            }
-
-            val jwt = jwtVerifier.verify(token)
-
-            val steamId = jwt.getClaim("steamId").asString()
-
-            val coordinate = call.receive<String>()
-
-            val cleanCoordinate = try {
-
-                cleanCoordinate(coordinate)
-
-            } catch (ex: Exception) {
-
-                println("Ignoring invalid coordinate $coordinate")
-
-                call.respond(HttpStatusCode.BadRequest, "Invalid coordinate '$coordinate'")
-
-                return@post
-            }
-
             try {
+
+                val token: String? = this.call.request.headers[TOKEN_HEADER]
+
+                if (token.isNullOrBlank()) {
+                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER' header.")
+                    return@post
+                }
+
+                val jwt = jwtVerifier.verify(token)
+
+                val steamId = jwt.getClaim("steamId").asString()
+
+                val coordinate = call.receive<String>()
+
+                val cleanCoordinate = try {
+
+                    cleanCoordinate(coordinate)
+
+                } catch (ex: Exception) {
+
+                    println("Ignoring invalid coordinate $coordinate")
+
+                    call.respond(HttpStatusCode.BadRequest, "Invalid coordinate '$coordinate'")
+
+                    return@post
+                }
 
                 MongoClient.create(mongoClientSettings).use { mongoClient ->
 
@@ -962,7 +1007,7 @@ fun Application.configureRouting() {
 
                 ex.printStackTrace()
 
-                call.respond(HttpStatusCode.BadRequest, "Failed to add: $cleanCoordinate")
+                call.respond(HttpStatusCode.BadRequest, "Failed to add coordinate")
             }
         }
 
@@ -1011,48 +1056,57 @@ fun Application.configureRouting() {
 
         get("/favored-coordinates") {
 
-            val token: String? = this.call.request.headers[TOKEN_HEADER]
+            try {
 
-            if (token.isNullOrBlank()) {
-                call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER' header.")
-                return@get
-            }
+                val token: String? = this.call.request.headers[TOKEN_HEADER]
 
-            val jwt = jwtVerifier.verify(token)
+                if (token.isNullOrBlank()) {
+                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER' header.")
+                    return@get
+                }
 
-            val steamId = jwt.getClaim("steamId")
+                val jwt = jwtVerifier.verify(token)
 
-            MongoClient.create(mongoClientSettings).use { mongoClient ->
+                val steamId = jwt.getClaim("steamId")
 
-                val database = mongoClient.getDatabase("oni")
+                MongoClient.create(mongoClientSettings).use { mongoClient ->
 
-                val collection = database.getCollection<FavoredCoordinate>("likes")
+                    val database = mongoClient.getDatabase("oni")
 
-                val favoredCoordinates: List<String> = collection
-                    .find(Filters.eq("steamId", steamId))
-                    .map { it.coordinate }
-                    .toList()
+                    val collection = database.getCollection<FavoredCoordinate>("likes")
 
-                call.respond(favoredCoordinates)
+                    val favoredCoordinates: List<String> = collection
+                        .find(Filters.eq("steamId", steamId))
+                        .map { it.coordinate }
+                        .toList()
+
+                    call.respond(favoredCoordinates)
+                }
+
+            } catch (ex: Exception) {
+
+                ex.printStackTrace()
+
+                call.respond(HttpStatusCode.BadRequest, "Failed to get favored coordinates.")
             }
         }
 
         post("/rate-coordinate") {
 
-            val token: String? = this.call.request.headers[TOKEN_HEADER]
-
-            if (token.isNullOrBlank()) {
-                call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER' header.")
-                return@post
-            }
-
-            val jwt = jwtVerifier.verify(token)
-
-            val steamId = jwt.getClaim("steamId").asString()
-
-            val rateCoordinateRequest = call.receive<RateCoordinateRequest>()
-
             try {
+
+                val token: String? = this.call.request.headers[TOKEN_HEADER]
+
+                if (token.isNullOrBlank()) {
+                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER' header.")
+                    return@post
+                }
+
+                val jwt = jwtVerifier.verify(token)
+
+                val steamId = jwt.getClaim("steamId").asString()
+
+                val rateCoordinateRequest = call.receive<RateCoordinateRequest>()
 
                 MongoClient.create(mongoClientSettings).use { mongoClient ->
 
@@ -1097,18 +1151,18 @@ fun Application.configureRouting() {
          */
         get("/username") {
 
-            val token: String? = this.call.request.headers[TOKEN_HEADER]
-
-            if (token.isNullOrBlank()) {
-                call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER' header.")
-                return@get
-            }
-
-            val jwt = jwtVerifier.verify(token)
-
-            val steamId = jwt.getClaim("steamId").asString()
-
             try {
+
+                val token: String? = this.call.request.headers[TOKEN_HEADER]
+
+                if (token.isNullOrBlank()) {
+                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER' header.")
+                    return@get
+                }
+
+                val jwt = jwtVerifier.verify(token)
+
+                val steamId = jwt.getClaim("steamId").asString()
 
                 MongoClient.create(mongoClientSettings).use { mongoClient ->
 
@@ -1140,22 +1194,22 @@ fun Application.configureRouting() {
          */
         post("/username") {
 
-            val token: String? = this.call.request.headers[TOKEN_HEADER]
-
-            if (token.isNullOrBlank()) {
-                call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER' header.")
-                return@post
-            }
-
-            val jwt = jwtVerifier.verify(token)
-
-            val steamId = jwt.getClaim("steamId").asString()
-
-            val wantedUsername = call.receive<String>()
-
-            val wantedUsernameTrimmed = wantedUsername.trim()
-
             try {
+
+                val token: String? = this.call.request.headers[TOKEN_HEADER]
+
+                if (token.isNullOrBlank()) {
+                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER' header.")
+                    return@post
+                }
+
+                val jwt = jwtVerifier.verify(token)
+
+                val steamId = jwt.getClaim("steamId").asString()
+
+                val wantedUsername = call.receive<String>()
+
+                val wantedUsernameTrimmed = wantedUsername.trim()
 
                 MongoClient.create(mongoClientSettings).use { mongoClient ->
 
