@@ -45,7 +45,6 @@ import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.Parameters
 import io.ktor.http.ParametersBuilder
-import io.ktor.http.decodeURLPart
 import io.ktor.http.isSuccess
 import io.ktor.http.path
 import io.ktor.serialization.kotlinx.cbor.cbor
@@ -276,14 +275,14 @@ fun Application.configureRouting() {
          *
          * This is intended for the standalone version!
          */
-        get("/connect/{callbackUrlEncoded}") {
+        get("/connect/{port}") {
 
-            val callbackUrlEncoded = call.parameters["callbackUrlEncoded"]
+            val port = call.parameters["port"]
 
             val steamLoginUrl = "https://steamcommunity.com/openid/login?" +
                 "openid.ns=http://specs.openid.net/auth/2.0" +
                 "&openid.mode=checkid_setup" +
-                "&openid.return_to=${call.url { path("connect/callback/$callbackUrlEncoded") }}" +
+                "&openid.return_to=${call.url { path("connect/callback/$port") }}" +
                 "&openid.realm=${call.request.origin.scheme}://${call.request.host()}/" +
                 "&openid.identity=http://specs.openid.net/auth/2.0/identifier_select" +
                 "&openid.claimed_id=http://specs.openid.net/auth/2.0/identifier_select"
@@ -291,14 +290,12 @@ fun Application.configureRouting() {
             call.respondRedirect(steamLoginUrl)
         }
 
-        get("/connect/callback/{callbackUrlEncoded}") {
+        get("/connect/callback/{port}") {
 
             try {
 
-                val callbackUrlEncoded = call.parameters["callbackUrlEncoded"]
-                    ?: error("Missing parameter")
-
-                val callbackUrl = callbackUrlEncoded.decodeURLPart()
+                val port = call.parameters["port"]
+                    ?: error("Missing parameter 'port'")
 
                 val params = call.request.queryParameters
 
@@ -318,7 +315,11 @@ fun Application.configureRouting() {
                      * Redirect to the standalone version.
                      * The MNI embedded version should get the token from the outer login.
                      */
-                    call.respondRedirect("$callbackUrl?token=$jwt")
+
+                    if (port == "0")
+                        call.respondRedirect("https://stefan-oltmann.de/oni-seed-browser?token=$jwt")
+                    else
+                        call.respondRedirect("http://localhost:$port/?token=$jwt")
 
                 } else {
 
