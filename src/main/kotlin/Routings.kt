@@ -968,35 +968,44 @@ fun Application.configureRouting() {
 
         get("/favored-clusters") {
 
-            val token: String? = this.call.request.headers[TOKEN_HEADER]
+            try {
 
-            if (token.isNullOrBlank()) {
-                call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER' header.")
-                return@get
-            }
+                val token: String? = this.call.request.headers[TOKEN_HEADER]
 
-            val jwt = jwtVerifier.verify(token)
+                if (token.isNullOrBlank()) {
+                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER' header.")
+                    return@get
+                }
 
-            val steamId = jwt.getClaim("steamId").asString()
+                val jwt = jwtVerifier.verify(token)
 
-            MongoClient.create(mongoClientSettings).use { mongoClient ->
+                val steamId = jwt.getClaim("steamId").asString()
 
-                val database = mongoClient.getDatabase("oni")
+                MongoClient.create(mongoClientSettings).use { mongoClient ->
 
-                val likesCollection = database.getCollection<FavoredCoordinate>("likes")
+                    val database = mongoClient.getDatabase("oni")
 
-                val favoredCoordinates: List<String> = likesCollection
-                    .find(Filters.eq("steamId", steamId))
-                    .map { it.coordinate }
-                    .toList()
+                    val likesCollection = database.getCollection<FavoredCoordinate>("likes")
 
-                val clustersCollection = database.getCollection<Cluster>("worlds")
+                    val favoredCoordinates: List<String> = likesCollection
+                        .find(Filters.eq("steamId", steamId))
+                        .map { it.coordinate }
+                        .toList()
 
-                val favoredClusters = clustersCollection.find(
-                    Filters.`in`("coordinate", favoredCoordinates)
-                ).toList()
+                    val clustersCollection = database.getCollection<Cluster>("worlds")
 
-                call.respond(favoredClusters)
+                    val favoredClusters = clustersCollection.find(
+                        Filters.`in`("coordinate", favoredCoordinates)
+                    ).toList()
+
+                    call.respond(favoredClusters)
+                }
+
+            } catch (ex: Exception) {
+
+                ex.printStackTrace()
+
+                call.respond(HttpStatusCode.BadRequest, "Failed to get favored clusters.")
             }
         }
 
