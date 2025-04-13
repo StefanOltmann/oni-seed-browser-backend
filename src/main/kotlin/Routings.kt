@@ -111,7 +111,7 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
 /* Should not be necessary right now; was for migration. */
-const val POPULATE_SUMMARIES_ON_START = false
+const val POPULATE_SUMMARIES_ON_START = true
 
 /* Limit the results to avoid memory issues */
 const val RESULT_LIMIT = 100
