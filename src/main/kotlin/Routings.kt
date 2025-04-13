@@ -270,8 +270,6 @@ fun Application.configureRouting() {
         if (POPULATE_SUMMARIES_ON_START)
             populateSummaries()
 
-        setMissingUploaderInfo()
-
         createContributorTable()
     }
 
@@ -773,10 +771,10 @@ fun Application.configureRouting() {
                     coordinate = cluster.coordinate
                 )
 
-                val uploaderSteamIdHash: String = if (upload.userId.startsWith("Steam-"))
+                val uploaderSteamIdHash = if (upload.userId.startsWith("Steam-"))
                     saltedSha256(upload.userId.drop(6))
                 else
-                    ""
+                    null
 
                 val startOptimization = System.currentTimeMillis()
 
@@ -786,8 +784,6 @@ fun Application.configureRouting() {
                     uploaderSteamIdHash = uploaderSteamIdHash,
                     uploadDate = uploadDate
                 )
-
-                val durationForOptimization = System.currentTimeMillis() - startOptimization
 
                 /* Save to MongoDB */
                 MongoClient.create(mongoClientSettings).use { mongoClient ->
@@ -1597,58 +1593,6 @@ private suspend fun populateSummaries() {
     val duration = System.currentTimeMillis() - start
 
     log("Created search index in $duration ms.")
-}
-
-private suspend fun setMissingUploaderInfo() {
-
-    log("Starting setting missing uploader info...")
-
-    val start = System.currentTimeMillis()
-
-    MongoClient.create(mongoClientSettings).use { mongoClient ->
-
-        val database = mongoClient.getDatabase("oni")
-
-        val clustersCollection = database.getCollection<Cluster>("worlds")
-
-        val uploadsCollection = database.getCollection<UploadDatabase>("uploads")
-
-        while (true) {
-
-            val world = clustersCollection
-                .find(
-                    Filters.or(
-                        Filters.not(Filters.exists("uploaderSteamIdHash")),
-                        Filters.not(Filters.exists("uploadDate"))
-                    )
-                )
-                .firstOrNull()
-
-            if (world == null)
-                break
-
-            val upload = uploadsCollection.find(
-                Filters.eq("coordinate", world.coordinate)
-            ).firstOrNull()
-
-            val uploaderName = upload?.userId?.drop(6)?.let { saltedSha256(it) }
-                ?: ""
-
-            clustersCollection.updateOne(
-                Filters.eq("coordinate", world.coordinate),
-                Updates.combine(
-                    Updates.set("uploaderSteamIdHash", uploaderName),
-                    Updates.set("uploadDate", upload?.uploadDate ?: 0)
-                )
-            )
-
-            // println("Updated ${world.coordinate} = $uploaderName")
-        }
-    }
-
-    val duration = System.currentTimeMillis() - start
-
-    log("Setting missing uploader info took $duration ms.")
 }
 
 private suspend fun createContributorTable() {
