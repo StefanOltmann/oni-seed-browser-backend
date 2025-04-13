@@ -711,6 +711,7 @@ fun Application.configureRouting() {
 
                 if (upload.userId.isBlank()) {
                     call.respond(HttpStatusCode.NotAcceptable, "userId was not set.")
+                    log("Rejected illegal data (no userId): $upload")
                     return@post
                 }
 
@@ -723,31 +724,36 @@ fun Application.configureRouting() {
                 }
 
                 if (upload.gameVersion.isBlank()) {
-                    call.respond(HttpStatusCode.NotAcceptable, "gameVersion was not set.")
+                    call.respond(HttpStatusCode.NotAcceptable, "Illegal data: gameVersion was not set.")
+                    log("Rejected illegal data (no gameVersion): $upload")
                     return@post
                 }
 
                 if (upload.fileHashes.isEmpty()) {
-                    call.respond(HttpStatusCode.NotAcceptable, "fileHashes was empty.")
+                    call.respond(HttpStatusCode.NotAcceptable, "Illegal data: fileHashes was empty.")
+                    log("Rejected illegal data (no fileHashes): $upload")
                     return@post
                 }
 
                 val cluster = upload.cluster ?: upload.world
 
                 if (cluster == null) {
-                    call.respond(HttpStatusCode.NotAcceptable, "cluster was empty.")
+                    call.respond(HttpStatusCode.NotAcceptable, "Illegal data: cluster was empty.")
+                    log("Rejected illegal data (no cluster): $upload")
                     return@post
                 }
 
                 /* Cluster must have a coordinate set */
                 if (cluster.coordinate.isBlank()) {
-                    call.respond(HttpStatusCode.NotAcceptable, "Illegal data.")
+                    call.respond(HttpStatusCode.NotAcceptable, "Illegal data: No coordinates.")
+                    log("Rejected illegal data (no coordinates): $upload")
                     return@post
                 }
 
                 /* Cluster must have asteroids */
                 if (cluster.asteroids.isEmpty()) {
-                    call.respond(HttpStatusCode.NotAcceptable, "Illegal data.")
+                    call.respond(HttpStatusCode.NotAcceptable, "Illegal data: No asteroids")
+                    log("Rejected illegal data (no asteroids): $upload")
                     return@post
                 }
 
@@ -774,6 +780,7 @@ fun Application.configureRouting() {
                  */
                 if (steamId == null) {
                     call.respond(HttpStatusCode.NotAcceptable, "We only accept the Steam version right now.")
+                    log("Rejected non-Steam upload from user ${upload.userId}")
                     return@post
                 }
 
