@@ -28,7 +28,6 @@ import com.mongodb.client.model.Aggregates
 import com.mongodb.client.model.Filters
 import com.mongodb.client.model.IndexOptions
 import com.mongodb.client.model.Projections
-import com.mongodb.client.model.Sorts
 import com.mongodb.client.model.Sorts.descending
 import com.mongodb.client.model.Updates
 import com.mongodb.kotlin.client.coroutine.MongoClient
@@ -256,6 +255,9 @@ fun Application.configureRouting() {
             database.getCollection<Document>("worlds")
                 .createIndex(Document("uploadDate", 1))
 
+            database.getCollection<Document>("uploads")
+                .createIndex(Document("uploadDate", 1))
+
             println("... Done.")
         }
 
@@ -465,7 +467,7 @@ fun Application.configureRouting() {
                     val collection = database.getCollection<ModBinaryChecksumDatabase>("modBinaryChecksums")
 
                     val currentEntry = collection.find()
-                        .sort(Sorts.descending("timestamp"))
+                        .sort(descending("timestamp"))
                         .limit(1)
                         .firstOrNull()
 
@@ -700,7 +702,7 @@ fun Application.configureRouting() {
 
                 if (apiKey != System.getenv("MNI_API_KEY")) {
 
-                    log("Unauthorized API key used by $ipAddress.")
+                    log("[UPLOAD] Unauthorized API key used by $ipAddress.")
 
                     call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
 
@@ -710,28 +712,34 @@ fun Application.configureRouting() {
                 val upload = call.receive<Upload>()
 
                 if (upload.userId.isBlank()) {
+
                     call.respond(HttpStatusCode.NotAcceptable, "userId was not set.")
-                    log("Rejected illegal data (no userId): $upload")
+
+                    log("[UPLOAD] Rejected illegal data (no userId): $upload")
+
                     return@post
                 }
 
                 try {
                     UUID.fromString(upload.installationId)
                 } catch (ex: IllegalArgumentException) {
-                    log("InstallationID was not UUID: ${upload.installationId}")
+
+                    log("[UPLOAD] InstallationID was not UUID: ${upload.installationId}")
+
                     call.respond(HttpStatusCode.NotAcceptable, "installationId must be UUID.")
+
                     return@post
                 }
 
                 if (upload.gameVersion.isBlank()) {
                     call.respond(HttpStatusCode.NotAcceptable, "Illegal data: gameVersion was not set.")
-                    log("Rejected illegal data (no gameVersion): $upload")
+                    log("[UPLOAD] Rejected illegal data (no gameVersion): $upload")
                     return@post
                 }
 
                 if (upload.fileHashes.isEmpty()) {
                     call.respond(HttpStatusCode.NotAcceptable, "Illegal data: fileHashes was empty.")
-                    log("Rejected illegal data (no fileHashes): $upload")
+                    log("[UPLOAD] Rejected illegal data (no fileHashes): $upload")
                     return@post
                 }
 
@@ -739,21 +747,36 @@ fun Application.configureRouting() {
 
                 if (cluster == null) {
                     call.respond(HttpStatusCode.NotAcceptable, "Illegal data: cluster was empty.")
-                    log("Rejected illegal data (no cluster): $upload")
+                    log("[UPLOAD] Rejected illegal data (no cluster): $upload")
                     return@post
                 }
 
                 /* Cluster must have a coordinate set */
                 if (cluster.coordinate.isBlank()) {
                     call.respond(HttpStatusCode.NotAcceptable, "Illegal data: No coordinates.")
-                    log("Rejected illegal data (no coordinates): $upload")
+                    log("[UPLOAD] Rejected illegal data (no coordinates): $upload")
                     return@post
                 }
 
                 /* Cluster must have asteroids */
                 if (cluster.asteroids.isEmpty()) {
                     call.respond(HttpStatusCode.NotAcceptable, "Illegal data: No asteroids")
-                    log("Rejected illegal data (no asteroids): $upload")
+                    log("[UPLOAD] Rejected illegal data (no asteroids): $upload")
+                    return@post
+                }
+
+                val currentGameVersion = findCurrentGameVersion()
+
+                /* Must use current version of the game */
+                if (cluster.gameVersion < currentGameVersion) {
+
+                    call.respond(HttpStatusCode.NotAcceptable, "Please use a current version of the game.")
+
+                    log(
+                        "[UPLOAD] Rejected old game version ${cluster.gameVersion} from ${upload.userId}." +
+                            "Current: $currentGameVersion"
+                    )
+
                     return@post
                 }
 
@@ -780,7 +803,7 @@ fun Application.configureRouting() {
                  */
                 if (steamId == null) {
                     call.respond(HttpStatusCode.NotAcceptable, "We only accept the Steam version right now.")
-                    log("Rejected non-Steam upload from user ${upload.userId}")
+                    log("[UPLOAD] Rejected non-Steam upload from user ${upload.userId}")
                     return@post
                 }
 
@@ -848,7 +871,7 @@ fun Application.configureRouting() {
 
                 val duration = System.currentTimeMillis() - start
 
-                println("[UPLOAD] ${cluster.coordinate} ($duration ms)")
+                log("[UPLOAD] ${cluster.coordinate} ($duration ms)")
 
             } catch (ex: Exception) {
 
@@ -1364,6 +1387,11 @@ fun Application.configureRouting() {
     }
 }
 
+// TODO Call an API to get this version
+private fun findCurrentGameVersion(): Int {
+    return 663500
+}
+
 private suspend fun handleGetRequestedCoordinate(
     call: ApplicationCall,
     dlcs: List<Dlc>
@@ -1604,7 +1632,7 @@ private suspend fun createContributorTable() {
 
             val aggregation = listOf(
                 Aggregates.group("\$userId", Accumulators.sum("count", 1)),
-                Aggregates.sort(Sorts.descending("count"))
+                Aggregates.sort(descending("count"))
             )
 
             val counts = uploadCollection.aggregate(aggregation)
