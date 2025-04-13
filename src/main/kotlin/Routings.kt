@@ -776,7 +776,14 @@ fun Application.configureRouting() {
                 else
                     null
 
-                val startOptimization = System.currentTimeMillis()
+                /*
+                 * All contributors so far were on Steam.
+                 * We don't have a login with EPIC right now.
+                 */
+                if (uploaderSteamIdHash == null) {
+                    call.respond(HttpStatusCode.NotAcceptable, "We only accept the Steam version right now.")
+                    return@post
+                }
 
                 val optimizedCluster = cluster.optimizeBiomePaths()
 
