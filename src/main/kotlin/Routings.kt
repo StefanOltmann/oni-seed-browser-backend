@@ -110,7 +110,7 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
 /* Should not be necessary right now; was for migration. */
-const val POPULATE_SUMMARIES_ON_START = true
+const val POPULATE_SUMMARIES_ON_START = false
 
 /* Limit the results to avoid memory issues */
 const val RESULT_LIMIT = 100
@@ -763,8 +763,8 @@ fun Application.configureRouting() {
                     coordinate = cluster.coordinate
                 )
 
-                val uploaderSteamIdHash = if (upload.userId.startsWith("Steam-"))
-                    saltedSha256(upload.userId.drop(6))
+                val steamId = if (upload.userId.startsWith("Steam-"))
+                    upload.userId.drop(6)
                 else
                     null
 
@@ -772,10 +772,12 @@ fun Application.configureRouting() {
                  * All contributors so far were on Steam.
                  * We don't have a login with EPIC right now.
                  */
-                if (uploaderSteamIdHash == null) {
+                if (steamId == null) {
                     call.respond(HttpStatusCode.NotAcceptable, "We only accept the Steam version right now.")
                     return@post
                 }
+
+                val uploaderSteamIdHash = saltedSha256(steamId)
 
                 val optimizedCluster = cluster.optimizeBiomePaths()
 
@@ -809,6 +811,30 @@ fun Application.configureRouting() {
                     database
                         .getCollection<ClusterSummary>("summaries")
                         .insertOne(ClusterSummary.create(cluster))
+
+                    /* Update the contributors info */
+
+                    val newMapCount = countMaps(database, uploaderSteamIdHash)
+
+                    val contributorsCollection =
+                        database.getCollection<Contributor>("contributors")
+
+                    val updateResult = contributorsCollection.updateOne(
+                        Filters.eq("steamIdHash", uploaderSteamIdHash),
+                        Updates.set("mapCount", newMapCount)
+                    )
+
+                    /* For the first contribution we need to create a new entry. */
+                    if (updateResult.matchedCount == 0L) {
+
+                        contributorsCollection.insertOne(
+                            Contributor(
+                                steamIdHash = uploaderSteamIdHash,
+                                username = null,
+                                mapCount = newMapCount
+                            )
+                        )
+                    }
                 }
 
                 call.respond(HttpStatusCode.OK, "Data was saved.")
@@ -1533,6 +1559,21 @@ private suspend fun populateSummaries() {
     }
 }
 
+private suspend fun countMaps(
+    database: MongoDatabase,
+    uploaderSteamIdHash: String
+): Int {
+
+    val worldsCollection = database.getCollection<Document>("worlds")
+
+    val pipeline = listOf(
+        Aggregates.match(Filters.eq("uploaderSteamIdHash", uploaderSteamIdHash)),
+        Aggregates.count("count")
+    )
+
+    return worldsCollection.aggregate(pipeline).firstOrNull()?.getInteger("count") ?: 0
+}
+
 private suspend fun createContributorTable() {
 
     log("Creating contributor table...")
@@ -1581,8 +1622,7 @@ private suspend fun createContributorTable() {
                 val saltedSteamId = saltedSha256(steamId)
 
                 @SuppressWarnings("MagicNumber")
-                val username =
-                    usernameMap[steamId] ?: "Steam ...${steamId.takeLast(4)}"
+                val username = usernameMap[steamId]
 
                 contributorsCollection.deleteOne(
                     Filters.eq("steamIdHash", saltedSteamId)
