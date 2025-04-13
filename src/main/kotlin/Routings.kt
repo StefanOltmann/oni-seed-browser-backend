@@ -84,7 +84,6 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToStream
 import model.Cluster
 import model.Contributor
-import model.ContributorRank
 import model.Dlc
 import model.FailedGenReport
 import model.FailedGenReportDatabase
@@ -209,7 +208,6 @@ fun Application.configureRouting() {
 
         allowHeader(HttpHeaders.AccessControlAllowOrigin)
         allowHeader(HttpHeaders.ContentType)
-        allowHeader(header = "Client-ID") // deprecated
         allowHeader(header = TOKEN_HEADER)
 
         anyHost()
@@ -247,12 +245,6 @@ fun Application.configureRouting() {
 
             database.getCollection<Document>("summaries")
                 .createIndex(Document("coordinate", 1), uniqueIndexOptions)
-
-            database.getCollection<Document>("clients")
-                .createIndex(Document("clientId", 1), uniqueIndexOptions)
-
-            database.getCollection<Document>("clients")
-                .createIndex(Document("clientId", 1), uniqueIndexOptions)
 
             /*
              * Indexes for aggregation speed
@@ -1298,78 +1290,6 @@ fun Application.configureRouting() {
                 dlcs.add(Dlc.BaseGame)
 
             handleGetRequestedCoordinate(call, dlcs)
-        }
-
-        /**
-         * Returns an information for the map contributors leaderboard.
-         */
-        // DEPRECATED
-        get("/contributor-ranking") {
-
-            try {
-
-                MongoClient.create(mongoClientSettings).use { mongoClient ->
-
-                    val database = mongoClient.getDatabase("oni")
-
-                    val usernameCollection = database.getCollection<Username>("usernames")
-
-                    val usernameMap = usernameCollection.find()
-                        .map { it.steamId to it.username }
-                        .toList()
-                        .toMap()
-
-                    val uploadCollection = database.getCollection<Document>("uploads")
-
-                    val aggregation = listOf(
-                        Aggregates.group("\$userId", Accumulators.sum("count", 1)),
-                        Aggregates.sort(Sorts.descending("count"))
-                    )
-
-                    val counts = uploadCollection.aggregate(aggregation)
-                        .map { it.getString("_id") to it.getInteger("count") } // Extract userId and count
-                        .toList()
-                        .toMap()
-
-                    var rank = 1
-
-                    val rankingList = buildList {
-
-                        for (entry in counts) {
-
-                            /*
-                             * We count only Steam users here, because we
-                             * only have a login with Steam.
-                             */
-                            if (!entry.key.startsWith("Steam-"))
-                                continue
-
-                            @SuppressWarnings("MagicNumber")
-                            val steamId = entry.key.drop(6)
-
-                            @SuppressWarnings("MagicNumber")
-                            val username =
-                                usernameMap[steamId] ?: "Steam ...${steamId.takeLast(4)}"
-
-                            add(
-                                ContributorRank(
-                                    rank = rank++,
-                                    username = username,
-                                    mapCount = entry.value
-                                )
-                            )
-                        }
-                    }
-
-                    call.respond(rankingList)
-                }
-
-            } catch (ex: Exception) {
-
-                log(ex)
-
-                call.respond(HttpStatusCode.InternalServerError, "Sorry, your request failed.")
-            }
         }
 
         get("/contributors") {
