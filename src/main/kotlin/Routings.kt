@@ -1478,48 +1478,59 @@ private fun ApplicationCall.getIpAddress(): String =
 
 private suspend fun populateSummaries() {
 
-    log("Starting populate summary entries...")
+    try {
 
-    val start = System.currentTimeMillis()
+        log("Starting populate summary entries...")
 
-    MongoClient.create(mongoClientSettings).use { mongoClient ->
+        val start = System.currentTimeMillis()
 
-        val database = mongoClient.getDatabase("oni")
+        MongoClient.create(mongoClientSettings).use { mongoClient ->
 
-        val coordinates = findAllExistingCoordinates(database)
+            val database = mongoClient.getDatabase("oni")
 
-        val searchIndexCoordinates = findAllSearchIndexCoordinates(database)
+            val coordinates = findAllExistingCoordinates(database)
 
-        val missingCoordinates = coordinates.minus(searchIndexCoordinates)
+            val searchIndexCoordinates = findAllSearchIndexCoordinates(database)
 
-        if (missingCoordinates.isNotEmpty()) {
+            val missingCoordinates = coordinates.minus(searchIndexCoordinates)
 
-            log("Adding ${missingCoordinates.size} to search index...")
+            if (missingCoordinates.isNotEmpty()) {
 
-            val clustersCollection = database.getCollection<Cluster>("worlds")
+                log("Adding ${missingCoordinates.size} to search index...")
 
-            val summariesCollection = database.getCollection<ClusterSummary>("summaries")
+                val clustersCollection = database.getCollection<Cluster>("worlds")
 
-            val clustersToIndex = clustersCollection.find(
-                Filters.`in`("coordinate", missingCoordinates)
-            )
+                val summariesCollection = database.getCollection<ClusterSummary>("summaries")
 
-            clustersToIndex.collect { world ->
+                /*
+                 * Go in chunks, because the document size will be too high otherwise.
+                 */
+                for (chunk in missingCoordinates.chunked(10000)) {
 
-                summariesCollection.insertOne(ClusterSummary.create(world))
+                    val clustersToIndex = clustersCollection.find(
+                        Filters.`in`("coordinate", chunk)
+                    )
 
-                log("Created search index for ${world.coordinate}")
+                    clustersToIndex.collect { world ->
+
+                        summariesCollection.insertOne(ClusterSummary.create(world))
+                    }
+                }
+
+            } else {
+
+                log("Search index is up to date.")
             }
-
-        } else {
-
-            log("Search index is up to date.")
         }
+
+        val duration = System.currentTimeMillis() - start
+
+        log("Created search index in $duration ms.")
+
+    } catch (ex: Exception) {
+
+        log(ex)
     }
-
-    val duration = System.currentTimeMillis() - start
-
-    log("Created search index in $duration ms.")
 }
 
 private suspend fun createContributorTable() {
