@@ -773,7 +773,7 @@ fun Application.configureRouting() {
                     call.respond(HttpStatusCode.NotAcceptable, "Please use a current version of the game.")
 
                     log(
-                        "[UPLOAD] Rejected old game version ${cluster.gameVersion} from ${upload.userId}." +
+                        "[UPLOAD] Rejected old game version ${cluster.gameVersion} from ${upload.userId}. " +
                             "Current: $currentGameVersion"
                     )
 
@@ -1389,7 +1389,7 @@ fun Application.configureRouting() {
 
 // TODO Call an API to get this version
 private fun findCurrentGameVersion(): Int {
-    return 663500
+    return 660455 // 663500
 }
 
 private suspend fun handleGetRequestedCoordinate(
