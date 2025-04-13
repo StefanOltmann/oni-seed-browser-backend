@@ -1389,7 +1389,7 @@ fun Application.configureRouting() {
 
 // TODO Call an API to get this version
 private fun findCurrentGameVersion(): Int {
-    return 660455 // 663500
+    return 663500 // Current version as of 2025-04-13
 }
 
 private suspend fun handleGetRequestedCoordinate(
