@@ -23,54 +23,29 @@ import com.mongodb.ConnectionString
 import com.mongodb.MongoClientSettings
 import com.mongodb.ServerApi
 import com.mongodb.ServerApiVersion
-import com.mongodb.client.model.Accumulators
-import com.mongodb.client.model.Aggregates
-import com.mongodb.client.model.Filters
-import com.mongodb.client.model.IndexOptions
-import com.mongodb.client.model.Projections
+import com.mongodb.client.model.*
 import com.mongodb.client.model.Sorts.descending
-import com.mongodb.client.model.Updates
 import com.mongodb.kotlin.client.coroutine.MongoClient
 import com.mongodb.kotlin.client.coroutine.MongoDatabase
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.okhttp.OkHttp
-import io.ktor.client.request.forms.FormDataContent
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
-import io.ktor.client.statement.bodyAsText
-import io.ktor.http.ContentDisposition
-import io.ktor.http.ContentType
-import io.ktor.http.HttpHeaders
-import io.ktor.http.HttpMethod
-import io.ktor.http.HttpStatusCode
-import io.ktor.http.Parameters
-import io.ktor.http.ParametersBuilder
-import io.ktor.http.isSuccess
-import io.ktor.http.path
-import io.ktor.serialization.kotlinx.cbor.cbor
-import io.ktor.serialization.kotlinx.json.json
-import io.ktor.server.application.Application
-import io.ktor.server.application.ApplicationCall
-import io.ktor.server.application.install
-import io.ktor.server.application.log
-import io.ktor.server.plugins.compression.Compression
-import io.ktor.server.plugins.compression.gzip
-import io.ktor.server.plugins.compression.matchContentType
-import io.ktor.server.plugins.compression.minimumSize
-import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.server.plugins.cors.routing.CORS
-import io.ktor.server.plugins.origin
-import io.ktor.server.request.host
-import io.ktor.server.request.receive
-import io.ktor.server.response.header
-import io.ktor.server.response.respond
-import io.ktor.server.response.respondOutputStream
-import io.ktor.server.response.respondRedirect
-import io.ktor.server.response.respondText
+import io.ktor.client.*
+import io.ktor.client.engine.okhttp.*
+import io.ktor.client.request.*
+import io.ktor.client.request.forms.*
+import io.ktor.client.statement.*
+import io.ktor.http.*
+import io.ktor.serialization.kotlinx.cbor.*
+import io.ktor.serialization.kotlinx.json.*
+import io.ktor.server.application.*
+import io.ktor.server.plugins.*
+import io.ktor.server.plugins.compression.*
+import io.ktor.server.plugins.contentnegotiation.*
+import io.ktor.server.plugins.cors.routing.*
+import io.ktor.server.request.*
+import io.ktor.server.response.*
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
-import io.ktor.server.util.url
+import io.ktor.server.util.*
 import io.sentry.Sentry
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
@@ -81,19 +56,7 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.cbor.Cbor
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToStream
-import model.Cluster
-import model.Contributor
-import model.Dlc
-import model.FailedGenReport
-import model.FailedGenReportDatabase
-import model.FavoredCoordinate
-import model.ModBinaryChecksumDatabase
-import model.RateCoordinateRequest
-import model.RequestedCoordinate
-import model.RequestedCoordinateStatus
-import model.Upload
-import model.UploadDatabase
-import model.Username
+import model.*
 import model.filter.FilterQuery
 import model.search.ClusterSummary
 import org.bson.Document
@@ -103,8 +66,7 @@ import java.security.interfaces.RSAPrivateKey
 import java.security.interfaces.RSAPublicKey
 import java.security.spec.PKCS8EncodedKeySpec
 import java.security.spec.X509EncodedKeySpec
-import java.util.Base64
-import java.util.UUID
+import java.util.*
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
@@ -680,6 +642,42 @@ fun Application.configureRouting() {
                     val count = collection.estimatedDocumentCount()
 
                     call.respond(count)
+                }
+
+            } catch (ex: Exception) {
+
+                log(ex)
+
+                call.respond(HttpStatusCode.InternalServerError)
+            }
+        }
+
+        get("/exists/{coordinate}") {
+
+            try {
+
+                val coordinate = call.parameters["coordinate"]
+
+                if (coordinate.isNullOrBlank()) {
+
+                    call.respond(HttpStatusCode.BadRequest, "Invalid coordinate '$coordinate'")
+
+                    return@get
+                }
+
+                MongoClient.create(mongoClientSettings).use { mongoClient ->
+
+                    val database = mongoClient.getDatabase("oni")
+
+                    val collection = database.getCollection<Document>("worlds")
+
+                    val exists = collection
+                        .countDocuments(Filters.eq(Cluster::coordinate.name, coordinate)) > 0
+
+                    if (exists)
+                        call.respond(HttpStatusCode.OK, "Coordinate $coordinate exists.")
+                    else
+                        call.respond(HttpStatusCode.NotFound, "Coordinate $coordinate does not exist.")
                 }
 
             } catch (ex: Exception) {
