@@ -23,27 +23,54 @@ import com.mongodb.ConnectionString
 import com.mongodb.MongoClientSettings
 import com.mongodb.ServerApi
 import com.mongodb.ServerApiVersion
-import com.mongodb.client.model.*
+import com.mongodb.client.model.Accumulators
+import com.mongodb.client.model.Aggregates
+import com.mongodb.client.model.Filters
+import com.mongodb.client.model.IndexOptions
+import com.mongodb.client.model.Projections
 import com.mongodb.client.model.Sorts.descending
+import com.mongodb.client.model.Updates
 import com.mongodb.kotlin.client.coroutine.MongoClient
 import com.mongodb.kotlin.client.coroutine.MongoDatabase
-import io.ktor.client.*
-import io.ktor.client.engine.okhttp.*
-import io.ktor.client.request.*
-import io.ktor.client.request.forms.*
-import io.ktor.client.statement.*
-import io.ktor.http.*
-import io.ktor.serialization.kotlinx.cbor.*
-import io.ktor.serialization.kotlinx.json.*
-import io.ktor.server.application.*
-import io.ktor.server.plugins.*
-import io.ktor.server.plugins.compression.*
-import io.ktor.server.plugins.contentnegotiation.*
-import io.ktor.server.plugins.cors.routing.*
-import io.ktor.server.request.*
-import io.ktor.server.response.*
-import io.ktor.server.routing.*
-import io.ktor.server.util.*
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.okhttp.OkHttp
+import io.ktor.client.request.forms.FormDataContent
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentDisposition
+import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpMethod
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.Parameters
+import io.ktor.http.ParametersBuilder
+import io.ktor.http.isSuccess
+import io.ktor.http.path
+import io.ktor.serialization.kotlinx.cbor.cbor
+import io.ktor.serialization.kotlinx.json.json
+import io.ktor.server.application.Application
+import io.ktor.server.application.ApplicationCall
+import io.ktor.server.application.install
+import io.ktor.server.application.log
+import io.ktor.server.plugins.compression.Compression
+import io.ktor.server.plugins.compression.gzip
+import io.ktor.server.plugins.compression.matchContentType
+import io.ktor.server.plugins.compression.minimumSize
+import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.server.plugins.cors.routing.CORS
+import io.ktor.server.plugins.origin
+import io.ktor.server.request.host
+import io.ktor.server.request.receive
+import io.ktor.server.response.header
+import io.ktor.server.response.respond
+import io.ktor.server.response.respondOutputStream
+import io.ktor.server.response.respondRedirect
+import io.ktor.server.response.respondText
+import io.ktor.server.routing.get
+import io.ktor.server.routing.post
+import io.ktor.server.routing.routing
+import io.ktor.server.util.url
 import io.sentry.Sentry
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
@@ -54,7 +81,19 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.cbor.Cbor
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToStream
-import model.*
+import model.Cluster
+import model.Contributor
+import model.Dlc
+import model.FailedGenReport
+import model.FailedGenReportDatabase
+import model.FavoredCoordinate
+import model.ModBinaryChecksumDatabase
+import model.RateCoordinateRequest
+import model.RequestedCoordinate
+import model.RequestedCoordinateStatus
+import model.Upload
+import model.UploadDatabase
+import model.Username
 import model.filter.FilterQuery
 import model.search.ClusterSummary
 import org.bson.Document
@@ -64,7 +103,8 @@ import java.security.interfaces.RSAPrivateKey
 import java.security.interfaces.RSAPublicKey
 import java.security.spec.PKCS8EncodedKeySpec
 import java.security.spec.X509EncodedKeySpec
-import java.util.*
+import java.util.Base64
+import java.util.UUID
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
@@ -116,6 +156,10 @@ private val mongoClientSettings = MongoClientSettings.builder()
     .applyConnectionString(ConnectionString(connectionString))
     .serverApi(serverApi)
     .build()
+
+private val mongoClient = MongoClient.create(mongoClientSettings)
+
+private val database = mongoClient.getDatabase("oni")
 
 private val strictAllFieldsJson = Json {
     ignoreUnknownKeys = false
@@ -178,48 +222,43 @@ fun Application.configureRouting() {
          * Set "coordinate" as unique key
          */
 
-        MongoClient.create(mongoClientSettings).use { mongoClient ->
+        println("Setting missing indices...")
 
-            println("Setting missing indices...")
+        /*
+         * Unique key indexes
+         */
 
-            /*
-             * Unique key indexes
-             */
+        val uniqueIndexOptions = IndexOptions().unique(true)
 
-            val uniqueIndexOptions = IndexOptions().unique(true)
+        database.getCollection<Document>("worlds")
+            .createIndex(Document("coordinate", 1), uniqueIndexOptions)
 
-            val database = mongoClient.getDatabase("oni")
+        database.getCollection<Document>("uploads")
+            .createIndex(Document("coordinate", 1), uniqueIndexOptions)
 
-            database.getCollection<Document>("worlds")
-                .createIndex(Document("coordinate", 1), uniqueIndexOptions)
+        database.getCollection<Document>("failedWorldGenReports")
+            .createIndex(Document("coordinate", 1), uniqueIndexOptions)
 
-            database.getCollection<Document>("uploads")
-                .createIndex(Document("coordinate", 1), uniqueIndexOptions)
+        database.getCollection<Document>("requestedCoordinates")
+            .createIndex(Document("coordinate", 1), uniqueIndexOptions)
 
-            database.getCollection<Document>("failedWorldGenReports")
-                .createIndex(Document("coordinate", 1), uniqueIndexOptions)
+        database.getCollection<Document>("summaries")
+            .createIndex(Document("coordinate", 1), uniqueIndexOptions)
 
-            database.getCollection<Document>("requestedCoordinates")
-                .createIndex(Document("coordinate", 1), uniqueIndexOptions)
+        /*
+         * Indexes for aggregation speed
+         */
 
-            database.getCollection<Document>("summaries")
-                .createIndex(Document("coordinate", 1), uniqueIndexOptions)
+        database.getCollection<Document>("worlds")
+            .createIndex(Document("uploaderSteamIdHash", 1))
 
-            /*
-             * Indexes for aggregation speed
-             */
+        database.getCollection<Document>("worlds")
+            .createIndex(Document("uploadDate", 1))
 
-            database.getCollection<Document>("worlds")
-                .createIndex(Document("uploaderSteamIdHash", 1))
+        database.getCollection<Document>("uploads")
+            .createIndex(Document("uploadDate", 1))
 
-            database.getCollection<Document>("worlds")
-                .createIndex(Document("uploadDate", 1))
-
-            database.getCollection<Document>("uploads")
-                .createIndex(Document("uploadDate", 1))
-
-            println("... Done.")
-        }
+        println("... Done.")
 
         if (POPULATE_SUMMARIES_ON_START)
             populateSummaries()
@@ -320,21 +359,16 @@ fun Application.configureRouting() {
 
                 val start = System.currentTimeMillis()
 
-                MongoClient.create(mongoClientSettings).use { mongoClient ->
+                val collection = database.getCollection<Cluster>("worlds")
 
-                    val database = mongoClient.getDatabase("oni")
+                val cluster: Cluster? = collection.find(
+                    Filters.eq("coordinate", coordinate)
+                ).firstOrNull()
 
-                    val collection = database.getCollection<Cluster>("worlds")
-
-                    val cluster: Cluster? = collection.find(
-                        Filters.eq("coordinate", coordinate)
-                    ).firstOrNull()
-
-                    if (cluster != null)
-                        call.respond(cluster)
-                    else
-                        call.respond(HttpStatusCode.NotFound, "No data found for coordinate: $coordinate")
-                }
+                if (cluster != null)
+                    call.respond(cluster)
+                else
+                    call.respond(HttpStatusCode.NotFound, "No data found for coordinate: $coordinate")
 
                 val duration = System.currentTimeMillis() - start
 
@@ -383,22 +417,16 @@ fun Application.configureRouting() {
                     return@post
                 }
 
-                /* Save to MongoDB */
-                MongoClient.create(mongoClientSettings).use { mongoClient ->
+                val modBinaryChecksumCollection =
+                    database.getCollection<ModBinaryChecksumDatabase>("modBinaryChecksums")
 
-                    val database = mongoClient.getDatabase("oni")
-
-                    val modBinaryChecksumCollection =
-                        database.getCollection<ModBinaryChecksumDatabase>("modBinaryChecksums")
-
-                    modBinaryChecksumCollection.insertOne(
-                        ModBinaryChecksumDatabase(
-                            gitTag = gitTag,
-                            checksum = checksum,
-                            timestamp = System.currentTimeMillis()
-                        )
+                modBinaryChecksumCollection.insertOne(
+                    ModBinaryChecksumDatabase(
+                        gitTag = gitTag,
+                        checksum = checksum,
+                        timestamp = System.currentTimeMillis()
                     )
-                }
+                )
 
                 call.respond(HttpStatusCode.OK, "Checksum was saved.")
 
@@ -420,22 +448,17 @@ fun Application.configureRouting() {
 
                 val start = System.currentTimeMillis()
 
-                MongoClient.create(mongoClientSettings).use { mongoClient ->
+                val collection = database.getCollection<ModBinaryChecksumDatabase>("modBinaryChecksums")
 
-                    val database = mongoClient.getDatabase("oni")
+                val currentEntry = collection.find()
+                    .sort(descending("timestamp"))
+                    .limit(1)
+                    .firstOrNull()
 
-                    val collection = database.getCollection<ModBinaryChecksumDatabase>("modBinaryChecksums")
-
-                    val currentEntry = collection.find()
-                        .sort(descending("timestamp"))
-                        .limit(1)
-                        .firstOrNull()
-
-                    if (currentEntry == null)
-                        call.respond(HttpStatusCode.OK, "UNKNOWN")
-                    else
-                        call.respond(HttpStatusCode.OK, currentEntry.gitTag)
-                }
+                if (currentEntry == null)
+                    call.respond(HttpStatusCode.OK, "UNKNOWN")
+                else
+                    call.respond(HttpStatusCode.OK, currentEntry.gitTag)
 
                 val duration = System.currentTimeMillis() - start
 
@@ -468,63 +491,37 @@ fun Application.configureRouting() {
                     return@get
                 }
 
-                MongoClient.create(mongoClientSettings).use { mongoClient ->
+                val collection = database.getCollection<Cluster>("worlds")
 
-                    val database = mongoClient.getDatabase("oni")
+                call.response.header(
+                    HttpHeaders.ContentDisposition,
+                    ContentDisposition.Attachment.withParameter(
+                        key = ContentDisposition.Parameters.FileName,
+                        value = "data.zip"
+                    ).toString()
+                )
 
-                    val collection = database.getCollection<Cluster>("worlds")
+                /*
+                 * Stream the response, so we can remove from memory what the client already received.
+                 */
+                call.respondOutputStream(
+                    contentType = ContentType.Application.Zip,
+                    status = HttpStatusCode.OK
+                ) {
 
-                    call.response.header(
-                        HttpHeaders.ContentDisposition,
-                        ContentDisposition.Attachment.withParameter(
-                            key = ContentDisposition.Parameters.FileName,
-                            value = "data.zip"
-                        ).toString()
-                    )
+                    ZipOutputStream(this).use { zipOutputStream ->
 
-                    /*
-                     * Stream the response, so we can remove from memory what the client already received.
-                     */
-                    call.respondOutputStream(
-                        contentType = ContentType.Application.Zip,
-                        status = HttpStatusCode.OK
-                    ) {
+                        val cursor = collection.find().batchSize(1000)
 
-                        ZipOutputStream(this).use { zipOutputStream ->
+                        var batchNumber = 1
 
-                            val cursor = collection.find().batchSize(1000)
+                        val batchMaps = mutableListOf<Cluster>()
 
-                            var batchNumber = 1
+                        cursor.collect { document ->
 
-                            val batchMaps = mutableListOf<Cluster>()
+                            batchMaps.add(document)
 
-                            cursor.collect { document ->
-
-                                batchMaps.add(document)
-
-                                if (batchMaps.size >= EXPORT_BATCH_SIZE) {
-
-                                    zipOutputStream.putNextEntry(ZipEntry("data-${batchNumber}.json"))
-
-                                    /*
-                                     * Encode directly to the stream. This avoids creating a new
-                                     * ByteArray on the heap which might let the server go out of memory.
-                                     */
-                                    strictAllFieldsJson.encodeToStream(batchMaps, zipOutputStream)
-
-                                    zipOutputStream.closeEntry()
-
-                                    // Clear the batch, increment file number, and force GC
-                                    batchMaps.clear()
-                                    batchNumber++
-
-                                    /* Clean up to prevent out of memory. */
-                                    System.gc()
-                                }
-                            }
-
-                            /* If any remaining documents after loop, save the last batch */
-                            if (batchMaps.isNotEmpty()) {
+                            if (batchMaps.size >= EXPORT_BATCH_SIZE) {
 
                                 zipOutputStream.putNextEntry(ZipEntry("data-${batchNumber}.json"))
 
@@ -536,11 +533,32 @@ fun Application.configureRouting() {
 
                                 zipOutputStream.closeEntry()
 
+                                // Clear the batch, increment file number, and force GC
                                 batchMaps.clear()
+                                batchNumber++
 
                                 /* Clean up to prevent out of memory. */
                                 System.gc()
                             }
+                        }
+
+                        /* If any remaining documents after loop, save the last batch */
+                        if (batchMaps.isNotEmpty()) {
+
+                            zipOutputStream.putNextEntry(ZipEntry("data-${batchNumber}.json"))
+
+                            /*
+                             * Encode directly to the stream. This avoids creating a new
+                             * ByteArray on the heap which might let the server go out of memory.
+                             */
+                            strictAllFieldsJson.encodeToStream(batchMaps, zipOutputStream)
+
+                            zipOutputStream.closeEntry()
+
+                            batchMaps.clear()
+
+                            /* Clean up to prevent out of memory. */
+                            System.gc()
                         }
                     }
                 }
@@ -570,26 +588,21 @@ fun Application.configureRouting() {
 
                 val filter = generateFilter(filterQuery)
 
-                MongoClient.create(mongoClientSettings).use { mongoClient ->
+                val matchingSummaries: List<ClusterSummary> = database
+                    .getCollection<ClusterSummary>("summaries")
+                    .find(filter)
+                    .limit(RESULT_LIMIT)
+                    .toList()
 
-                    val database = mongoClient.getDatabase("oni")
+                val matchingCoordinates: List<String> =
+                    matchingSummaries.map { it.coordinate }.toList()
 
-                    val matchingSummaries: List<ClusterSummary> = database
-                        .getCollection<ClusterSummary>("summaries")
-                        .find(filter)
-                        .limit(RESULT_LIMIT)
-                        .toList()
+                val resultClusters: List<Cluster> = database
+                    .getCollection<Cluster>("worlds")
+                    .find(Filters.`in`("coordinate", matchingCoordinates))
+                    .toList()
 
-                    val matchingCoordinates: List<String> =
-                        matchingSummaries.map { it.coordinate }.toList()
-
-                    val resultClusters: List<Cluster> = database
-                        .getCollection<Cluster>("worlds")
-                        .find(Filters.`in`("coordinate", matchingCoordinates))
-                        .toList()
-
-                    call.respond(resultClusters)
-                }
+                call.respond(resultClusters)
 
                 val duration = System.currentTimeMillis() - start
 
@@ -608,7 +621,7 @@ fun Application.configureRouting() {
 //
 //            val start = System.currentTimeMillis()
 //
-//            MongoClient.create(mongoClientSettings).use { mongoClient ->
+//            //MongoClient.create(mongoClientSettings).use { mongoClient ->
 //
 //                val database = mongoClient.getDatabase("oni")
 //
@@ -630,17 +643,12 @@ fun Application.configureRouting() {
 
             try {
 
-                MongoClient.create(mongoClientSettings).use { mongoClient ->
+                val collection = database.getCollection<Cluster>("worlds")
 
-                    val database = mongoClient.getDatabase("oni")
+                /* Fast count */
+                val count = collection.estimatedDocumentCount()
 
-                    val collection = database.getCollection<Cluster>("worlds")
-
-                    /* Fast count */
-                    val count = collection.estimatedDocumentCount()
-
-                    call.respond(count)
-                }
+                call.respond(count)
 
             } catch (ex: Exception) {
 
@@ -663,20 +671,15 @@ fun Application.configureRouting() {
                     return@get
                 }
 
-                MongoClient.create(mongoClientSettings).use { mongoClient ->
+                val collection = database.getCollection<Document>("worlds")
 
-                    val database = mongoClient.getDatabase("oni")
+                val exists = collection
+                    .countDocuments(Filters.eq(Cluster::coordinate.name, coordinate)) > 0
 
-                    val collection = database.getCollection<Document>("worlds")
-
-                    val exists = collection
-                        .countDocuments(Filters.eq(Cluster::coordinate.name, coordinate)) > 0
-
-                    if (exists)
-                        call.respond(HttpStatusCode.OK, "Coordinate $coordinate exists.")
-                    else
-                        call.respond(HttpStatusCode.NotFound, "Coordinate $coordinate does not exist.")
-                }
+                if (exists)
+                    call.respond(HttpStatusCode.OK, "Coordinate $coordinate exists.")
+                else
+                    call.respond(HttpStatusCode.NotFound, "Coordinate $coordinate does not exist.")
 
             } catch (ex: Exception) {
 
@@ -812,55 +815,49 @@ fun Application.configureRouting() {
                     uploadDate = uploadDate
                 )
 
-                /* Save to MongoDB */
-                MongoClient.create(mongoClientSettings).use { mongoClient ->
+                val uploadCollection = database.getCollection<UploadDatabase>("uploads")
 
-                    val database = mongoClient.getDatabase("oni")
+                uploadCollection.insertOne(uploadDatabase)
 
-                    val uploadCollection = database.getCollection<UploadDatabase>("uploads")
+                val clusterCollection = database.getCollection<Cluster>("worlds")
 
-                    uploadCollection.insertOne(uploadDatabase)
+                clusterCollection.insertOne(optimizedClusterWithMetadata)
 
-                    val clusterCollection = database.getCollection<Cluster>("worlds")
-
-                    clusterCollection.insertOne(optimizedClusterWithMetadata)
-
-                    /* Mark any requested coordinates as completed */
-                    database
-                        .getCollection<RequestedCoordinate>("requestedCoordinates")
-                        .updateOne(
-                            Filters.eq(RequestedCoordinate::coordinate.name, cluster.coordinate),
-                            Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.COMPLETED)
-                        )
-
-                    /* Add to search index */
-                    database
-                        .getCollection<ClusterSummary>("summaries")
-                        .insertOne(ClusterSummary.create(cluster))
-
-                    /* Update the contributors info */
-
-                    val newMapCount = countMaps(database, uploaderSteamIdHash)
-
-                    val contributorsCollection =
-                        database.getCollection<Contributor>("contributors")
-
-                    val updateResult = contributorsCollection.updateOne(
-                        Filters.eq("steamIdHash", uploaderSteamIdHash),
-                        Updates.set("mapCount", newMapCount)
+                /* Mark any requested coordinates as completed */
+                database
+                    .getCollection<RequestedCoordinate>("requestedCoordinates")
+                    .updateOne(
+                        Filters.eq(RequestedCoordinate::coordinate.name, cluster.coordinate),
+                        Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.COMPLETED)
                     )
 
-                    /* For the first contribution we need to create a new entry. */
-                    if (updateResult.matchedCount == 0L) {
+                /* Add to search index */
+                database
+                    .getCollection<ClusterSummary>("summaries")
+                    .insertOne(ClusterSummary.create(cluster))
 
-                        contributorsCollection.insertOne(
-                            Contributor(
-                                steamIdHash = uploaderSteamIdHash,
-                                username = null,
-                                mapCount = newMapCount
-                            )
+                /* Update the contributors info */
+
+                val newMapCount = countMaps(database, uploaderSteamIdHash)
+
+                val contributorsCollection =
+                    database.getCollection<Contributor>("contributors")
+
+                val updateResult = contributorsCollection.updateOne(
+                    Filters.eq("steamIdHash", uploaderSteamIdHash),
+                    Updates.set("mapCount", newMapCount)
+                )
+
+                /* For the first contribution we need to create a new entry. */
+                if (updateResult.matchedCount == 0L) {
+
+                    contributorsCollection.insertOne(
+                        Contributor(
+                            steamIdHash = uploaderSteamIdHash,
+                            username = null,
+                            mapCount = newMapCount
                         )
-                    }
+                    )
                 }
 
                 call.respond(HttpStatusCode.OK, "Data was saved.")
@@ -938,24 +935,18 @@ fun Application.configureRouting() {
                     coordinate = failedGenReport.coordinate
                 )
 
-                /* Save to MongoDB */
-                MongoClient.create(mongoClientSettings).use { mongoClient ->
+                val failedWorldGenReportsCollection =
+                    database.getCollection<FailedGenReportDatabase>("failedWorldGenReports")
 
-                    val database = mongoClient.getDatabase("oni")
+                failedWorldGenReportsCollection.insertOne(failedGenReportDatabase)
 
-                    val failedWorldGenReportsCollection =
-                        database.getCollection<FailedGenReportDatabase>("failedWorldGenReports")
-
-                    failedWorldGenReportsCollection.insertOne(failedGenReportDatabase)
-
-                    /* Mark any requested coordinates as completed */
-                    database
-                        .getCollection<RequestedCoordinate>("requestedCoordinates")
-                        .updateOne(
-                            Filters.eq(RequestedCoordinate::coordinate.name, failedGenReportDatabase.coordinate),
-                            Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.FAILED)
-                        )
-                }
+                /* Mark any requested coordinates as completed */
+                database
+                    .getCollection<RequestedCoordinate>("requestedCoordinates")
+                    .updateOne(
+                        Filters.eq(RequestedCoordinate::coordinate.name, failedGenReportDatabase.coordinate),
+                        Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.FAILED)
+                    )
 
                 call.respond(HttpStatusCode.OK, "Report was saved.")
 
@@ -977,23 +968,18 @@ fun Application.configureRouting() {
 
                 val start = System.currentTimeMillis()
 
-                MongoClient.create(mongoClientSettings).use { mongoClient ->
+                val collection = database.getCollection<Document>("failedWorldGenReports")
 
-                    val database = mongoClient.getDatabase("oni")
+                val coordinates: List<String> = collection.find()
+                    .projection(Projections.fields(Projections.include("coordinate")))
+                    .map { it["coordinate"] as String }
+                    .toList()
 
-                    val collection = database.getCollection<Document>("failedWorldGenReports")
+                log("The database contains ${coordinates.size} seeds reported as world gen failures.")
 
-                    val coordinates: List<String> = collection.find()
-                        .projection(Projections.fields(Projections.include("coordinate")))
-                        .map { it["coordinate"] as String }
-                        .toList()
+                val asSimpleString = coordinates.sorted().joinToString("\n")
 
-                    log("The database contains ${coordinates.size} seeds reported as world gen failures.")
-
-                    val asSimpleString = coordinates.sorted().joinToString("\n")
-
-                    call.respond(asSimpleString)
-                }
+                call.respond(asSimpleString)
 
                 val duration = System.currentTimeMillis() - start
 
@@ -1039,35 +1025,30 @@ fun Application.configureRouting() {
                     return@post
                 }
 
-                MongoClient.create(mongoClientSettings).use { mongoClient ->
+                val collection = database.getCollection<RequestedCoordinate>("requestedCoordinates")
 
-                    val database = mongoClient.getDatabase("oni")
+                val exists = collection.countDocuments(
+                    Filters.eq(RequestedCoordinate::coordinate.name, cleanCoordinate)
+                ) > 0
 
-                    val collection = database.getCollection<RequestedCoordinate>("requestedCoordinates")
+                if (exists) {
 
-                    val exists = collection.countDocuments(
-                        Filters.eq(RequestedCoordinate::coordinate.name, cleanCoordinate)
-                    ) > 0
+                    /* Send info that the coordinate already exists. */
+                    call.respond(HttpStatusCode.Conflict, "Coordinate $cleanCoordinate was already requested.")
 
-                    if (exists) {
+                } else {
 
-                        /* Send info that the coordinate already exists. */
-                        call.respond(HttpStatusCode.Conflict, "Coordinate $cleanCoordinate was already requested.")
-
-                    } else {
-
-                        collection.insertOne(
-                            RequestedCoordinate(
-                                steamId = steamId,
-                                date = System.currentTimeMillis(),
-                                coordinate = cleanCoordinate,
-                                status = RequestedCoordinateStatus.REQUESTED
-                            )
+                    collection.insertOne(
+                        RequestedCoordinate(
+                            steamId = steamId,
+                            date = System.currentTimeMillis(),
+                            coordinate = cleanCoordinate,
+                            status = RequestedCoordinateStatus.REQUESTED
                         )
+                    )
 
-                        /* Send OK status. */
-                        call.respond(HttpStatusCode.OK, "Coordinate $cleanCoordinate requested.")
-                    }
+                    /* Send OK status. */
+                    call.respond(HttpStatusCode.OK, "Coordinate $cleanCoordinate requested.")
                 }
 
             } catch (ex: Exception) {
@@ -1085,20 +1066,15 @@ fun Application.configureRouting() {
 
             try {
 
-                MongoClient.create(mongoClientSettings).use { mongoClient ->
+                val clustersCollection = database.getCollection<Cluster>("worlds")
 
-                    val database = mongoClient.getDatabase("oni")
+                val latestClusters = clustersCollection
+                    .find()
+                    .sort(descending(Cluster::uploadDate.name))
+                    .limit(LATEST_LIMIT)
+                    .toList()
 
-                    val clustersCollection = database.getCollection<Cluster>("worlds")
-
-                    val latestClusters = clustersCollection
-                        .find()
-                        .sort(descending(Cluster::uploadDate.name))
-                        .limit(LATEST_LIMIT)
-                        .toList()
-
-                    call.respond(latestClusters)
-                }
+                call.respond(latestClusters)
 
             } catch (ex: Exception) {
 
@@ -1123,25 +1099,20 @@ fun Application.configureRouting() {
 
                 val steamId = jwt.getClaim("steamId").asString()
 
-                MongoClient.create(mongoClientSettings).use { mongoClient ->
+                val likesCollection = database.getCollection<FavoredCoordinate>("likes")
 
-                    val database = mongoClient.getDatabase("oni")
+                val favoredCoordinates: List<String> = likesCollection
+                    .find(Filters.eq("steamId", steamId))
+                    .map { it.coordinate }
+                    .toList()
 
-                    val likesCollection = database.getCollection<FavoredCoordinate>("likes")
+                val clustersCollection = database.getCollection<Cluster>("worlds")
 
-                    val favoredCoordinates: List<String> = likesCollection
-                        .find(Filters.eq("steamId", steamId))
-                        .map { it.coordinate }
-                        .toList()
+                val favoredClusters = clustersCollection.find(
+                    Filters.`in`("coordinate", favoredCoordinates)
+                ).toList()
 
-                    val clustersCollection = database.getCollection<Cluster>("worlds")
-
-                    val favoredClusters = clustersCollection.find(
-                        Filters.`in`("coordinate", favoredCoordinates)
-                    ).toList()
-
-                    call.respond(favoredClusters)
-                }
+                call.respond(favoredClusters)
 
             } catch (ex: Exception) {
 
@@ -1166,19 +1137,14 @@ fun Application.configureRouting() {
 
                 val steamId: String = jwt.getClaim("steamId").asString()
 
-                MongoClient.create(mongoClientSettings).use { mongoClient ->
+                val collection = database.getCollection<FavoredCoordinate>("likes")
 
-                    val database = mongoClient.getDatabase("oni")
+                val favoredCoordinates: List<String> = collection
+                    .find(Filters.eq("steamId", steamId))
+                    .map { it.coordinate }
+                    .toList()
 
-                    val collection = database.getCollection<FavoredCoordinate>("likes")
-
-                    val favoredCoordinates: List<String> = collection
-                        .find(Filters.eq("steamId", steamId))
-                        .map { it.coordinate }
-                        .toList()
-
-                    call.respond(favoredCoordinates)
-                }
+                call.respond(favoredCoordinates)
 
             } catch (ex: Exception) {
 
@@ -1205,31 +1171,26 @@ fun Application.configureRouting() {
 
                 val rateCoordinateRequest = call.receive<RateCoordinateRequest>()
 
-                MongoClient.create(mongoClientSettings).use { mongoClient ->
+                val collection = database.getCollection<FavoredCoordinate>("likes")
 
-                    val database = mongoClient.getDatabase("oni")
+                if (rateCoordinateRequest.like) {
 
-                    val collection = database.getCollection<FavoredCoordinate>("likes")
-
-                    if (rateCoordinateRequest.like) {
-
-                        collection.insertOne(
-                            FavoredCoordinate(
-                                steamId = steamId,
-                                date = System.currentTimeMillis(),
-                                coordinate = rateCoordinateRequest.coordinate
-                            )
+                    collection.insertOne(
+                        FavoredCoordinate(
+                            steamId = steamId,
+                            date = System.currentTimeMillis(),
+                            coordinate = rateCoordinateRequest.coordinate
                         )
+                    )
 
-                    } else {
+                } else {
 
-                        collection.deleteOne(
-                            Filters.and(
-                                Filters.eq("steamId", steamId),
-                                Filters.eq("coordinate", rateCoordinateRequest.coordinate)
-                            )
+                    collection.deleteOne(
+                        Filters.and(
+                            Filters.eq("steamId", steamId),
+                            Filters.eq("coordinate", rateCoordinateRequest.coordinate)
                         )
-                    }
+                    )
                 }
 
                 /* Send OK status. */
@@ -1261,22 +1222,17 @@ fun Application.configureRouting() {
 
                 val steamId: String = jwt.getClaim("steamId").asString()
 
-                MongoClient.create(mongoClientSettings).use { mongoClient ->
+                val collection = database.getCollection<Username>("usernames")
 
-                    val database = mongoClient.getDatabase("oni")
+                /* Delete first in case the name is changed. */
+                val username = collection.find<Username>(
+                    Filters.eq("steamId", steamId)
+                ).firstOrNull()
 
-                    val collection = database.getCollection<Username>("usernames")
-
-                    /* Delete first in case the name is changed. */
-                    val username = collection.find<Username>(
-                        Filters.eq("steamId", steamId)
-                    ).firstOrNull()
-
-                    if (username == null)
-                        call.respond(HttpStatusCode.NotFound)
-                    else
-                        call.respondText(username.username)
-                }
+                if (username == null)
+                    call.respond(HttpStatusCode.NotFound)
+                else
+                    call.respondText(username.username)
 
             } catch (ex: Exception) {
 
@@ -1308,27 +1264,22 @@ fun Application.configureRouting() {
 
                 val wantedUsernameTrimmed = wantedUsername.trim()
 
-                MongoClient.create(mongoClientSettings).use { mongoClient ->
+                val collection = database.getCollection<Username>("usernames")
 
-                    val database = mongoClient.getDatabase("oni")
+                /* Delete first in case the name is changed. */
+                collection.deleteOne(
+                    Filters.eq("steamId", steamId)
+                )
 
-                    val collection = database.getCollection<Username>("usernames")
+                if (wantedUsernameTrimmed.isNotEmpty()) {
 
-                    /* Delete first in case the name is changed. */
-                    collection.deleteOne(
-                        Filters.eq("steamId", steamId)
-                    )
-
-                    if (wantedUsernameTrimmed.isNotEmpty()) {
-
-                        /* Insert new name. */
-                        collection.insertOne(
-                            Username(
-                                steamId = steamId,
-                                username = wantedUsernameTrimmed
-                            )
+                    /* Insert new name. */
+                    collection.insertOne(
+                        Username(
+                            steamId = steamId,
+                            username = wantedUsernameTrimmed
                         )
-                    }
+                    )
                 }
 
                 /* Send OK status. */
@@ -1360,19 +1311,14 @@ fun Application.configureRouting() {
 
             try {
 
-                MongoClient.create(mongoClientSettings).use { mongoClient ->
+                val contributorCollection = database.getCollection<Contributor>("contributors")
 
-                    val database = mongoClient.getDatabase("oni")
+                val contributors = contributorCollection
+                    .find()
+                    .toList()
+                    .sortedByDescending { it.mapCount }
 
-                    val contributorCollection = database.getCollection<Contributor>("contributors")
-
-                    val contributors = contributorCollection
-                        .find()
-                        .toList()
-                        .sortedByDescending { it.mapCount }
-
-                    call.respond(contributors)
-                }
+                call.respond(contributors)
 
             } catch (ex: Exception) {
 
@@ -1397,8 +1343,7 @@ fun Application.configureRouting() {
 
 // TODO Call an API to get this version
 private fun findCurrentGameVersion(): Int {
-    return 659901
-    //return 663500 // Current version as of 2025-04-13
+    return 663500 // Current version as of 2025-04-13
 }
 
 private suspend fun handleGetRequestedCoordinate(
@@ -1421,115 +1366,110 @@ private suspend fun handleGetRequestedCoordinate(
         return
     }
 
-    MongoClient.create(mongoClientSettings).use { mongoClient ->
+    val collection = database.getCollection<RequestedCoordinate>("requestedCoordinates")
 
-        val database = mongoClient.getDatabase("oni")
+    /* Loop through the requests until we find something valid. */
+    findseed@ while (true) {
 
-        val collection = database.getCollection<RequestedCoordinate>("requestedCoordinates")
+        /*
+         * Get the next coordinate waiting and set it to processing state so that
+         * other mods won't get the same coordinate.
+         */
+        val requestedCoordinate = collection.findOneAndUpdate(
+            Filters.and(
+                Filters.eq(RequestedCoordinate::status.name, RequestedCoordinateStatus.REQUESTED),
+                Filters.regex(
+                    RequestedCoordinate::coordinate.name,
+                    createRegexPattern(dlcs)
+                )
+            ),
+            Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.PROCESSING)
+        )
 
-        /* Loop through the requests until we find something valid. */
-        findseed@ while (true) {
+        if (requestedCoordinate == null) {
 
             /*
-             * Get the next coordinate waiting and set it to processing state so that
-             * other mods won't get the same coordinate.
+             * Respond with an empty string if we don't have requests right now.
              */
-            val requestedCoordinate = collection.findOneAndUpdate(
-                Filters.and(
-                    Filters.eq(RequestedCoordinate::status.name, RequestedCoordinateStatus.REQUESTED),
-                    Filters.regex(
-                        RequestedCoordinate::coordinate.name,
-                        createRegexPattern(dlcs)
-                    )
-                ),
-                Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.PROCESSING)
-            )
 
-            if (requestedCoordinate == null) {
+            call.respond(HttpStatusCode.OK, "")
+
+            break@findseed
+
+        } else {
+
+            val coordinate = requestedCoordinate.coordinate
+
+            try {
+
+                val cleanCoordinate = cleanCoordinate(coordinate)
 
                 /*
-                 * Respond with an empty string if we don't have requests right now.
+                 * Update the coordinate to a clean one.
                  */
+                if (coordinate != cleanCoordinate) {
 
-                call.respond(HttpStatusCode.OK, "")
+                    try {
 
-                break@findseed
-
-            } else {
-
-                val coordinate = requestedCoordinate.coordinate
-
-                try {
-
-                    val cleanCoordinate = cleanCoordinate(coordinate)
-
-                    /*
-                     * Update the coordinate to a clean one.
-                     */
-                    if (coordinate != cleanCoordinate) {
-
-                        try {
-
-                            collection.updateOne(
-                                Filters.eq(RequestedCoordinate::coordinate.name, coordinate),
-                                Updates.set(RequestedCoordinate::coordinate.name, cleanCoordinate)
-                            )
-
-                        } catch (ignore: Exception) {
-
-                            /* If we can't update to the new name, the request already existed and is duplicated. */
-
-                            collection.updateOne(
-                                Filters.eq(RequestedCoordinate::coordinate.name, coordinate),
-                                Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.DUPLICATED)
-                            )
-
-                            continue@findseed
-                        }
-                    }
-
-                    val existingWorld: Cluster? = database
-                        .getCollection<Cluster>("worlds")
-                        .find(
-                            Filters.eq("coordinate", cleanCoordinate)
-                        ).firstOrNull()
-
-                    if (existingWorld != null) {
-
-                        /* Mark the coordinate status as duplicated. */
                         collection.updateOne(
-                            Filters.eq(RequestedCoordinate::coordinate.name, cleanCoordinate),
+                            Filters.eq(RequestedCoordinate::coordinate.name, coordinate),
+                            Updates.set(RequestedCoordinate::coordinate.name, cleanCoordinate)
+                        )
+
+                    } catch (ignore: Exception) {
+
+                        /* If we can't update to the new name, the request already existed and is duplicated. */
+
+                        collection.updateOne(
+                            Filters.eq(RequestedCoordinate::coordinate.name, coordinate),
                             Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.DUPLICATED)
                         )
 
                         continue@findseed
                     }
+                }
 
-                    call.respond(HttpStatusCode.OK, cleanCoordinate)
+                val existingWorld: Cluster? = database
+                    .getCollection<Cluster>("worlds")
+                    .find(
+                        Filters.eq("coordinate", cleanCoordinate)
+                    ).firstOrNull()
 
-                    /*
-                     * Mark the coordinate as delivered to a mod for processing
-                     */
+                if (existingWorld != null) {
+
+                    /* Mark the coordinate status as duplicated. */
                     collection.updateOne(
                         Filters.eq(RequestedCoordinate::coordinate.name, cleanCoordinate),
-                        Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.DELIVERED)
-                    )
-
-                    /* Stop execution as we delivered one seed to a mod. */
-                    break@findseed
-
-                } catch (ex: IllegalCoordinateException) {
-
-                    log(ex)
-
-                    /* Mark the coordinate status as illegal */
-                    collection.updateOne(
-                        Filters.eq(RequestedCoordinate::coordinate.name, ex.coordinate),
-                        Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.ILLEGAL)
+                        Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.DUPLICATED)
                     )
 
                     continue@findseed
                 }
+
+                call.respond(HttpStatusCode.OK, cleanCoordinate)
+
+                /*
+                 * Mark the coordinate as delivered to a mod for processing
+                 */
+                collection.updateOne(
+                    Filters.eq(RequestedCoordinate::coordinate.name, cleanCoordinate),
+                    Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.DELIVERED)
+                )
+
+                /* Stop execution as we delivered one seed to a mod. */
+                break@findseed
+
+            } catch (ex: IllegalCoordinateException) {
+
+                log(ex)
+
+                /* Mark the coordinate status as illegal */
+                collection.updateOne(
+                    Filters.eq(RequestedCoordinate::coordinate.name, ex.coordinate),
+                    Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.ILLEGAL)
+                )
+
+                continue@findseed
             }
         }
     }
@@ -1554,43 +1494,38 @@ private suspend fun populateSummaries() {
 
         val start = System.currentTimeMillis()
 
-        MongoClient.create(mongoClientSettings).use { mongoClient ->
+        val coordinates = findAllExistingCoordinates(database)
 
-            val database = mongoClient.getDatabase("oni")
+        val searchIndexCoordinates = findAllSearchIndexCoordinates(database)
 
-            val coordinates = findAllExistingCoordinates(database)
+        val missingCoordinates = coordinates.minus(searchIndexCoordinates)
 
-            val searchIndexCoordinates = findAllSearchIndexCoordinates(database)
+        if (missingCoordinates.isNotEmpty()) {
 
-            val missingCoordinates = coordinates.minus(searchIndexCoordinates)
+            log("Adding ${missingCoordinates.size} to search index...")
 
-            if (missingCoordinates.isNotEmpty()) {
+            val clustersCollection = database.getCollection<Cluster>("worlds")
 
-                log("Adding ${missingCoordinates.size} to search index...")
+            val summariesCollection = database.getCollection<ClusterSummary>("summaries")
 
-                val clustersCollection = database.getCollection<Cluster>("worlds")
+            /*
+             * Go in chunks, because the document size will be too high otherwise.
+             */
+            for (chunk in missingCoordinates.chunked(10000)) {
 
-                val summariesCollection = database.getCollection<ClusterSummary>("summaries")
+                val clustersToIndex = clustersCollection.find(
+                    Filters.`in`("coordinate", chunk)
+                )
 
-                /*
-                 * Go in chunks, because the document size will be too high otherwise.
-                 */
-                for (chunk in missingCoordinates.chunked(10000)) {
+                clustersToIndex.collect { world ->
 
-                    val clustersToIndex = clustersCollection.find(
-                        Filters.`in`("coordinate", chunk)
-                    )
-
-                    clustersToIndex.collect { world ->
-
-                        summariesCollection.insertOne(ClusterSummary.create(world))
-                    }
+                    summariesCollection.insertOne(ClusterSummary.create(world))
                 }
-
-            } else {
-
-                log("Search index is up to date.")
             }
+
+        } else {
+
+            log("Search index is up to date.")
         }
 
         val duration = System.currentTimeMillis() - start
@@ -1626,60 +1561,56 @@ private suspend fun createContributorTable() {
 
     try {
 
-        MongoClient.create(mongoClientSettings).use { mongoClient ->
 
-            val database = mongoClient.getDatabase("oni")
+        val usernameCollection = database.getCollection<Username>("usernames")
 
-            val usernameCollection = database.getCollection<Username>("usernames")
+        val usernameMap = usernameCollection.find()
+            .map { it.steamId to it.username }
+            .toList()
+            .toMap()
 
-            val usernameMap = usernameCollection.find()
-                .map { it.steamId to it.username }
-                .toList()
-                .toMap()
+        val uploadCollection = database.getCollection<Document>("uploads")
 
-            val uploadCollection = database.getCollection<Document>("uploads")
+        val aggregation = listOf(
+            Aggregates.group("\$userId", Accumulators.sum("count", 1)),
+            Aggregates.sort(descending("count"))
+        )
 
-            val aggregation = listOf(
-                Aggregates.group("\$userId", Accumulators.sum("count", 1)),
-                Aggregates.sort(descending("count"))
+        val counts = uploadCollection.aggregate(aggregation)
+            .map { it.getString("_id") to it.getInteger("count") } // Extract userId and count
+            .toList()
+            .toMap()
+
+        val contributorsCollection = database.getCollection<Contributor>("contributors")
+
+        for (entry in counts) {
+
+            /*
+             * We count only Steam users here, because we
+             * only have a login with Steam.
+             */
+            if (!entry.key.startsWith("Steam-"))
+                continue
+
+            @SuppressWarnings("MagicNumber")
+            val steamId = entry.key.drop(6)
+
+            val saltedSteamId = saltedSha256(steamId)
+
+            @SuppressWarnings("MagicNumber")
+            val username = usernameMap[steamId]
+
+            contributorsCollection.deleteOne(
+                Filters.eq("steamIdHash", saltedSteamId)
             )
 
-            val counts = uploadCollection.aggregate(aggregation)
-                .map { it.getString("_id") to it.getInteger("count") } // Extract userId and count
-                .toList()
-                .toMap()
-
-            val contributorsCollection = database.getCollection<Contributor>("contributors")
-
-            for (entry in counts) {
-
-                /*
-                 * We count only Steam users here, because we
-                 * only have a login with Steam.
-                 */
-                if (!entry.key.startsWith("Steam-"))
-                    continue
-
-                @SuppressWarnings("MagicNumber")
-                val steamId = entry.key.drop(6)
-
-                val saltedSteamId = saltedSha256(steamId)
-
-                @SuppressWarnings("MagicNumber")
-                val username = usernameMap[steamId]
-
-                contributorsCollection.deleteOne(
-                    Filters.eq("steamIdHash", saltedSteamId)
+            contributorsCollection.insertOne(
+                Contributor(
+                    steamIdHash = saltedSteamId,
+                    username = username,
+                    mapCount = entry.value
                 )
-
-                contributorsCollection.insertOne(
-                    Contributor(
-                        steamIdHash = saltedSteamId,
-                        username = username,
-                        mapCount = entry.value
-                    )
-                )
-            }
+            )
         }
 
         val duration = System.currentTimeMillis() - start
