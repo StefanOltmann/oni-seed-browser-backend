@@ -161,7 +161,11 @@ private val mongoClient = MongoClient.create(mongoClientSettings)
 
 private val database = mongoClient.getDatabase("oni")
 
-private val clusterCollection = database.getCollection<Cluster>("worlds")
+private val clusterCollection =
+    database.getCollection<Cluster>("worlds")
+
+private val requestedCoordinatesCollection =
+    database.getCollection<RequestedCoordinate>("requestedCoordinates")
 
 private val strictAllFieldsJson = Json {
     ignoreUnknownKeys = false
@@ -241,7 +245,7 @@ fun Application.configureRouting() {
         database.getCollection<Document>("failedWorldGenReports")
             .createIndex(Document("coordinate", 1), uniqueIndexOptions)
 
-        database.getCollection<Document>("requestedCoordinates")
+        requestedCoordinatesCollection
             .createIndex(Document("coordinate", 1), uniqueIndexOptions)
 
         database.getCollection<Document>("summaries")
@@ -646,10 +650,16 @@ fun Application.configureRouting() {
                 val exists = clusterCollection
                     .countDocuments(Filters.eq(Cluster::coordinate.name, coordinate)) > 0
 
-                if (exists)
+                if (exists) {
+
                     call.respond(HttpStatusCode.OK, "Coordinate $coordinate exists.")
-                else
-                    call.respond(HttpStatusCode.NotFound, "Coordinate $coordinate does not exist.")
+
+                    return@get
+                }
+
+
+
+                call.respond(HttpStatusCode.NotFound, "Coordinate $coordinate does not exist.")
 
             } catch (ex: Exception) {
 
@@ -792,8 +802,7 @@ fun Application.configureRouting() {
                 clusterCollection.insertOne(optimizedClusterWithMetadata)
 
                 /* Mark any requested coordinates as completed */
-                database
-                    .getCollection<RequestedCoordinate>("requestedCoordinates")
+                requestedCoordinatesCollection
                     .updateOne(
                         Filters.eq(RequestedCoordinate::coordinate.name, cluster.coordinate),
                         Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.COMPLETED)
@@ -909,8 +918,7 @@ fun Application.configureRouting() {
                 failedWorldGenReportsCollection.insertOne(failedGenReportDatabase)
 
                 /* Mark any requested coordinates as completed */
-                database
-                    .getCollection<RequestedCoordinate>("requestedCoordinates")
+                requestedCoordinatesCollection
                     .updateOne(
                         Filters.eq(RequestedCoordinate::coordinate.name, failedGenReportDatabase.coordinate),
                         Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.FAILED)
@@ -993,9 +1001,7 @@ fun Application.configureRouting() {
                     return@post
                 }
 
-                val collection = database.getCollection<RequestedCoordinate>("requestedCoordinates")
-
-                val exists = collection.countDocuments(
+                val exists = requestedCoordinatesCollection.countDocuments(
                     Filters.eq(RequestedCoordinate::coordinate.name, cleanCoordinate)
                 ) > 0
 
@@ -1006,7 +1012,7 @@ fun Application.configureRouting() {
 
                 } else {
 
-                    collection.insertOne(
+                    requestedCoordinatesCollection.insertOne(
                         RequestedCoordinate(
                             steamId = steamId,
                             date = System.currentTimeMillis(),
@@ -1342,8 +1348,6 @@ private suspend fun handleGetRequestedCoordinate(
         return
     }
 
-    val collection = database.getCollection<RequestedCoordinate>("requestedCoordinates")
-
     /* Loop through the requests until we find something valid. */
     findseed@ while (true) {
 
@@ -1351,9 +1355,12 @@ private suspend fun handleGetRequestedCoordinate(
          * Get the next coordinate waiting and set it to processing state so that
          * other mods won't get the same coordinate.
          */
-        val requestedCoordinate = collection.findOneAndUpdate(
+        val requestedCoordinate = requestedCoordinatesCollection.findOneAndUpdate(
             Filters.and(
-                Filters.eq(RequestedCoordinate::status.name, RequestedCoordinateStatus.REQUESTED),
+                Filters.eq(
+                    RequestedCoordinate::status.name,
+                    RequestedCoordinateStatus.REQUESTED
+                ),
                 Filters.regex(
                     RequestedCoordinate::coordinate.name,
                     createRegexPattern(dlcs)
@@ -1387,7 +1394,7 @@ private suspend fun handleGetRequestedCoordinate(
 
                     try {
 
-                        collection.updateOne(
+                        requestedCoordinatesCollection.updateOne(
                             Filters.eq(RequestedCoordinate::coordinate.name, coordinate),
                             Updates.set(RequestedCoordinate::coordinate.name, cleanCoordinate)
                         )
@@ -1396,7 +1403,7 @@ private suspend fun handleGetRequestedCoordinate(
 
                         /* If we can't update to the new name, the request already existed and is duplicated. */
 
-                        collection.updateOne(
+                        requestedCoordinatesCollection.updateOne(
                             Filters.eq(RequestedCoordinate::coordinate.name, coordinate),
                             Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.DUPLICATED)
                         )
@@ -1413,7 +1420,7 @@ private suspend fun handleGetRequestedCoordinate(
                 if (existingWorld != null) {
 
                     /* Mark the coordinate status as duplicated. */
-                    collection.updateOne(
+                    requestedCoordinatesCollection.updateOne(
                         Filters.eq(RequestedCoordinate::coordinate.name, cleanCoordinate),
                         Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.DUPLICATED)
                     )
@@ -1426,7 +1433,7 @@ private suspend fun handleGetRequestedCoordinate(
                 /*
                  * Mark the coordinate as delivered to a mod for processing
                  */
-                collection.updateOne(
+                requestedCoordinatesCollection.updateOne(
                     Filters.eq(RequestedCoordinate::coordinate.name, cleanCoordinate),
                     Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.DELIVERED)
                 )
@@ -1439,7 +1446,7 @@ private suspend fun handleGetRequestedCoordinate(
                 log(ex)
 
                 /* Mark the coordinate status as illegal */
-                collection.updateOne(
+                requestedCoordinatesCollection.updateOne(
                     Filters.eq(RequestedCoordinate::coordinate.name, ex.coordinate),
                     Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.ILLEGAL)
                 )
