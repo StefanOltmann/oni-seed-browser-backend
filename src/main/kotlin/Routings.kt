@@ -670,7 +670,6 @@ fun Application.configureRouting() {
                     return@get
                 }
 
-
 //                val requestedCoordinate = requestedCoordinatesCollection.find(
 //                    Filters.eq(RequestedCoordinate::coordinate.name, coordinate)
 //                ).firstOrNull()
