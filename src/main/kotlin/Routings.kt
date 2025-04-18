@@ -19,6 +19,7 @@
 
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
+import com.auth0.jwt.exceptions.JWTVerificationException
 import com.mongodb.ConnectionString
 import com.mongodb.MongoClientSettings
 import com.mongodb.ServerApi
@@ -1044,6 +1045,12 @@ fun Application.configureRouting() {
                     call.respond(HttpStatusCode.OK, "Coordinate $cleanCoordinate requested.")
                 }
 
+            } catch (ex: JWTVerificationException) {
+
+                log("Invalid token used: ${ex.stackTraceToString()}")
+
+                call.respond(HttpStatusCode.Unauthorized, "Token was invalid.")
+
             } catch (ex: Exception) {
 
                 log(ex)
@@ -1103,6 +1110,12 @@ fun Application.configureRouting() {
 
                 call.respond(favoredClusters)
 
+            } catch (ex: JWTVerificationException) {
+
+                log("Invalid token used: ${ex.stackTraceToString()}")
+
+                call.respond(HttpStatusCode.Unauthorized, "Token was invalid.")
+
             } catch (ex: Exception) {
 
                 log(ex)
@@ -1134,6 +1147,12 @@ fun Application.configureRouting() {
                     .toList()
 
                 call.respond(favoredCoordinates)
+
+            } catch (ex: JWTVerificationException) {
+
+                log("Invalid token used: ${ex.stackTraceToString()}")
+
+                call.respond(HttpStatusCode.BadRequest, "Token was invalid.")
 
             } catch (ex: Exception) {
 
@@ -1185,6 +1204,12 @@ fun Application.configureRouting() {
                 /* Send OK status. */
                 call.respond(HttpStatusCode.OK, "Coordinate requested.")
 
+            } catch (ex: JWTVerificationException) {
+
+                log("Invalid token used: ${ex.stackTraceToString()}")
+
+                call.respond(HttpStatusCode.Unauthorized, "Token was invalid.")
+
             } catch (ex: Exception) {
 
                 log(ex)
@@ -1222,6 +1247,12 @@ fun Application.configureRouting() {
                     call.respond(HttpStatusCode.NotFound)
                 else
                     call.respondText(username.username)
+
+            } catch (ex: JWTVerificationException) {
+
+                log("Invalid token used: ${ex.stackTraceToString()}")
+
+                call.respond(HttpStatusCode.Unauthorized, "Token was invalid.")
 
             } catch (ex: Exception) {
 
@@ -1273,6 +1304,12 @@ fun Application.configureRouting() {
 
                 /* Send OK status. */
                 call.respond(HttpStatusCode.OK, "Username updated.")
+
+            } catch (ex: JWTVerificationException) {
+
+                log("Invalid token used: ${ex.stackTraceToString()}")
+
+                call.respond(HttpStatusCode.Unauthorized, "Token was invalid.")
 
             } catch (ex: Exception) {
 
