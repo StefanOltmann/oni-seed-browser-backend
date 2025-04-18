@@ -167,6 +167,9 @@ private val clusterCollection =
 private val requestedCoordinatesCollection =
     database.getCollection<RequestedCoordinate>("requestedCoordinates")
 
+private val failedWorldGenReportsCollection =
+    database.getCollection<FailedGenReportDatabase>("failedWorldGenReports")
+
 private val strictAllFieldsJson = Json {
     ignoreUnknownKeys = false
     encodeDefaults = true
@@ -242,7 +245,7 @@ fun Application.configureRouting() {
         database.getCollection<Document>("uploads")
             .createIndex(Document("coordinate", 1), uniqueIndexOptions)
 
-        database.getCollection<Document>("failedWorldGenReports")
+        failedWorldGenReportsCollection
             .createIndex(Document("coordinate", 1), uniqueIndexOptions)
 
         requestedCoordinatesCollection
@@ -657,7 +660,27 @@ fun Application.configureRouting() {
                     return@get
                 }
 
+                val isKnownFailedWorld = failedWorldGenReportsCollection
+                    .countDocuments(Filters.eq(Cluster::coordinate.name, coordinate)) > 0
 
+                if (isKnownFailedWorld) {
+
+                    call.respond(HttpStatusCode.NotAcceptable, "Coordinate $coordinate failed to germinate.")
+
+                    return@get
+                }
+
+
+//                val requestedCoordinate = requestedCoordinatesCollection.find(
+//                    Filters.eq(RequestedCoordinate::coordinate.name, coordinate)
+//                ).firstOrNull()
+//
+//                if (requestedCoordinate?.status == RequestedCoordinateStatus.FAILED) {
+//
+//                    call.respond(HttpStatusCode.NotAcceptable, "Coordinate $coordinate failed to germinate.")
+//
+//                    return@get
+//                }
 
                 call.respond(HttpStatusCode.NotFound, "Coordinate $coordinate does not exist.")
 
@@ -911,9 +934,6 @@ fun Application.configureRouting() {
                     ipAddress = ipAddress,
                     coordinate = failedGenReport.coordinate
                 )
-
-                val failedWorldGenReportsCollection =
-                    database.getCollection<FailedGenReportDatabase>("failedWorldGenReports")
 
                 failedWorldGenReportsCollection.insertOne(failedGenReportDatabase)
 
