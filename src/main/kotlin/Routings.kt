@@ -42,9 +42,7 @@ import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.plugins.cors.routing.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
-import io.ktor.server.routing.get
-import io.ktor.server.routing.post
-import io.ktor.server.routing.routing
+import io.ktor.server.routing.*
 import io.ktor.server.util.*
 import io.sentry.Sentry
 import kotlinx.coroutines.flow.firstOrNull
@@ -1047,24 +1045,36 @@ fun Application.configureRouting() {
 
                     val collection = database.getCollection<RequestedCoordinate>("requestedCoordinates")
 
-                    collection.insertOne(
-                        RequestedCoordinate(
-                            steamId = steamId,
-                            date = System.currentTimeMillis(),
-                            coordinate = cleanCoordinate,
-                            status = RequestedCoordinateStatus.REQUESTED
-                        )
-                    )
-                }
+                    val exists = collection.countDocuments(
+                        Filters.eq(RequestedCoordinate::coordinate.name, cleanCoordinate)
+                    ) > 0
 
-                /* Send OK status. */
-                call.respond(HttpStatusCode.OK, "Coordinate requested.")
+                    if (exists) {
+
+                        /* Send info that the coordinate already exists. */
+                        call.respond(HttpStatusCode.Conflict, "Coordinate $cleanCoordinate was already requested.")
+
+                    } else {
+
+                        collection.insertOne(
+                            RequestedCoordinate(
+                                steamId = steamId,
+                                date = System.currentTimeMillis(),
+                                coordinate = cleanCoordinate,
+                                status = RequestedCoordinateStatus.REQUESTED
+                            )
+                        )
+
+                        /* Send OK status. */
+                        call.respond(HttpStatusCode.OK, "Coordinate $cleanCoordinate requested.")
+                    }
+                }
 
             } catch (ex: Exception) {
 
                 log(ex)
 
-                call.respond(HttpStatusCode.BadRequest, "Failed to add coordinate")
+                call.respond(HttpStatusCode.InternalServerError, "Server error")
             }
         }
 
