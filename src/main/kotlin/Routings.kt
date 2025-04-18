@@ -161,6 +161,8 @@ private val mongoClient = MongoClient.create(mongoClientSettings)
 
 private val database = mongoClient.getDatabase("oni")
 
+private val clusterCollection = database.getCollection<Cluster>("worlds")
+
 private val strictAllFieldsJson = Json {
     ignoreUnknownKeys = false
     encodeDefaults = true
@@ -230,7 +232,7 @@ fun Application.configureRouting() {
 
         val uniqueIndexOptions = IndexOptions().unique(true)
 
-        database.getCollection<Document>("worlds")
+        clusterCollection
             .createIndex(Document("coordinate", 1), uniqueIndexOptions)
 
         database.getCollection<Document>("uploads")
@@ -249,10 +251,10 @@ fun Application.configureRouting() {
          * Indexes for aggregation speed
          */
 
-        database.getCollection<Document>("worlds")
+        clusterCollection
             .createIndex(Document("uploaderSteamIdHash", 1))
 
-        database.getCollection<Document>("worlds")
+        clusterCollection
             .createIndex(Document("uploadDate", 1))
 
         database.getCollection<Document>("uploads")
@@ -359,9 +361,7 @@ fun Application.configureRouting() {
 
                 val start = System.currentTimeMillis()
 
-                val collection = database.getCollection<Cluster>("worlds")
-
-                val cluster: Cluster? = collection.find(
+                val cluster: Cluster? = clusterCollection.find(
                     Filters.eq("coordinate", coordinate)
                 ).firstOrNull()
 
@@ -491,8 +491,6 @@ fun Application.configureRouting() {
                     return@get
                 }
 
-                val collection = database.getCollection<Cluster>("worlds")
-
                 call.response.header(
                     HttpHeaders.ContentDisposition,
                     ContentDisposition.Attachment.withParameter(
@@ -511,7 +509,7 @@ fun Application.configureRouting() {
 
                     ZipOutputStream(this).use { zipOutputStream ->
 
-                        val cursor = collection.find().batchSize(1000)
+                        val cursor = clusterCollection.find().batchSize(1000)
 
                         var batchNumber = 1
 
@@ -597,10 +595,10 @@ fun Application.configureRouting() {
                 val matchingCoordinates: List<String> =
                     matchingSummaries.map { it.coordinate }.toList()
 
-                val resultClusters: List<Cluster> = database
-                    .getCollection<Cluster>("worlds")
-                    .find(Filters.`in`("coordinate", matchingCoordinates))
-                    .toList()
+                val resultClusters: List<Cluster> =
+                    clusterCollection
+                        .find(Filters.`in`("coordinate", matchingCoordinates))
+                        .toList()
 
                 call.respond(resultClusters)
 
@@ -616,37 +614,11 @@ fun Application.configureRouting() {
             }
         }
 
-        // Expensive operation, right now not needed
-//        get("/distinct") {
-//
-//            val start = System.currentTimeMillis()
-//
-//            //MongoClient.create(mongoClientSettings).use { mongoClient ->
-//
-//                val database = mongoClient.getDatabase("oni")
-//
-//                val collection = database.getCollection<Cluster>("worlds")
-//
-//                val allDistinctClusters = collection.find().toList().distinctBy {
-//                    it.cluster
-//                }
-//
-//                call.respond(allDistinctClusters)
-//            }
-//
-//            val duration = System.currentTimeMillis() - start
-//
-//            log("Returned distinct clusters in $duration ms.")
-//        }
-
         get("/count") {
 
             try {
 
-                val collection = database.getCollection<Cluster>("worlds")
-
-                /* Fast count */
-                val count = collection.estimatedDocumentCount()
+                val count = clusterCollection.estimatedDocumentCount()
 
                 call.respond(count)
 
@@ -671,9 +643,7 @@ fun Application.configureRouting() {
                     return@get
                 }
 
-                val collection = database.getCollection<Document>("worlds")
-
-                val exists = collection
+                val exists = clusterCollection
                     .countDocuments(Filters.eq(Cluster::coordinate.name, coordinate)) > 0
 
                 if (exists)
@@ -818,8 +788,6 @@ fun Application.configureRouting() {
                 val uploadCollection = database.getCollection<UploadDatabase>("uploads")
 
                 uploadCollection.insertOne(uploadDatabase)
-
-                val clusterCollection = database.getCollection<Cluster>("worlds")
 
                 clusterCollection.insertOne(optimizedClusterWithMetadata)
 
@@ -1066,9 +1034,7 @@ fun Application.configureRouting() {
 
             try {
 
-                val clustersCollection = database.getCollection<Cluster>("worlds")
-
-                val latestClusters = clustersCollection
+                val latestClusters = clusterCollection
                     .find()
                     .sort(descending(Cluster::uploadDate.name))
                     .limit(LATEST_LIMIT)
@@ -1106,9 +1072,7 @@ fun Application.configureRouting() {
                     .map { it.coordinate }
                     .toList()
 
-                val clustersCollection = database.getCollection<Cluster>("worlds")
-
-                val favoredClusters = clustersCollection.find(
+                val favoredClusters = clusterCollection.find(
                     Filters.`in`("coordinate", favoredCoordinates)
                 ).toList()
 
@@ -1336,7 +1300,19 @@ fun Application.configureRouting() {
                 return@get
             }
 
-            call.respondText("OK", ContentType.Text.Plain, HttpStatusCode.OK)
+            try {
+
+                /* Fast connection check */
+                clusterCollection.estimatedDocumentCount()
+
+                call.respond(HttpStatusCode.OK, "OK")
+
+            } catch (ex: Exception) {
+
+                log(ex)
+
+                call.respond(HttpStatusCode.InternalServerError, "Server error")
+            }
         }
     }
 }
@@ -1429,8 +1405,7 @@ private suspend fun handleGetRequestedCoordinate(
                     }
                 }
 
-                val existingWorld: Cluster? = database
-                    .getCollection<Cluster>("worlds")
+                val existingWorld: Cluster? = clusterCollection
                     .find(
                         Filters.eq("coordinate", cleanCoordinate)
                     ).firstOrNull()
@@ -1504,8 +1479,6 @@ private suspend fun populateSummaries() {
 
             log("Adding ${missingCoordinates.size} to search index...")
 
-            val clustersCollection = database.getCollection<Cluster>("worlds")
-
             val summariesCollection = database.getCollection<ClusterSummary>("summaries")
 
             /*
@@ -1513,7 +1486,7 @@ private suspend fun populateSummaries() {
              */
             for (chunk in missingCoordinates.chunked(10000)) {
 
-                val clustersToIndex = clustersCollection.find(
+                val clustersToIndex = clusterCollection.find(
                     Filters.`in`("coordinate", chunk)
                 )
 
