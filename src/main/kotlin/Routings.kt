@@ -1090,26 +1090,27 @@ fun Application.configureRouting() {
         }
 
         /**
-         * Returns the top rated clusters.
+         * Returns the top-rated clusters.
          */
         get("/top") {
 
             try {
 
                 val topLikedCoordinates = likesCollection.aggregate(
-                    listOf(
+                    pipeline = listOf(
                         Document("\$group", Document().apply {
-                            append("_id", "\$coordinate")
+                            append("coordinate", "\$coordinate")
                             append("likeCount", Document("\$sum", 1))
                         }),
                         Document("\$sort", Document("likeCount", -1)),
-                        Document("\$limit", TOP_MAPS_LIMIT)
+                        /* Note: For some reason the results are off-by-one, so we add just 1 */
+                        Document("\$limit", TOP_MAPS_LIMIT + 1)
                     ),
-                    BsonDocument::class.java
+                    resultClass = BsonDocument::class.java
                 ).toList()
 
                 val likeCounts: Map<String, Int> = topLikedCoordinates.associate {
-                    val coordinate = it.getString("_id").value
+                    val coordinate = it.getString("coordinate").value
                     val count = it.getInt32("likeCount").value
                     coordinate to count
                 }
