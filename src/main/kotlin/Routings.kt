@@ -1103,8 +1103,7 @@ fun Application.configureRouting() {
                             append("likeCount", Document("\$sum", 1))
                         }),
                         Document("\$sort", Document("likeCount", -1)),
-                        /* Note: For some reason the results are off-by-one, so we add just 1 */
-                        Document("\$limit", TOP_MAPS_LIMIT + 1)
+                        Document("\$limit", TOP_MAPS_LIMIT)
                     ),
                     resultClass = BsonDocument::class.java
                 ).toList()
