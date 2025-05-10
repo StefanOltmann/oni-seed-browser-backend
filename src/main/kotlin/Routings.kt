@@ -1099,7 +1099,7 @@ fun Application.configureRouting() {
                 val topLikedCoordinates = likesCollection.aggregate(
                     pipeline = listOf(
                         Document("\$group", Document().apply {
-                            append("coordinate", "\$coordinate")
+                            append("_id", "\$coordinate")
                             append("likeCount", Document("\$sum", 1))
                         }),
                         Document("\$sort", Document("likeCount", -1)),
@@ -1110,7 +1110,7 @@ fun Application.configureRouting() {
                 ).toList()
 
                 val likeCounts: Map<String, Int> = topLikedCoordinates.associate {
-                    val coordinate = it.getString("coordinate").value
+                    val coordinate = it.getString("_id").value
                     val count = it.getInt32("likeCount").value
                     coordinate to count
                 }
