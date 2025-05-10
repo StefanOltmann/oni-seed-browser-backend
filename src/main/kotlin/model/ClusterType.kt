@@ -24,205 +24,239 @@ import kotlinx.serialization.Serializable
 @Serializable
 enum class ClusterType(
     val prefix: String,
-    val requiredDlcs: List<Dlc>
+    val requiredDlcs: List<Dlc>,
+    val exportCollection: ClusterExportCollection
 ) {
 
     /** Terra */
     BASE_TERRA(
         prefix = "SNDST-A",
-        requiredDlcs = listOf(Dlc.BaseGame)
+        requiredDlcs = listOf(Dlc.BaseGame),
+        exportCollection = ClusterExportCollection.BASEGAME
     ),
 
     /** Ceres */
     BASE_CERES(
         prefix = "CER-A",
-        requiredDlcs = listOf(Dlc.BaseGame, Dlc.FrostyPlanet)
+        requiredDlcs = listOf(Dlc.BaseGame, Dlc.FrostyPlanet),
+        exportCollection = ClusterExportCollection.FROSTYPLANET
     ),
 
     /** Ceres */
     BASE_BLASTED_CERES(
         prefix = "CERS-A",
-        requiredDlcs = listOf(Dlc.BaseGame, Dlc.FrostyPlanet)
+        requiredDlcs = listOf(Dlc.BaseGame, Dlc.FrostyPlanet),
+        exportCollection = ClusterExportCollection.FROSTYPLANET
     ),
 
     /** Oceania */
     BASE_OCEANIA(
         prefix = "OCAN-A",
-        requiredDlcs = listOf(Dlc.BaseGame)
+        requiredDlcs = listOf(Dlc.BaseGame),
+        exportCollection = ClusterExportCollection.BASEGAME
     ),
 
     /** Rime */
     BASE_RIME(
         prefix = "S-FRZ",
-        requiredDlcs = listOf(Dlc.BaseGame)
+        requiredDlcs = listOf(Dlc.BaseGame),
+        exportCollection = ClusterExportCollection.BASEGAME
     ),
 
     /** Verdante */
     BASE_VERDANTE(
         prefix = "LUSH-A",
-        requiredDlcs = listOf(Dlc.BaseGame)
+        requiredDlcs = listOf(Dlc.BaseGame),
+        exportCollection = ClusterExportCollection.BASEGAME
     ),
 
     /** Arboria */
     BASE_ARBORIA(
         prefix = "FRST-A",
-        requiredDlcs = listOf(Dlc.BaseGame)
+        requiredDlcs = listOf(Dlc.BaseGame),
+        exportCollection = ClusterExportCollection.BASEGAME
     ),
 
     /** Volcanea */
     BASE_VOLCANEA(
         prefix = "VOLCA",
-        requiredDlcs = listOf(Dlc.BaseGame)
+        requiredDlcs = listOf(Dlc.BaseGame),
+        exportCollection = ClusterExportCollection.BASEGAME
     ),
 
     /** The Badlands */
     BASE_THE_BADLANDS(
         prefix = "BAD-A",
-        requiredDlcs = listOf(Dlc.BaseGame)
+        requiredDlcs = listOf(Dlc.BaseGame),
+        exportCollection = ClusterExportCollection.BASEGAME
     ),
 
     /** Aridio */
     BASE_ARIDIO(
         prefix = "HTFST-A",
-        requiredDlcs = listOf(Dlc.BaseGame)
+        requiredDlcs = listOf(Dlc.BaseGame),
+        exportCollection = ClusterExportCollection.BASEGAME
     ),
 
     /** Oasisse */
     BASE_OASISSE(
         prefix = "OASIS-A",
-        requiredDlcs = listOf(Dlc.BaseGame)
+        requiredDlcs = listOf(Dlc.BaseGame),
+        exportCollection = ClusterExportCollection.BASEGAME
     ),
 
     /** Terra */
     DLC_TERRA(
         prefix = "V-SNDST-C",
-        requiredDlcs = listOf(Dlc.SpacedOut)
+        requiredDlcs = listOf(Dlc.SpacedOut),
+        exportCollection = ClusterExportCollection.SPACEDOUT_CLASSIC
     ),
 
     /** Ceres */
     DLC_CERES(
         prefix = "V-CER-C",
-        requiredDlcs = listOf(Dlc.SpacedOut, Dlc.FrostyPlanet)
+        requiredDlcs = listOf(Dlc.SpacedOut, Dlc.FrostyPlanet),
+        exportCollection = ClusterExportCollection.SPACEDOUT_CLASSIC
     ),
 
     /** Ceres (lab) */
     DLC_BLASTED_CERES(
         prefix = "V-CERS-C",
-        requiredDlcs = listOf(Dlc.SpacedOut, Dlc.FrostyPlanet)
+        requiredDlcs = listOf(Dlc.SpacedOut, Dlc.FrostyPlanet),
+        exportCollection = ClusterExportCollection.FROSTYPLANET
     ),
 
     /** Oceania */
     DLC_OCEANIA(
         prefix = "V-OCAN-C",
-        requiredDlcs = listOf(Dlc.SpacedOut)
+        requiredDlcs = listOf(Dlc.SpacedOut),
+        exportCollection = ClusterExportCollection.SPACEDOUT_CLASSIC
     ),
 
     /** Squelchy */
     DLC_SQUELCHY(
         prefix = "V-SWMP-C",
-        requiredDlcs = listOf(Dlc.SpacedOut)
+        requiredDlcs = listOf(Dlc.SpacedOut),
+        exportCollection = ClusterExportCollection.SPACEDOUT_CLASSIC
     ),
 
     /** Rime */
     DLC_RIME(
         prefix = "V-SFRZ-C",
-        requiredDlcs = listOf(Dlc.SpacedOut)
+        requiredDlcs = listOf(Dlc.SpacedOut),
+        exportCollection = ClusterExportCollection.SPACEDOUT_CLASSIC
     ),
 
     /** Verdante */
     DLC_VERDANTE(
         prefix = "V-LUSH-C",
-        requiredDlcs = listOf(Dlc.SpacedOut)
+        requiredDlcs = listOf(Dlc.SpacedOut),
+        exportCollection = ClusterExportCollection.SPACEDOUT_CLASSIC
     ),
 
     /** Arboria */
     DLC_ARBORIA(
         prefix = "V-FRST-C",
-        requiredDlcs = listOf(Dlc.SpacedOut)
+        requiredDlcs = listOf(Dlc.SpacedOut),
+        exportCollection = ClusterExportCollection.SPACEDOUT_CLASSIC
     ),
 
     /** Volcanea */
     DLC_VOLCANEA(
         prefix = "V-VOLCA-C",
-        requiredDlcs = listOf(Dlc.SpacedOut)
+        requiredDlcs = listOf(Dlc.SpacedOut),
+        exportCollection = ClusterExportCollection.SPACEDOUT_CLASSIC
     ),
 
     /** The Badlands */
     DLC_THE_BADLANDS(
         prefix = "V-BAD-C",
-        requiredDlcs = listOf(Dlc.SpacedOut)
+        requiredDlcs = listOf(Dlc.SpacedOut),
+        exportCollection = ClusterExportCollection.SPACEDOUT_CLASSIC
     ),
 
     /** Aridio */
     DLC_ARIDIO(
         prefix = "V-HTFST-C",
-        requiredDlcs = listOf(Dlc.SpacedOut)
+        requiredDlcs = listOf(Dlc.SpacedOut),
+        exportCollection = ClusterExportCollection.SPACEDOUT_CLASSIC
     ),
 
     /** Oasisse */
     DLC_OASISSE(
         prefix = "V-OASIS-C",
-        requiredDlcs = listOf(Dlc.SpacedOut)
+        requiredDlcs = listOf(Dlc.SpacedOut),
+        exportCollection = ClusterExportCollection.SPACEDOUT_CLASSIC
     ),
 
     /** Terrania */
     DLC_TERRANIA(
         prefix = "SNDST-C",
-        requiredDlcs = listOf(Dlc.SpacedOut)
+        requiredDlcs = listOf(Dlc.SpacedOut),
+        exportCollection = ClusterExportCollection.SPACEDOUT
     ),
 
     /** Ceres Minor */
     DLC_CERES_MINOR(
         prefix = "CER-C",
-        requiredDlcs = listOf(Dlc.SpacedOut)
+        requiredDlcs = listOf(Dlc.SpacedOut),
+        exportCollection = ClusterExportCollection.FROSTYPLANET
     ),
 
     /** Folia */
     DLC_FOLIA(
         prefix = "FRST-C",
-        requiredDlcs = listOf(Dlc.SpacedOut)
+        requiredDlcs = listOf(Dlc.SpacedOut),
+        exportCollection = ClusterExportCollection.SPACEDOUT
     ),
 
     /** Quagmiris */
     DLC_QUAGMIRIS(
         prefix = "SWMP-C",
-        requiredDlcs = listOf(Dlc.SpacedOut)
+        requiredDlcs = listOf(Dlc.SpacedOut),
+        exportCollection = ClusterExportCollection.SPACEDOUT
     ),
 
     /** Metallic Swampy Moonlet */
     DLC_METALLIC_SWAMPY_MOONLET(
         prefix = "M-SWMP-C",
-        requiredDlcs = listOf(Dlc.SpacedOut)
+        requiredDlcs = listOf(Dlc.SpacedOut),
+        exportCollection = ClusterExportCollection.SPACEDOUT
     ),
 
     /** The Desolands Moonlet */
     DLC_THE_DESOLANDS_MOONLET(
         prefix = "M-BAD-C",
-        requiredDlcs = listOf(Dlc.SpacedOut)
+        requiredDlcs = listOf(Dlc.SpacedOut),
+        exportCollection = ClusterExportCollection.SPACEDOUT
     ),
 
     /** Frozen Forest Moonlet */
     DLC_FROZEN_FOREST_MOONLET(
         prefix = "M-FRZ-C",
-        requiredDlcs = listOf(Dlc.SpacedOut)
+        requiredDlcs = listOf(Dlc.SpacedOut),
+        exportCollection = ClusterExportCollection.SPACEDOUT
     ),
 
     /** Flipped Moonlet */
     DLC_FLIPPED_MOONLET(
         prefix = "M-FLIP-C",
-        requiredDlcs = listOf(Dlc.SpacedOut)
+        requiredDlcs = listOf(Dlc.SpacedOut),
+        exportCollection = ClusterExportCollection.SPACEDOUT
     ),
 
     /** Radioactive Ocean Moonlet */
     DLC_RADIOACTIVE_OCEAN_MOONLET(
         prefix = "M-RAD-C",
-        requiredDlcs = listOf(Dlc.SpacedOut)
+        requiredDlcs = listOf(Dlc.SpacedOut),
+        exportCollection = ClusterExportCollection.SPACEDOUT
     ),
 
     /** Ceres Mantle */
     DLC_CERES_MANTLE(
         prefix = "M-CERS-C",
-        requiredDlcs = listOf(Dlc.SpacedOut, Dlc.FrostyPlanet)
+        requiredDlcs = listOf(Dlc.SpacedOut, Dlc.FrostyPlanet),
+        exportCollection = ClusterExportCollection.FROSTYPLANET
     );
 
     fun dlcRequirementsFulfilled(requirements: List<Dlc>): Boolean =

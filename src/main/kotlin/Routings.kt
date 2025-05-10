@@ -83,6 +83,8 @@ import kotlinx.serialization.cbor.Cbor
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToStream
 import model.Cluster
+import model.ClusterExportCollection
+import model.ClusterType
 import model.Contributor
 import model.Dlc
 import model.FailedGenReport
@@ -490,7 +492,7 @@ fun Application.configureRouting() {
             }
         }
 
-        get("/export/{clusterPrefix}") {
+        get("/export/{collection}") {
 
             try {
 
@@ -509,14 +511,25 @@ fun Application.configureRouting() {
                     return@get
                 }
 
-                val clusterPrefix = call.parameters["clusterPrefix"]
+                val exportCollectionName = call.parameters["collection"]
 
-                if (clusterPrefix.isNullOrBlank()) {
+                val exportCollection = exportCollectionName?.let {
+                    ClusterExportCollection.values().find { value -> value.name == it }
+                }
 
-                    call.respond(HttpStatusCode.BadRequest, "No cluster prefix")
+                if (exportCollection == null) {
+
+                    call.respond(
+                        HttpStatusCode.BadRequest,
+                        "Invalid collection: $exportCollectionName"
+                    )
 
                     return@get
                 }
+
+                val clustersToExport: List<String> = ClusterType.entries
+                    .filter { it.exportCollection == exportCollection }
+                    .map { it.prefix }
 
                 call.response.header(
                     HttpHeaders.ContentDisposition,
@@ -538,9 +551,9 @@ fun Application.configureRouting() {
 
                         val cursor = clusterCollection
                             .find(
-                                Filters.eq(
+                                Filters.`in`(
                                     Cluster::cluster.name,
-                                    clusterPrefix
+                                    clustersToExport
                                 )
                             )
                             .batchSize(1000)
@@ -558,7 +571,7 @@ fun Application.configureRouting() {
                                 val paddedBatchNumber = batchNumber.toString().padStart(4, '0')
 
                                 zipOutputStream.putNextEntry(
-                                    ZipEntry("$clusterPrefix-data-$paddedBatchNumber.json")
+                                    ZipEntry("${exportCollection.id}-data-$paddedBatchNumber.json")
                                 )
 
                                 /*
@@ -584,7 +597,7 @@ fun Application.configureRouting() {
                             val paddedBatchNumber = batchNumber.toString().padStart(4, '0')
 
                             zipOutputStream.putNextEntry(
-                                ZipEntry("$clusterPrefix-data-$paddedBatchNumber.json")
+                                ZipEntry("${exportCollection.id}-data-$paddedBatchNumber.json")
                             )
 
                             /*
