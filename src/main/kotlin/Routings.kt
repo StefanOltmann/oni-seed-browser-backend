@@ -90,6 +90,7 @@ import model.FailedGenReportDatabase
 import model.FavoredCoordinate
 import model.ModBinaryChecksumDatabase
 import model.RateCoordinateRequest
+import model.RatedCluster
 import model.RequestedCoordinate
 import model.RequestedCoordinateStatus
 import model.Upload
@@ -97,6 +98,7 @@ import model.UploadDatabase
 import model.Username
 import model.filter.FilterQuery
 import model.search.ClusterSummary
+import org.bson.BsonDocument
 import org.bson.Document
 import java.security.KeyFactory
 import java.security.MessageDigest
@@ -161,6 +163,9 @@ private val mongoClientSettings = MongoClientSettings.builder()
 private val mongoClient = MongoClient.create(mongoClientSettings)
 
 private val database = mongoClient.getDatabase("oni")
+
+private val likesCollection =
+    database.getCollection<FavoredCoordinate>("likes")
 
 private val clusterCollection =
     database.getCollection<Cluster>("worlds")
@@ -1082,6 +1087,53 @@ fun Application.configureRouting() {
             }
         }
 
+        /**
+         * Returns the top rated clusters.
+         */
+        get("/top") {
+
+            try {
+
+                val topLikedCoordinates = likesCollection.aggregate(
+                    listOf(
+                        Document("\$group", Document().apply {
+                            append("_id", "\$coordinate")
+                            append("likeCount", Document("\$sum", 1))
+                        }),
+                        Document("\$sort", Document("likeCount", -1)),
+                        Document("\$limit", RESULT_LIMIT)
+                    ),
+                    BsonDocument::class.java
+                ).toList()
+
+                val likeCounts: Map<String, Int> = topLikedCoordinates.associate {
+                    val coordinate = it.getString("_id").value
+                    val count = it.getInt32("likeCount").value
+                    coordinate to count
+                }
+
+                val topClusters = clusterCollection.find(
+                    Filters.`in`("coordinate", likeCounts.keys)
+                ).toList()
+
+                val ratedClusters = topClusters
+                    .mapNotNull { cluster ->
+                        likeCounts[cluster.coordinate]?.let { count ->
+                            RatedCluster(cluster, count)
+                        }
+                    }
+                    .sortedByDescending { it.likeCount }
+
+                call.respond(ratedClusters)
+
+            } catch (ex: Exception) {
+
+                log(ex)
+
+                call.respond(HttpStatusCode.BadRequest, "Failed to get top clusters.")
+            }
+        }
+
         get("/favored-clusters") {
 
             try {
@@ -1096,8 +1148,6 @@ fun Application.configureRouting() {
                 val jwt = jwtVerifier.verify(token)
 
                 val steamId = jwt.getClaim("steamId").asString()
-
-                val likesCollection = database.getCollection<FavoredCoordinate>("likes")
 
                 val favoredCoordinates: List<String> = likesCollection
                     .find(Filters.eq("steamId", steamId))
@@ -1139,9 +1189,7 @@ fun Application.configureRouting() {
 
                 val steamId: String = jwt.getClaim("steamId").asString()
 
-                val collection = database.getCollection<FavoredCoordinate>("likes")
-
-                val favoredCoordinates: List<String> = collection
+                val favoredCoordinates: List<String> = likesCollection
                     .find(Filters.eq("steamId", steamId))
                     .map { it.coordinate }
                     .toList()
@@ -1179,11 +1227,9 @@ fun Application.configureRouting() {
 
                 val rateCoordinateRequest = call.receive<RateCoordinateRequest>()
 
-                val collection = database.getCollection<FavoredCoordinate>("likes")
-
                 if (rateCoordinateRequest.like) {
 
-                    collection.insertOne(
+                    likesCollection.insertOne(
                         FavoredCoordinate(
                             steamId = steamId,
                             date = System.currentTimeMillis(),
@@ -1193,7 +1239,7 @@ fun Application.configureRouting() {
 
                 } else {
 
-                    collection.deleteOne(
+                    likesCollection.deleteOne(
                         Filters.and(
                             Filters.eq("steamId", steamId),
                             Filters.eq("coordinate", rateCoordinateRequest.coordinate)
