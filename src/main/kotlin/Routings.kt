@@ -487,7 +487,7 @@ fun Application.configureRouting() {
             }
         }
 
-        get("/export") {
+        get("/export/{clusterPrefix}") {
 
             try {
 
@@ -502,6 +502,15 @@ fun Application.configureRouting() {
                     log("Unauthorized API key used by ip address $ipAddress.")
 
                     call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
+
+                    return@get
+                }
+
+                val clusterPrefix = call.parameters["clusterPrefix"]
+
+                if (clusterPrefix.isNullOrBlank()) {
+
+                    call.respond(HttpStatusCode.BadRequest, "No cluster prefix")
 
                     return@get
                 }
@@ -524,7 +533,13 @@ fun Application.configureRouting() {
 
                     ZipOutputStream(this).use { zipOutputStream ->
 
-                        val cursor = clusterCollection.find().batchSize(1000)
+                        val cursor = clusterCollection.find(
+                            Filters.eq(
+                                Cluster::coordinate.name,
+                                Regex("^${Regex.escape(clusterPrefix)}-.*")
+                            )
+                        )
+                            .batchSize(1000)
 
                         var batchNumber = 1
 
@@ -536,7 +551,11 @@ fun Application.configureRouting() {
 
                             if (batchMaps.size >= EXPORT_BATCH_SIZE) {
 
-                                zipOutputStream.putNextEntry(ZipEntry("data-${batchNumber}.json"))
+                                val paddedBatchNumber = batchNumber.toString().padStart(4, '0')
+
+                                zipOutputStream.putNextEntry(
+                                    ZipEntry("$clusterPrefix-data-$paddedBatchNumber.json")
+                                )
 
                                 /*
                                  * Encode directly to the stream. This avoids creating a new
@@ -558,7 +577,11 @@ fun Application.configureRouting() {
                         /* If any remaining documents after loop, save the last batch */
                         if (batchMaps.isNotEmpty()) {
 
-                            zipOutputStream.putNextEntry(ZipEntry("data-${batchNumber}.json"))
+                            val paddedBatchNumber = batchNumber.toString().padStart(4, '0')
+
+                            zipOutputStream.putNextEntry(
+                                ZipEntry("$clusterPrefix-data-$paddedBatchNumber.json")
+                            )
 
                             /*
                              * Encode directly to the stream. This avoids creating a new
