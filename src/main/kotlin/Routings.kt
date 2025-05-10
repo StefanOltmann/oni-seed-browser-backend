@@ -272,6 +272,9 @@ fun Application.configureRouting() {
         clusterCollection
             .createIndex(Document("uploadDate", 1))
 
+        clusterCollection
+            .createIndex(Document("cluster", 1))
+
         database.getCollection<Document>("uploads")
             .createIndex(Document("uploadDate", 1))
 
@@ -533,12 +536,13 @@ fun Application.configureRouting() {
 
                     ZipOutputStream(this).use { zipOutputStream ->
 
-                        val cursor = clusterCollection.find(
-                            Filters.eq(
-                                Cluster::coordinate.name,
-                                Regex("^${Regex.escape(clusterPrefix)}-.*")
+                        val cursor = clusterCollection
+                            .find(
+                                Filters.eq(
+                                    Cluster::cluster.name,
+                                    clusterPrefix
+                                )
                             )
-                        )
                             .batchSize(1000)
 
                         var batchNumber = 1
