@@ -513,8 +513,18 @@ fun Application.configureRouting() {
 
                 val exportCollectionName = call.parameters["collection"]
 
-                val exportCollection = exportCollectionName?.let {
-                    ClusterExportCollection.values().find { value -> value.name == it }
+                if (exportCollectionName.isNullOrBlank()) {
+
+                    call.respond(
+                        HttpStatusCode.BadRequest,
+                        "Invalid collection: $exportCollectionName"
+                    )
+
+                    return@get
+                }
+
+                val exportCollection = ClusterExportCollection.entries.find { value ->
+                    value.id == exportCollectionName
                 }
 
                 if (exportCollection == null) {
