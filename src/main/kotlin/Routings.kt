@@ -117,7 +117,9 @@ const val POPULATE_SUMMARIES_ON_START = false
 /* Limit the results to avoid memory issues */
 const val RESULT_LIMIT = 100
 
-const val LATEST_LIMIT = 10
+const val LATEST_MAPS_LIMIT = 10
+
+const val TOP_MAPS_LIMIT = 30
 
 const val EXPORT_BATCH_SIZE = 10000
 
@@ -1074,7 +1076,7 @@ fun Application.configureRouting() {
                 val latestClusters = clusterCollection
                     .find()
                     .sort(descending(Cluster::uploadDate.name))
-                    .limit(LATEST_LIMIT)
+                    .limit(LATEST_MAPS_LIMIT)
                     .toList()
 
                 call.respond(latestClusters)
@@ -1101,7 +1103,7 @@ fun Application.configureRouting() {
                             append("likeCount", Document("\$sum", 1))
                         }),
                         Document("\$sort", Document("likeCount", -1)),
-                        Document("\$limit", RESULT_LIMIT)
+                        Document("\$limit", TOP_MAPS_LIMIT)
                     ),
                     BsonDocument::class.java
                 ).toList()
