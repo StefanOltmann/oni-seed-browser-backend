@@ -1,6 +1,6 @@
 plugins {
     application
-    kotlin("jvm") version "2.1.20"
+    kotlin("jvm") version "2.1.21"
     kotlin("plugin.serialization") version "2.1.20"
     id("io.ktor.plugin") version "3.1.1"
     id("me.qoomon.git-versioning") version "6.4.4"

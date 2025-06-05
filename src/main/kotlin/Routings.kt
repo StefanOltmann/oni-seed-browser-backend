@@ -347,7 +347,7 @@ fun Application.configureRouting() {
                      */
 
                     if (port == "0")
-                        call.respondRedirect("https://stefan-oltmann.de/oni-seed-browser?token=$jwt")
+                        call.respondRedirect("https://mapsnotincluded.github.io/oni-seed-browser?token=$jwt")
                     else
                         call.respondRedirect("http://localhost:$port/?token=$jwt")
 
