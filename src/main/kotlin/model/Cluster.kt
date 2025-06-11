@@ -27,10 +27,10 @@ data class Cluster(
 
     val coordinate: String,
 
-    /* As part of the upload this will be NULL, but be set on query. */
+    /* As part of the upload this will be NULL, but be set on a query. */
     val uploaderSteamIdHash: String? = null,
 
-    /* As part of the upload this will be NULL, but be set on query. */
+    /* As part of the upload this will be NULL, but be set on a query. */
     val uploadDate: Long? = null,
 
     val gameVersion: Int,
@@ -44,5 +44,11 @@ data class Cluster(
 
     val starMapEntriesVanilla: List<StarMapEntryVanilla>?,
 
-    val starMapEntriesSpacedOut: List<StarMapEntrySpacedOut>?
+    val starMapEntriesSpacedOut: List<StarMapEntrySpacedOut>?,
+
+    /*
+     * Introduced on 2025-06-11
+     */
+    val mixingIds: List<String>? = null
+
 )

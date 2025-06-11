@@ -35,5 +35,11 @@ data class FailedGenReport(
 
     val fileHashes: Map<String, String>,
 
-    val coordinate: String
+    val coordinate: String,
+
+    /*
+     * Introduced on 2025-06-11
+     */
+    val mixingIds: List<String>? = null
+
 )
