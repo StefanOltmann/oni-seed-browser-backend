@@ -664,12 +664,6 @@ fun Application.configureRouting() {
                     clusterCollection
                         .find(Filters.`in`("coordinate", matchingCoordinates))
                         .toList()
-                        // FIXME Set mixingIds to NULL for old clients
-                        .map {
-                            it.copy(
-                                mixingIds = null
-                            )
-                        }
 
                 call.respond(resultClusters)
 
@@ -1134,12 +1128,6 @@ fun Application.configureRouting() {
                     .sort(descending(Cluster::uploadDate.name))
                     .limit(LATEST_MAPS_LIMIT)
                     .toList()
-                    // FIXME Set mixingIds to NULL for old clients
-                    .map {
-                        it.copy(
-                            mixingIds = null
-                        )
-                    }
 
                 call.respond(latestClusters)
 
@@ -1218,15 +1206,9 @@ fun Application.configureRouting() {
                     .map { it.coordinate }
                     .toList()
 
-                val favoredClusters = clusterCollection
-                    .find(Filters.`in`("coordinate", favoredCoordinates))
-                    .toList()
-                    // FIXME Set mixingIds to NULL for old clients
-                    .map {
-                        it.copy(
-                            mixingIds = null
-                        )
-                    }
+                val favoredClusters = clusterCollection.find(
+                    Filters.`in`("coordinate", favoredCoordinates)
+                ).toList()
 
                 call.respond(favoredClusters)
 
