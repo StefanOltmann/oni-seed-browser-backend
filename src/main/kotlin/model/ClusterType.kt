@@ -49,6 +49,13 @@ enum class ClusterType(
         exportCollection = ClusterExportCollection.FROSTYPLANET
     ),
 
+    /** Relica */
+    BASE_RELICA(
+        prefix = "PRE-A",
+        requiredDlcs = listOf(Dlc.BaseGame, Dlc.PrehistoricPlanet),
+        exportCollection = ClusterExportCollection.PREHISTORIC
+    ),
+
     /** Oceania */
     BASE_OCEANIA(
         prefix = "OCAN-A",
@@ -126,6 +133,13 @@ enum class ClusterType(
         exportCollection = ClusterExportCollection.FROSTYPLANET
     ),
 
+    /** Relica */
+    DLC_RELICA(
+        prefix = "V-PRE-C",
+        requiredDlcs = listOf(Dlc.BaseGame, Dlc.PrehistoricPlanet),
+        exportCollection = ClusterExportCollection.PREHISTORIC
+    ),
+
     /** Oceania */
     DLC_OCEANIA(
         prefix = "V-OCAN-C",
@@ -201,6 +215,13 @@ enum class ClusterType(
         prefix = "CER-C",
         requiredDlcs = listOf(Dlc.SpacedOut),
         exportCollection = ClusterExportCollection.FROSTYPLANET
+    ),
+
+    /** Relica Minor */
+    DLC_RELICA_MINOR(
+        prefix = "PRE-C",
+        requiredDlcs = listOf(Dlc.SpacedOut, Dlc.PrehistoricPlanet),
+        exportCollection = ClusterExportCollection.PREHISTORIC
     ),
 
     /** Folia */
