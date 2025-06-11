@@ -26,5 +26,7 @@ enum class Dlc {
 
     BaseGame,
     SpacedOut,
-    FrostyPlanet;
+    FrostyPlanet,
+    BionicBooster,
+    PrehistoricPlanet;
 }
