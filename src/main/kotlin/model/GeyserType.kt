@@ -42,6 +42,9 @@ enum class GeyserType(
     CHLORINE(
         type = "chlorine_gas"
     ),
+    CHLORINE_COOL(
+        type = "chlorine_gas_cool"
+    ),
     HOT_STEAM(
         type = "hot_steam"
     ),
