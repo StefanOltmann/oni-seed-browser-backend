@@ -25,6 +25,7 @@ enum class VanillaSpacePOI {
     CarbonaceousAsteroid,
     ChlorinePlanet,
     DLC2CeresSpaceDestination,
+    DLC4PrehistoricSpaceDestination,
     DustyMoon,
     Earth,
     ForestPlanet,
