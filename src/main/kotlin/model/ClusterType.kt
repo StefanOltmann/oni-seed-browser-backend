@@ -56,6 +56,13 @@ enum class ClusterType(
         exportCollection = ClusterExportCollection.PREHISTORIC
     ),
 
+    /** RelicAAAAAAAGHH */
+    BASE_RELICA_LAB(
+        prefix = "PRES-A",
+        requiredDlcs = listOf(Dlc.BaseGame, Dlc.PrehistoricPlanet),
+        exportCollection = ClusterExportCollection.PREHISTORIC
+    ),
+
     /** Oceania */
     BASE_OCEANIA(
         prefix = "OCAN-A",
@@ -136,6 +143,13 @@ enum class ClusterType(
     /** Relica */
     DLC_RELICA(
         prefix = "V-PRE-C",
+        requiredDlcs = listOf(Dlc.BaseGame, Dlc.PrehistoricPlanet),
+        exportCollection = ClusterExportCollection.PREHISTORIC
+    ),
+
+    /** RelicAAAAAAAGHH */
+    DLC_RELICA_LAB(
+        prefix = "V-PRES-C",
         requiredDlcs = listOf(Dlc.BaseGame, Dlc.PrehistoricPlanet),
         exportCollection = ClusterExportCollection.PREHISTORIC
     ),
