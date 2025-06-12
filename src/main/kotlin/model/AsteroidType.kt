@@ -17,7 +17,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package model;
+package model
 
 /**
  * See https://oxygennotincluded.fandom.com/wiki/Planetoid_Clusters
@@ -210,6 +210,12 @@ enum class AsteroidType {
 
     MiniShatteredWarpAsteroid,
 
-    MiniShatteredGeoAsteroid
+    MiniShatteredGeoAsteroid,
+
+    PrehistoricBaseGameAsteroid,
+
+    PrehistoricShatteredBaseGameAsteroid,
+
+    MixingPrehistoricAsteroid
 
 }
