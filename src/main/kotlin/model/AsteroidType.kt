@@ -222,6 +222,8 @@ enum class AsteroidType {
 
     PrehistoricShatteredClassicAsteroid,
 
-    MixingPrehistoricAsteroid
+    MixingPrehistoricAsteroid,
+
+    WarpOilySandySwamp
 
 }
