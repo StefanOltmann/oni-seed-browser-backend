@@ -214,6 +214,8 @@ enum class AsteroidType {
 
     PrehistoricBaseGameAsteroid,
 
+    PrehistoricClassicAsteroid,
+
     PrehistoricShatteredBaseGameAsteroid,
 
     PrehistoricShatteredClassicAsteroid,
