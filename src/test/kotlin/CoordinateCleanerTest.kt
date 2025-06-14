@@ -127,5 +127,13 @@ class CoordinateCleanerTest {
             expected = sampleCoordinate,
             actual = cleanCoordinate("V-SNDST-C-101520169-SETTINGS-TRAITS-MIXING")
         )
+
+        /*
+         * Allow valid biome remix option
+         */
+        assertEquals(
+            expected = "PRE-C-1125365-0-0-E9TP8",
+            actual = cleanCoordinate("PRE-C-1125365-INVALID-INVALID-E9TP8")
+        )
     }
 }
