@@ -193,6 +193,8 @@ private val strictAllFieldsCbor = Cbor {
 
 private val httpClient = HttpClient(OkHttp)
 
+private var seedRequestCounter = 0
+
 @OptIn(ExperimentalSerializationApi::class)
 fun Application.configureRouting() {
 
@@ -1479,7 +1481,7 @@ fun Application.configureRouting() {
 
 // TODO Call an API to get this version
 private fun findCurrentGameVersion(): Int {
-    return 663500 // Current version as of 2025-04-13
+    return 674504 // Current version as of 2025-06-14
 }
 
 private suspend fun handleGetRequestedCoordinate(
@@ -1498,6 +1500,21 @@ private suspend fun handleGetRequestedCoordinate(
         log("Unauthorized API key used by $ipAddress.")
 
         call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
+
+        return
+    }
+
+    /*
+     * To avoid blocking runners with seed requests, we only pick up every second call.
+     * This brings back more randomization.
+     */
+    if (seedRequestCounter++ % 2 == 0) {
+
+        /*
+         * Respond with an empty string, so the mod will generate a random cluster.
+         */
+
+        call.respond(HttpStatusCode.OK, "")
 
         return
     }
