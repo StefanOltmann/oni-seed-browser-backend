@@ -39,15 +39,14 @@ fun createRegexPattern(dlcs: List<Dlc>): String {
 fun isValidCoordinate(coordinate: String): Boolean =
     allClusterTypesRegex.matches(coordinate)
 
-/*
- * List of valid biome remixes.
- * TODO We need logic to calculate these.
- */
-private val validBiomeRemixes = listOf(
-    "E9TP8", // Full Frosty Planet remix
-    "FBZT5", // FP: Ceres Fragment
-    "SSZT5", // FP + PP: Ceres Fragment
-)
+///*
+// * List of valid biome remixes.
+// */
+//private val validBiomeRemixes = listOf(
+//    "E9TP8",
+//    "FBZT5",
+//    "SSZT5",
+//)
 
 /**
  * Set story traits & game settings to zero.
@@ -83,10 +82,11 @@ fun cleanCoordinate(coordinate: String): String {
      */
     val seedAsInteger = seed.toIntOrNull() ?: throw IllegalCoordinateException(coordinate)
 
-    var biomeRemix = coordinatePartsWithoutCluster[3]
+    val biomeRemix = coordinatePartsWithoutCluster[3]
 
-    if (!validBiomeRemixes.contains(biomeRemix))
-        biomeRemix = "0"
+    // TODO Implement the logic for checking here; see Imalas work.
+//    if (!validBiomeRemixes.contains(biomeRemix))
+//        biomeRemix = "0"
 
     /*
      * Return just the cluster prefix & seed with everything else set to 0
