@@ -1792,7 +1792,7 @@ private suspend fun transferMapsToS3() {
 
         val minioClient =
             MinioClient.builder()
-                .endpoint("http://localhost:9000")
+                .endpoint("http://minio:9000")
                 .credentials(minioUser, minioPassword)
                 .build()
 
