@@ -72,6 +72,9 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import io.ktor.server.util.url
+import io.minio.ListObjectsArgs
+import io.minio.MinioClient
+import io.minio.PutObjectArgs
 import io.sentry.Sentry
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
@@ -112,6 +115,7 @@ import java.util.Base64
 import java.util.UUID
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
+import kotlin.text.get
 
 /* Should not be necessary right now; was for migration. */
 const val POPULATE_SUMMARIES_ON_START = true
@@ -147,6 +151,9 @@ private val publicKey: RSAPublicKey = System.getenv("MNI_JWT_PUBLIC_KEY")?.let {
     val keySpec = X509EncodedKeySpec(keyBytes)
     KeyFactory.getInstance("RSA").generatePublic(keySpec) as RSAPublicKey
 } ?: error("Missing MNI_JWT_PUBLIC_KEY environment variable")
+
+private val minioUser: String = System.getenv("MINIO_USER")
+private val minioPassword: String = System.getenv("MINIO_PASSWORD")
 
 private val rsaAlgorithm = Algorithm.RSA256(publicKey, privateKey)
 
@@ -232,7 +239,7 @@ fun Application.configureRouting() {
 
         allowHeader(HttpHeaders.AccessControlAllowOrigin)
         allowHeader(HttpHeaders.ContentType)
-        allowHeader(header = TOKEN_HEADER)
+        allowHeader(TOKEN_HEADER)
 
         anyHost()
     }
@@ -240,7 +247,7 @@ fun Application.configureRouting() {
     launch {
 
         /*
-         * Set "coordinate" as unique key
+         * Set "coordinate" as a unique key
          */
 
         println("Setting missing indices...")
@@ -288,6 +295,8 @@ fun Application.configureRouting() {
             populateSummaries()
 
         createContributorTable()
+
+        transferMapsToS3()
     }
 
     routing {
@@ -1660,7 +1669,7 @@ private suspend fun populateSummaries() {
             val summariesCollection = database.getCollection<ClusterSummary>("summaries")
 
             /*
-             * Go in chunks, because the document size will be too high otherwise.
+             * Go in chunks because the document size will be too high otherwise.
              */
             for (chunk in missingCoordinates.chunked(10000)) {
 
@@ -1711,7 +1720,6 @@ private suspend fun createContributorTable() {
     val start = System.currentTimeMillis()
 
     try {
-
 
         val usernameCollection = database.getCollection<Username>("usernames")
 
@@ -1767,6 +1775,74 @@ private suspend fun createContributorTable() {
         val duration = System.currentTimeMillis() - start
 
         log("Created contributor table in $duration ms.")
+
+    } catch (ex: Exception) {
+
+        log(ex)
+    }
+}
+
+private suspend fun transferMapsToS3() {
+
+    log("Transfer maps to S3...")
+
+    val start = System.currentTimeMillis()
+
+    try {
+
+        val minioClient =
+            MinioClient.builder()
+                .endpoint("http://localhost")
+                .credentials(minioUser, minioPassword)
+                .build()
+
+        val objects = minioClient.listObjects(
+            ListObjectsArgs.builder()
+                .bucket("oni")
+                .build()
+        )
+
+        val existingNames = mutableSetOf<String>()
+
+        for (result in objects) {
+
+            val item = result.get()
+
+            existingNames.add(item.objectName())
+        }
+
+        val cursor = clusterCollection.find().batchSize(1000)
+
+        cursor.collect { cluster ->
+
+            val name = "${cluster.coordinate}.json.zlib"
+
+            if (existingNames.contains(name)) {
+                println("Skipping $name")
+                return@collect
+            }
+
+            val json = Json.encodeToString(cluster)
+
+            val bytes = json.encodeToByteArray()
+
+            val compressedBytes = zlibCompress(bytes)
+
+            println("${bytes.size} bytes -> ${compressedBytes.size} bytes")
+
+            minioClient.putObject(
+                PutObjectArgs
+                    .builder()
+                    .bucket("oni")
+                    .`object`(name)
+                    .stream(compressedBytes.inputStream(), compressedBytes.size.toLong(), -1)
+                    .build()
+            )
+        }
+
+        val duration = System.currentTimeMillis() - start
+
+        log("Transferred maps to S3 $duration ms.")
 
     } catch (ex: Exception) {
 

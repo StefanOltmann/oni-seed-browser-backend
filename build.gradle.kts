@@ -89,6 +89,8 @@ dependencies {
      */
     implementation("com.auth0:java-jwt:4.5.0")
 
+    implementation("io.minio:minio:8.5.17")
+
     /*
      * Unit tests
      */
