@@ -95,7 +95,6 @@ import model.FailedGenReportDatabase
 import model.FavoredCoordinate
 import model.ModBinaryChecksumDatabase
 import model.RateCoordinateRequest
-import model.RatedCluster
 import model.RequestedCoordinate
 import model.RequestedCoordinateStatus
 import model.Upload
@@ -103,7 +102,6 @@ import model.UploadDatabase
 import model.Username
 import model.filter.FilterQuery
 import model.search.ClusterSummary
-import org.bson.BsonDocument
 import org.bson.Document
 import java.io.ByteArrayOutputStream
 import java.security.KeyFactory
@@ -122,7 +120,8 @@ import java.util.zip.ZipOutputStream
 const val POPULATE_SUMMARIES_ON_START = true
 
 /* Limit the results to avoid memory issues */
-const val RESULT_LIMIT = 100
+const val RESULT_LIMIT_OLD = 100
+const val RESULT_LIMIT_NEW = 300
 
 const val LATEST_MAPS_LIMIT = 10
 
@@ -642,7 +641,7 @@ fun Application.configureRouting() {
 
                 log("Exported data in $duration ms.")
 
-                /* Final extra clean-up */
+                /* Final extra cleanup */
                 System.gc()
 
             } catch (ex: Exception) {
@@ -653,6 +652,7 @@ fun Application.configureRouting() {
             }
         }
 
+        // DEPRECATED
         post("/search") {
 
             try {
@@ -666,7 +666,7 @@ fun Application.configureRouting() {
                 val matchingSummaries: List<ClusterSummary> = database
                     .getCollection<ClusterSummary>("summaries")
                     .find(filter)
-                    .limit(RESULT_LIMIT)
+                    .limit(RESULT_LIMIT_OLD)
                     .toList()
 
                 val matchingCoordinates: List<String> =
@@ -678,6 +678,39 @@ fun Application.configureRouting() {
                         .toList()
 
                 call.respond(resultClusters)
+
+                val duration = System.currentTimeMillis() - start
+
+                log("Returned search results for filter $filterQuery in $duration ms.")
+
+            } catch (ex: Exception) {
+
+                log(ex)
+
+                call.respond(HttpStatusCode.InternalServerError, "Error on search")
+            }
+        }
+
+        post("/search/v2") {
+
+            try {
+
+                val start = System.currentTimeMillis()
+
+                val filterQuery = call.receive<FilterQuery>()
+
+                val filter = generateFilter(filterQuery)
+
+                val matchingSummaries: List<ClusterSummary> = database
+                    .getCollection<ClusterSummary>("summaries")
+                    .find(filter)
+                    .limit(RESULT_LIMIT_NEW)
+                    .toList()
+
+                val matchingCoordinates: List<String> =
+                    matchingSummaries.map { it.coordinate }.toList()
+
+                call.respond(matchingCoordinates)
 
                 val duration = System.currentTimeMillis() - start
 
@@ -838,7 +871,7 @@ fun Application.configureRouting() {
 
                 val currentGameVersion = findCurrentGameVersion()
 
-                /* Must use current version of the game */
+                /* Must use the current version of the game */
                 if (cluster.gameVersion < currentGameVersion) {
 
                     call.respond(HttpStatusCode.NotAcceptable, "Please use a current version of the game.")
@@ -1131,6 +1164,7 @@ fun Application.configureRouting() {
         /**
          * Returns the latest maps added to the database.
          */
+        // DEPRECATED
         get("/latest") {
 
             try {
@@ -1152,52 +1186,30 @@ fun Application.configureRouting() {
         }
 
         /**
-         * Returns the top-rated clusters.
+         * Returns the latest maps added to the database.
          */
-        get("/top") {
+        get("/latest/v2") {
 
             try {
 
-                val topLikedCoordinates = likesCollection.aggregate(
-                    pipeline = listOf(
-                        Document("\$group", Document().apply {
-                            append("_id", "\$coordinate")
-                            append("likeCount", Document("\$sum", 1))
-                        }),
-                        Document("\$sort", Document("likeCount", -1)),
-                        Document("\$limit", TOP_MAPS_LIMIT)
-                    ),
-                    resultClass = BsonDocument::class.java
-                ).toList()
+                val latestCoordinates = clusterCollection
+                    .find()
+                    .sort(descending(Cluster::uploadDate.name))
+                    .limit(LATEST_MAPS_LIMIT)
+                    .toList()
+                    .map { it.coordinate }
 
-                val likeCounts: Map<String, Int> = topLikedCoordinates.associate {
-                    val coordinate = it.getString("_id").value
-                    val count = it.getInt32("likeCount").value
-                    coordinate to count
-                }
-
-                val topClusters = clusterCollection.find(
-                    Filters.`in`("coordinate", likeCounts.keys)
-                ).toList()
-
-                val ratedClusters = topClusters
-                    .mapNotNull { cluster ->
-                        likeCounts[cluster.coordinate]?.let { count ->
-                            RatedCluster(cluster, count)
-                        }
-                    }
-                    .sortedByDescending { it.likeCount }
-
-                call.respond(ratedClusters)
+                call.respond(latestCoordinates)
 
             } catch (ex: Exception) {
 
                 log(ex)
 
-                call.respond(HttpStatusCode.BadRequest, "Failed to get top clusters.")
+                call.respond(HttpStatusCode.BadRequest, "Failed to get latest clusters.")
             }
         }
 
+        // DEPRECATED
         get("/favored-clusters") {
 
             try {
@@ -1238,7 +1250,44 @@ fun Application.configureRouting() {
             }
         }
 
+        // DEPRECATED
         get("/favored-coordinates") {
+
+            try {
+
+                val token: String? = this.call.request.headers[TOKEN_HEADER]
+
+                if (token.isNullOrBlank()) {
+                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER' header.")
+                    return@get
+                }
+
+                val jwt = jwtVerifier.verify(token)
+
+                val steamId: String = jwt.getClaim("steamId").asString()
+
+                val favoredCoordinates: List<String> = likesCollection
+                    .find(Filters.eq("steamId", steamId))
+                    .map { it.coordinate }
+                    .toList()
+
+                call.respond(favoredCoordinates)
+
+            } catch (ex: JWTVerificationException) {
+
+                log("Invalid token used: ${ex.stackTraceToString()}")
+
+                call.respond(HttpStatusCode.BadRequest, "Token was invalid.")
+
+            } catch (ex: Exception) {
+
+                log(ex)
+
+                call.respond(HttpStatusCode.BadRequest, "Failed to get favored coordinates.")
+            }
+        }
+
+        get("/favored") {
 
             try {
 
@@ -1396,7 +1445,7 @@ fun Application.configureRouting() {
 
                 val collection = database.getCollection<Username>("usernames")
 
-                /* Delete first in case the name is changed. */
+                /* Delete it first in case the name is changed. */
                 collection.deleteOne(
                     Filters.eq("steamId", steamId)
                 )

@@ -5,6 +5,7 @@ plugins {
     id("io.ktor.plugin") version "3.1.1"
     id("me.qoomon.git-versioning") version "6.4.4"
     id("io.sentry.jvm.gradle") version "5.3.0"
+    id("app.cash.sqldelight") version "2.1.0"
 }
 
 val ktorVersion: String by project
@@ -15,15 +16,23 @@ group = "org.mapsnotincluded"
 gitVersioning.apply {
 
     refs {
-        /* Main branch contains the current dev version */
+        /* The main branch contains the current dev version */
         branch("main") {
             version = "\${commit.short}"
         }
     }
 
-    /* Fallback if branch was not found (for feature branches) */
+    /* Fallback if the branch was not found (for feature branches) */
     rev {
         version = "\${commit.short}"
+    }
+}
+
+sqldelight {
+    databases {
+        create("SearchIndexDatabase") {
+            packageName.set("org.mapsnotincluded.search")
+        }
     }
 }
 
@@ -78,6 +87,11 @@ dependencies {
      */
     implementation("org.mongodb:mongodb-driver-kotlin-coroutine:5.2.0")
     implementation("org.mongodb:bson-kotlinx:5.2.0")
+
+    /*
+     * SQLite
+     */
+    implementation("app.cash.sqldelight:sqlite-driver:2.1.0")
 
     /*
      * Biome path optimization

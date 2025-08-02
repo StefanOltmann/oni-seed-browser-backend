@@ -21,6 +21,7 @@ package model.search
 
 import kotlinx.serialization.Serializable
 import model.AsteroidType
+import model.WorldTrait
 import serializer.AsteroidTypeSerializer
 
 @Serializable
@@ -29,7 +30,7 @@ data class AsteroidSummary(
     @Serializable(with = AsteroidTypeSerializer::class)
     val id: AsteroidType,
 
-    val worldTraits: List<String>,
+    val worldTraits: List<WorldTrait>,
 
     /**
      * Count of all geysers of that type

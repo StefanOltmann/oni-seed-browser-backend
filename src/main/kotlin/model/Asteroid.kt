@@ -34,7 +34,7 @@ data class Asteroid(
     val sizeX: Int,
     val sizeY: Int,
 
-    val worldTraits: List<String>,
+    val worldTraits: List<WorldTrait>,
     val biomePaths: String,
 
     val pointsOfInterest: List<PointOfInterest>,

@@ -124,12 +124,12 @@ class CoordinateCleanerTest {
          * Remove settings, story traits and mixing options
          */
         assertEquals(
-            expected = sampleCoordinate,
+            expected = "V-SNDST-C-101520169-0-0-MIXING",
             actual = cleanCoordinate("V-SNDST-C-101520169-SETTINGS-TRAITS-MIXING")
         )
 
         /*
-         * Allow valid biome remix option
+         * Allow a valid biome remix option
          */
         assertEquals(
             expected = "PRE-C-1125365-0-0-E9TP8",
