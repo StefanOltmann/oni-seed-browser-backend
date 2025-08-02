@@ -1799,7 +1799,7 @@ private suspend fun transferMapsToS3() {
 
         val objects = minioClient.listObjects(
             ListObjectsArgs.builder()
-                .bucket("oni")
+                .bucket("oni-worlds")
                 .build()
         )
 
