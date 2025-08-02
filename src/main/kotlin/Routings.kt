@@ -105,6 +105,7 @@ import model.filter.FilterQuery
 import model.search.ClusterSummary
 import org.bson.BsonDocument
 import org.bson.Document
+import java.io.ByteArrayOutputStream
 import java.security.KeyFactory
 import java.security.MessageDigest
 import java.security.interfaces.RSAPrivateKey
@@ -113,9 +114,9 @@ import java.security.spec.PKCS8EncodedKeySpec
 import java.security.spec.X509EncodedKeySpec
 import java.util.Base64
 import java.util.UUID
+import java.util.zip.GZIPOutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
-import kotlin.text.get
 
 /* Should not be necessary right now; was for migration. */
 const val POPULATE_SUMMARIES_ON_START = true
@@ -1815,7 +1816,7 @@ private suspend fun transferMapsToS3() {
 
         cursor.collect { cluster ->
 
-            val name = "${cluster.coordinate}.json.zlib"
+            val name = "${cluster.coordinate}.json.gz"
 
             if (existingNames.contains(name)) {
                 println("Skipping $name")
@@ -1826,16 +1827,29 @@ private suspend fun transferMapsToS3() {
 
             val bytes = json.encodeToByteArray()
 
-            val compressedBytes = zlibCompress(bytes)
+            val gzippedJsonBytes = ByteArrayOutputStream().use { byteStream ->
 
-            println("${bytes.size} bytes -> ${compressedBytes.size} bytes")
+                GZIPOutputStream(byteStream).use { gzipStream ->
+                    gzipStream.write(bytes)
+                    gzipStream.finish()
+                }
+                byteStream.toByteArray()
+            }
+
+            println("[S3] ${cluster.coordinate} = ${bytes.size} bytes -> ${gzippedJsonBytes.size} bytes")
 
             minioClient.putObject(
                 PutObjectArgs
                     .builder()
-                    .bucket("oni")
+                    .bucket("oni-worlds")
                     .`object`(name)
-                    .stream(compressedBytes.inputStream(), compressedBytes.size.toLong(), -1)
+                    .headers(
+                        mapOf(
+                            "Content-Type" to "application/json",
+                            "Content-Encoding" to "gzip"
+                        )
+                    )
+                    .stream(gzippedJsonBytes.inputStream(), gzippedJsonBytes.size.toLong(), -1)
                     .build()
             )
         }
