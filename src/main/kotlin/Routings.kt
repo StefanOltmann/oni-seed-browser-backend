@@ -20,6 +20,7 @@
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import com.auth0.jwt.exceptions.JWTVerificationException
+import com.auth0.jwt.interfaces.DecodedJWT
 import com.mongodb.ConnectionString
 import com.mongodb.MongoClientSettings
 import com.mongodb.ServerApi
@@ -1045,7 +1046,7 @@ fun Application.configureRouting() {
 
                 val jwt = jwtVerifier.verify(token)
 
-                val steamId = jwt.subject ?: jwt.getClaim("steamId").asString()
+                val steamId = jwt.steamId
 
                 val coordinate = call.receive<String>()
 
@@ -1164,7 +1165,7 @@ fun Application.configureRouting() {
 
                 val jwt = jwtVerifier.verify(token)
 
-                val steamId = jwt.subject ?: jwt.getClaim("steamId").asString()
+                val steamId = jwt.steamId
 
                 val favoredCoordinates: List<String> = likesCollection
                     .find(Filters.eq("steamId", steamId))
@@ -1205,7 +1206,7 @@ fun Application.configureRouting() {
 
                 val jwt = jwtVerifier.verify(token)
 
-                val steamId: String = jwt.getClaim("steamId").asString()
+                val steamId: String = jwt.steamId
 
                 val favoredCoordinates: List<String> = likesCollection
                     .find(Filters.eq("steamId", steamId))
@@ -1241,7 +1242,7 @@ fun Application.configureRouting() {
 
                 val jwt = jwtVerifier.verify(token)
 
-                val steamId: String = jwt.getClaim("steamId").asString()
+                val steamId: String = jwt.steamId
 
                 val favoredCoordinates: List<String> = likesCollection
                     .find(Filters.eq("steamId", steamId))
@@ -1277,7 +1278,7 @@ fun Application.configureRouting() {
 
                 val jwt = jwtVerifier.verify(token)
 
-                val steamId: String = jwt.getClaim("steamId").asString()
+                val steamId: String = jwt.steamId
 
                 val rateCoordinateRequest = call.receive<RateCoordinateRequest>()
 
@@ -1334,7 +1335,7 @@ fun Application.configureRouting() {
 
                 val jwt = jwtVerifier.verify(token)
 
-                val steamId: String = jwt.getClaim("steamId").asString()
+                val steamId: String = jwt.steamId
 
                 val collection = database.getCollection<Username>("usernames")
 
@@ -1378,7 +1379,7 @@ fun Application.configureRouting() {
 
                 val jwt = jwtVerifier.verify(token)
 
-                val steamId: String = jwt.getClaim("steamId").asString()
+                val steamId: String = jwt.steamId
 
                 val wantedUsername = call.receive<String>()
 
@@ -1918,6 +1919,12 @@ private fun Parameters.buildValidationParameters(): Parameters {
 
     return parametersBuilder.build()
 }
+
+/*
+ * Newer tokens have it as subject, older ones as claim.
+ */
+private val DecodedJWT.steamId
+    get() = this.subject ?: this.getClaim("steamId").asString()
 
 @OptIn(ExperimentalStdlibApi::class)
 private fun saltedSha256(input: String): String {
