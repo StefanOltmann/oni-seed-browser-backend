@@ -1869,10 +1869,8 @@ private suspend fun transferMapsToS3() {
 
             val name = "${cluster.coordinate}.json.gz"
 
-            if (existingNames.contains(name)) {
-                println("Skipping $name")
+            if (existingNames.contains(name))
                 return@collect
-            }
 
             val json = Json.encodeToString(cluster)
 
@@ -1886,8 +1884,6 @@ private suspend fun transferMapsToS3() {
                 }
                 byteStream.toByteArray()
             }
-
-            println("[S3] ${cluster.coordinate} = ${bytes.size} bytes -> ${gzippedJsonBytes.size} bytes")
 
             minioClient.putObject(
                 PutObjectArgs
