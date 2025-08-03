@@ -122,8 +122,6 @@ const val LATEST_MAPS_LIMIT = 10
 
 const val EXPORT_BATCH_SIZE = 10000
 
-const val JWT_ISSUER = "mapsnotincluded"
-
 const val TOKEN_HEADER = "token"
 
 private const val LOGIN_BASE_URL: String =
