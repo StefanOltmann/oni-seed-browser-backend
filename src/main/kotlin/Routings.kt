@@ -159,7 +159,6 @@ private val rsaAlgorithm = Algorithm.RSA256(publicKey, privateKey)
 
 private val jwtVerifier = JWT
     .require(rsaAlgorithm)
-    .withIssuer(JWT_ISSUER)
     .build()
 
 private val serverApi = ServerApi.builder()
@@ -1108,7 +1107,7 @@ fun Application.configureRouting() {
 
                 val jwt = jwtVerifier.verify(token)
 
-                val steamId = jwt.getClaim("steamId").asString()
+                val steamId = jwt.subject ?: jwt.getClaim("steamId").asString()
 
                 val coordinate = call.receive<String>()
 
@@ -1227,7 +1226,7 @@ fun Application.configureRouting() {
 
                 val jwt = jwtVerifier.verify(token)
 
-                val steamId = jwt.getClaim("steamId").asString()
+                val steamId = jwt.subject ?: jwt.getClaim("steamId").asString()
 
                 val favoredCoordinates: List<String> = likesCollection
                     .find(Filters.eq("steamId", steamId))
