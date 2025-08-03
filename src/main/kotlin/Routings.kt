@@ -683,7 +683,9 @@ fun Application.configureRouting() {
 
                 val duration = System.currentTimeMillis() - start
 
-                log("Returned search results for filter $filterQuery in $duration ms.")
+                val filterQueryJson = Json.encodeToString(filterQuery)
+
+                log("Returned search results for filter $filterQueryJson in $duration ms.")
 
             } catch (ex: Exception) {
 
