@@ -47,7 +47,6 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.Parameters
 import io.ktor.http.ParametersBuilder
 import io.ktor.http.isSuccess
-import io.ktor.http.path
 import io.ktor.serialization.kotlinx.cbor.cbor
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
@@ -61,7 +60,6 @@ import io.ktor.server.plugins.compression.minimumSize
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.cors.routing.CORS
 import io.ktor.server.plugins.origin
-import io.ktor.server.request.host
 import io.ktor.server.request.receive
 import io.ktor.server.response.header
 import io.ktor.server.response.respond
@@ -71,7 +69,6 @@ import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
-import io.ktor.server.util.url
 import io.minio.ListObjectsArgs
 import io.minio.MinioClient
 import io.minio.PutObjectArgs
@@ -106,9 +103,7 @@ import org.bson.Document
 import java.io.ByteArrayOutputStream
 import java.security.KeyFactory
 import java.security.MessageDigest
-import java.security.interfaces.RSAPrivateKey
 import java.security.interfaces.RSAPublicKey
-import java.security.spec.PKCS8EncodedKeySpec
 import java.security.spec.X509EncodedKeySpec
 import java.util.Base64
 import java.util.UUID
@@ -125,13 +120,17 @@ const val RESULT_LIMIT_NEW = 300
 
 const val LATEST_MAPS_LIMIT = 10
 
-const val TOP_MAPS_LIMIT = 30
-
 const val EXPORT_BATCH_SIZE = 10000
 
 const val JWT_ISSUER = "mapsnotincluded"
 
 const val TOKEN_HEADER = "token"
+
+private const val LOGIN_BASE_URL: String =
+    "https://hvmxaeh5fhkkovjoaishzqzp6q0ghxko.lambda-url.eu-west-1.on.aws/login?redirect="
+
+private const val PUBLIC_LOGIN_URL: String =
+    LOGIN_BASE_URL + "https://mapsnotincluded.github.io/oni-seed-browser/"
 
 private val connectionString: String = System.getenv("MONGO_DB_CONNECTION_STRING") ?: ""
 
@@ -139,12 +138,6 @@ private val salt = System.getenv("MNI_SALT")
     ?: error("Missing SALT environment variable")
 
 private val messageDigest = MessageDigest.getInstance("SHA-256")
-
-private val privateKey: RSAPrivateKey = System.getenv("MNI_JWT_PRIVATE_KEY")?.let { base64Key ->
-    val keyBytes = Base64.getDecoder().decode(base64Key)
-    val keySpec = PKCS8EncodedKeySpec(keyBytes)
-    KeyFactory.getInstance("RSA").generatePrivate(keySpec) as RSAPrivateKey
-} ?: error("Missing MNI_JWT_PRIVATE_KEY environment variable")
 
 private val publicKey: RSAPublicKey = System.getenv("MNI_JWT_PUBLIC_KEY")?.let { base64Key ->
     val keyBytes = Base64.getDecoder().decode(base64Key)
@@ -155,7 +148,7 @@ private val publicKey: RSAPublicKey = System.getenv("MNI_JWT_PUBLIC_KEY")?.let {
 private val minioUser: String = System.getenv("MINIO_USER")
 private val minioPassword: String = System.getenv("MINIO_PASSWORD")
 
-private val rsaAlgorithm = Algorithm.RSA256(publicKey, privateKey)
+private val rsaAlgorithm = Algorithm.RSA256(publicKey)
 
 private val jwtVerifier = JWT
     .require(rsaAlgorithm)
@@ -319,63 +312,10 @@ fun Application.configureRouting() {
 
             val port = call.parameters["port"]
 
-            val steamLoginUrl = "https://steamcommunity.com/openid/login?" +
-                "openid.ns=http://specs.openid.net/auth/2.0" +
-                "&openid.mode=checkid_setup" +
-                "&openid.return_to=${call.url { path("connect/callback/$port") }}" +
-                "&openid.realm=${call.request.origin.scheme}://${call.request.host()}/" +
-                "&openid.identity=http://specs.openid.net/auth/2.0/identifier_select" +
-                "&openid.claimed_id=http://specs.openid.net/auth/2.0/identifier_select"
-
-            log("Steam login URL: $steamLoginUrl")
-
-            call.respondRedirect(steamLoginUrl)
-        }
-
-        get("/connect/callback/{port}") {
-
-            try {
-
-                val port = call.parameters["port"]
-                    ?: error("Missing parameter 'port'")
-
-                val params = call.request.queryParameters
-
-                val steamId = validateSteamLogin(params)
-
-                if (steamId != null) {
-
-                    log("Login successful")
-
-                    val jwt: String = JWT.create()
-                        .withIssuer(JWT_ISSUER)
-                        .withClaim("steamId", steamId)
-                        .withClaim("steamIdHash", saltedSha256(steamId))
-                        .sign(rsaAlgorithm)
-
-                    /*
-                     * Redirect to the standalone version.
-                     * The MNI embedded version should get the token from the outer login.
-                     */
-
-                    if (port == "0")
-                        call.respondRedirect("https://mapsnotincluded.github.io/oni-seed-browser?token=$jwt")
-                    else
-                        call.respondRedirect("http://localhost:$port/?token=$jwt")
-
-                } else {
-
-                    log("Authentication failed!")
-
-                    call.respond(HttpStatusCode.Unauthorized, "Authentication failed!")
-                }
-
-            } catch (ex: Throwable) {
-
-                log(ex)
-
-                call.respond(HttpStatusCode.InternalServerError, "Sorry, something went wrong!")
-            }
+            if (port == "0")
+                call.respondRedirect(PUBLIC_LOGIN_URL)
+            else
+                call.respondRedirect("http://localhost:$port")
         }
 
         get("/coordinate/{coordinate}") {
