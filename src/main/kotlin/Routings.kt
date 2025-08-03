@@ -328,6 +328,8 @@ fun Application.configureRouting() {
                 "&openid.identity=http://specs.openid.net/auth/2.0/identifier_select" +
                 "&openid.claimed_id=http://specs.openid.net/auth/2.0/identifier_select"
 
+            log("Steam login URL: $steamLoginUrl")
+
             call.respondRedirect(steamLoginUrl)
         }
 
