@@ -126,7 +126,7 @@ const val EXPORT_BATCH_SIZE = 10000
 const val TOKEN_HEADER = "token"
 
 private const val LOGIN_BASE_URL: String =
-    "https://hvmxaeh5fhkkovjoaishzqzp6q0ghxko.lambda-url.eu-west-1.on.aws/login?redirect="
+    "https://steam.stefanoltmann.workers.dev/login?redirect="
 
 private const val PUBLIC_LOGIN_URL: String =
     LOGIN_BASE_URL + "https://mapsnotincluded.github.io/oni-seed-browser/"
@@ -314,7 +314,7 @@ fun Application.configureRouting() {
             if (port == "0")
                 call.respondRedirect(PUBLIC_LOGIN_URL)
             else
-                call.respondRedirect("http://localhost:$port")
+                call.respondRedirect(LOGIN_BASE_URL + "http://localhost:$port")
         }
 
         get("/coordinate/{coordinate}") {
