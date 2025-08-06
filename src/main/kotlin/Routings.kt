@@ -234,7 +234,7 @@ fun Application.configureRouting() {
          * Set "coordinate" as a unique key
          */
 
-        println("Setting missing indices...")
+        log("Setting missing indices...")
 
         /*
          * Unique key indexes
@@ -273,7 +273,7 @@ fun Application.configureRouting() {
         database.getCollection<Document>("uploads")
             .createIndex(Document("uploadDate", 1))
 
-        println("... Done.")
+        log("... Done.")
 
         if (POPULATE_SUMMARIES_ON_START)
             populateSummaries()
@@ -323,8 +323,6 @@ fun Application.configureRouting() {
                     return@get
                 }
 
-                val start = System.currentTimeMillis()
-
                 val cluster: Cluster? = clusterCollection.find(
                     Filters.eq("coordinate", coordinate)
                 ).firstOrNull()
@@ -333,10 +331,6 @@ fun Application.configureRouting() {
                     call.respond(cluster)
                 else
                     call.respond(HttpStatusCode.NotFound, "No data found for coordinate: $coordinate")
-
-                val duration = System.currentTimeMillis() - start
-
-                log("Returned data for coordinate $coordinate in $duration ms.")
 
             } catch (ex: Exception) {
 
@@ -410,8 +404,6 @@ fun Application.configureRouting() {
 
             try {
 
-                val start = System.currentTimeMillis()
-
                 val collection = database.getCollection<ModBinaryChecksumDatabase>("modBinaryChecksums")
 
                 val currentEntry = collection.find()
@@ -423,10 +415,6 @@ fun Application.configureRouting() {
                     call.respond(HttpStatusCode.OK, "UNKNOWN")
                 else
                     call.respond(HttpStatusCode.OK, currentEntry.gitTag)
-
-                val duration = System.currentTimeMillis() - start
-
-                log("Returned current mod version in $duration ms.")
 
             } catch (ex: Exception) {
 
