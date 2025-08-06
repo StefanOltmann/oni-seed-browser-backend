@@ -1471,8 +1471,6 @@ private suspend fun handleGetRequestedCoordinate(
     dlcs: List<Dlc>
 ) {
 
-    val start = System.currentTimeMillis()
-
     val ipAddress = call.getIpAddress()
 
     val apiKey = call.request.headers["MNI_API_KEY"]
@@ -1552,7 +1550,7 @@ private suspend fun handleGetRequestedCoordinate(
                             Updates.set(RequestedCoordinate::coordinate.name, cleanCoordinate)
                         )
 
-                    } catch (ignore: Exception) {
+                    } catch (_: Exception) {
 
                         /* If we can't update to the new name, the request already existed and is duplicated. */
 
@@ -1608,10 +1606,6 @@ private suspend fun handleGetRequestedCoordinate(
             }
         }
     }
-
-    val duration = System.currentTimeMillis() - start
-
-    log("Returned next coordinate in $duration ms.")
 }
 
 /**
