@@ -1790,7 +1790,7 @@ private suspend fun transferMapsToS3() {
 
         val objects = minioClient.listObjects(
             ListObjectsArgs.builder()
-                .bucket("oni-worlds")
+                .bucket("worlds")
                 .build()
         )
 
@@ -1807,7 +1807,7 @@ private suspend fun transferMapsToS3() {
 
         cursor.collect { cluster ->
 
-            val name = "${cluster.coordinate}.json.gz"
+            val name = "${cluster.cluster.prefix}/${cluster.coordinate}.json.gz"
 
             if (existingNames.contains(name))
                 return@collect
@@ -1828,7 +1828,7 @@ private suspend fun transferMapsToS3() {
             minioClient.putObject(
                 PutObjectArgs
                     .builder()
-                    .bucket("oni-worlds")
+                    .bucket("worlds")
                     .`object`(name)
                     .headers(
                         mapOf(
