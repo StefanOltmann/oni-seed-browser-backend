@@ -36,18 +36,11 @@ import com.mongodb.kotlin.client.coroutine.MongoClient
 import com.mongodb.kotlin.client.coroutine.MongoDatabase
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
-import io.ktor.client.request.forms.FormDataContent
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
-import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentDisposition
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.Parameters
-import io.ktor.http.ParametersBuilder
-import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.cbor.cbor
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
@@ -1791,6 +1784,7 @@ private suspend fun transferMapsToS3() {
         val objects = minioClient.listObjects(
             ListObjectsArgs.builder()
                 .bucket("worlds")
+                .recursive(true)
                 .build()
         )
 
@@ -1873,51 +1867,6 @@ private suspend fun findAllSearchIndexCoordinates(database: MongoDatabase): Set<
         .toSet()
 
     return coordinates
-}
-
-private suspend fun validateSteamLogin(params: Parameters): String? {
-
-    val steamOpenIdEndpoint = "https://steamcommunity.com/openid/login"
-
-    val validationParams = params.buildValidationParameters()
-
-    val response = httpClient.post(steamOpenIdEndpoint) {
-        setBody(FormDataContent(validationParams))
-    }
-
-    if (!response.status.isSuccess()) {
-
-        log("Auth was not successful: ${response.status} ${response.bodyAsText()}")
-
-        return null
-    }
-
-    val responseText = response.bodyAsText()
-
-    return if (responseText.contains("is_valid:true")) {
-        params["openid.claimed_id"]?.substringAfterLast("/")
-    } else null
-}
-
-private fun Parameters.buildValidationParameters(): Parameters {
-
-    val parametersBuilder = ParametersBuilder()
-
-    parametersBuilder.append("openid.mode", "check_authentication")
-
-    this.forEach { key, values ->
-        values.forEach { value ->
-
-            /*
-             * Forward all other parameters except for openid.mode
-             */
-
-            if (key != "openid.mode")
-                parametersBuilder.append(key, value)
-        }
-    }
-
-    return parametersBuilder.build()
 }
 
 /*
