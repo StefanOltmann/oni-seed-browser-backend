@@ -114,7 +114,8 @@ const val LATEST_MAPS_LIMIT = 10
 
 const val EXPORT_BATCH_SIZE = 10000
 
-const val TOKEN_HEADER = "token"
+const val TOKEN_HEADER_WEBPAGE = "token"
+const val TOKEN_HEADER_MOD = "MNI_TOKEN"
 
 private const val LOGIN_BASE_URL: String =
     "https://steam.stefanoltmann.workers.dev/login?redirect="
@@ -225,7 +226,7 @@ fun Application.configureRouting() {
 
         allowHeader(HttpHeaders.AccessControlAllowOrigin)
         allowHeader(HttpHeaders.ContentType)
-        allowHeader(TOKEN_HEADER)
+        allowHeader(TOKEN_HEADER_WEBPAGE)
 
         anyHost()
     }
@@ -728,6 +729,7 @@ fun Application.configureRouting() {
                 val ipAddress = call.getIpAddress()
 
                 val apiKey: String? = this.call.request.headers["MNI_API_KEY"]
+                val authToken: String? = this.call.request.headers[TOKEN_HEADER_MOD]
 
                 if (apiKey != System.getenv("MNI_API_KEY")) {
 
@@ -836,12 +838,43 @@ fun Application.configureRouting() {
                     return@post
                 }
 
+                /*
+                 * Marker if the uploader was authenticated
+                 */
+                var uploaderAuthenticated = false
+
+                /*
+                 * Auth Token is optional, but if provided it
+                 * must be valid and match the upload.
+                 */
+                if (authToken != null) {
+
+                    try {
+
+                        val jwt = jwtVerifier.verify(authToken)
+
+                        val steamId = jwt.steamId
+
+                        if (steamId != jwt.steamId)
+                            uploaderAuthenticated = true
+                        else
+                            error("Steam ID mismatch. Token = ${jwt.steamId}, Upload = $steamId")
+
+                    } catch (ex: Exception) {
+
+                        call.respond(HttpStatusCode.Unauthorized, "Authentication failed.")
+                        log("[UPLOAD] Rejected bad auth from $steamId: ${ex.stackTraceToString()}")
+                        return@post
+                    }
+                }
+
                 val uploaderSteamIdHash = saltedSha256(steamId)
 
                 val optimizedCluster = cluster.optimizeBiomePaths()
 
                 val optimizedClusterWithMetadata = optimizedCluster.copy(
                     uploaderSteamIdHash = uploaderSteamIdHash,
+                    uploaderAuthenticated = uploaderAuthenticated,
                     uploadDate = uploadDate
                 )
 
@@ -893,7 +926,7 @@ fun Application.configureRouting() {
 
                 val duration = System.currentTimeMillis() - start
 
-                log("[UPLOAD] ${cluster.coordinate} ($duration ms)")
+                log("[UPLOAD] ${cluster.coordinate} in $duration ms by $steamId (auth = $uploaderAuthenticated)")
 
             } catch (ex: Exception) {
 
@@ -1022,10 +1055,10 @@ fun Application.configureRouting() {
 
             try {
 
-                val token: String? = this.call.request.headers[TOKEN_HEADER]
+                val token: String? = this.call.request.headers[TOKEN_HEADER_WEBPAGE]
 
                 if (token.isNullOrBlank()) {
-                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER' header.")
+                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER_WEBPAGE' header.")
                     return@post
                 }
 
@@ -1141,10 +1174,10 @@ fun Application.configureRouting() {
 
             try {
 
-                val token: String? = this.call.request.headers[TOKEN_HEADER]
+                val token: String? = this.call.request.headers[TOKEN_HEADER_WEBPAGE]
 
                 if (token.isNullOrBlank()) {
-                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER' header.")
+                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER_WEBPAGE' header.")
                     return@get
                 }
 
@@ -1182,10 +1215,10 @@ fun Application.configureRouting() {
 
             try {
 
-                val token: String? = this.call.request.headers[TOKEN_HEADER]
+                val token: String? = this.call.request.headers[TOKEN_HEADER_WEBPAGE]
 
                 if (token.isNullOrBlank()) {
-                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER' header.")
+                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER_WEBPAGE' header.")
                     return@get
                 }
 
@@ -1218,10 +1251,10 @@ fun Application.configureRouting() {
 
             try {
 
-                val token: String? = this.call.request.headers[TOKEN_HEADER]
+                val token: String? = this.call.request.headers[TOKEN_HEADER_WEBPAGE]
 
                 if (token.isNullOrBlank()) {
-                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER' header.")
+                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER_WEBPAGE' header.")
                     return@get
                 }
 
@@ -1254,10 +1287,10 @@ fun Application.configureRouting() {
 
             try {
 
-                val token: String? = this.call.request.headers[TOKEN_HEADER]
+                val token: String? = this.call.request.headers[TOKEN_HEADER_WEBPAGE]
 
                 if (token.isNullOrBlank()) {
-                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER' header.")
+                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER_WEBPAGE' header.")
                     return@post
                 }
 
@@ -1311,10 +1344,10 @@ fun Application.configureRouting() {
 
             try {
 
-                val token: String? = this.call.request.headers[TOKEN_HEADER]
+                val token: String? = this.call.request.headers[TOKEN_HEADER_WEBPAGE]
 
                 if (token.isNullOrBlank()) {
-                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER' header.")
+                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER_WEBPAGE' header.")
                     return@get
                 }
 
@@ -1355,10 +1388,10 @@ fun Application.configureRouting() {
 
             try {
 
-                val token: String? = this.call.request.headers[TOKEN_HEADER]
+                val token: String? = this.call.request.headers[TOKEN_HEADER_WEBPAGE]
 
                 if (token.isNullOrBlank()) {
-                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER' header.")
+                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER_WEBPAGE' header.")
                     return@post
                 }
 
