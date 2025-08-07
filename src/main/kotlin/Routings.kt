@@ -920,7 +920,7 @@ fun Application.configureRouting() {
                     )
                 }
 
-                uploadMapToS3(cluster)
+                uploadMapToS3(optimizedClusterWithMetadata)
 
                 call.respond(HttpStatusCode.OK, "Data was saved.")
 
