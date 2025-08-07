@@ -607,7 +607,7 @@ fun Application.configureRouting() {
 
                 val filterQueryJson = Json.encodeToString(filterQuery)
 
-                log("Returned search results for filter $filterQueryJson in $duration ms.")
+                log("[SEARCH] Returned ${resultClusters.size} search results in $duration ms: $filterQueryJson")
 
             } catch (ex: Exception) {
 
@@ -640,7 +640,9 @@ fun Application.configureRouting() {
 
                 val duration = System.currentTimeMillis() - start
 
-                log("Returned search results for filter $filterQuery in $duration ms.")
+                val filterQueryJson = Json.encodeToString(filterQuery)
+
+                log("[SEARCH] Returned ${matchingCoordinates.size} search results in $duration ms: $filterQueryJson")
 
             } catch (ex: Exception) {
 
@@ -1033,15 +1035,13 @@ fun Application.configureRouting() {
                     .map { it["coordinate"] as String }
                     .toList()
 
-                log("The database contains ${coordinates.size} seeds reported as world gen failures.")
-
                 val asSimpleString = coordinates.sorted().joinToString("\n")
 
                 call.respond(asSimpleString)
 
                 val duration = System.currentTimeMillis() - start
 
-                log("Returned world gen failures in $duration ms.")
+                log("Returned ${coordinates.size} worldgen failures in $duration ms.")
 
             } catch (ex: Exception) {
 
