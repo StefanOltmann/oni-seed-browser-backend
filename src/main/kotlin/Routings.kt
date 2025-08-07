@@ -847,7 +847,7 @@ fun Application.configureRouting() {
                  * Auth Token is optional, but if provided it
                  * must be valid and match the upload.
                  */
-                if (authToken != null) {
+                if (!authToken.isNullOrBlank()) {
 
                     try {
 
