@@ -34,8 +34,6 @@ import com.mongodb.client.model.Sorts.descending
 import com.mongodb.client.model.Updates
 import com.mongodb.kotlin.client.coroutine.MongoClient
 import com.mongodb.kotlin.client.coroutine.MongoDatabase
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.http.ContentDisposition
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
@@ -182,7 +180,11 @@ private val strictAllFieldsCbor = Cbor {
     encodeDefaults = true
 }
 
-private val httpClient = HttpClient(OkHttp)
+private val minioClient =
+    MinioClient.builder()
+        .endpoint("http://minio:9000")
+        .credentials(minioUser, minioPassword)
+        .build()
 
 private var seedRequestCounter = 0
 
@@ -884,6 +886,8 @@ fun Application.configureRouting() {
                         )
                     )
                 }
+
+                uploadMapToS3(cluster)
 
                 call.respond(HttpStatusCode.OK, "Data was saved.")
 
@@ -1749,6 +1753,42 @@ private suspend fun createContributorTable() {
     }
 }
 
+private suspend fun uploadMapToS3(
+    cluster: Cluster
+) {
+
+    val json = Json.encodeToString(cluster)
+
+    val name = "${cluster.coordinate}.json.gz"
+
+    val bytes = json.encodeToByteArray()
+
+    val gzippedJsonBytes = ByteArrayOutputStream().use { byteStream ->
+
+        GZIPOutputStream(byteStream).use { gzipStream ->
+            gzipStream.write(bytes)
+            gzipStream.finish()
+        }
+        byteStream.toByteArray()
+    }
+
+    minioClient.putObject(
+        PutObjectArgs
+            .builder()
+            .bucket("oni-worlds")
+            .`object`(name)
+            .headers(
+                mapOf(
+                    "Content-Type" to "application/json",
+                    "Content-Encoding" to "gzip",
+                    "Cache-Control" to "public, max-age=31536000, immutable"
+                )
+            )
+            .stream(gzippedJsonBytes.inputStream(), gzippedJsonBytes.size.toLong(), -1)
+            .build()
+    )
+}
+
 private suspend fun copyMapsToS3() {
 
     log("Transfer maps to S3...")
@@ -1756,12 +1796,6 @@ private suspend fun copyMapsToS3() {
     val start = System.currentTimeMillis()
 
     try {
-
-        val minioClient =
-            MinioClient.builder()
-                .endpoint("http://minio:9000")
-                .credentials(minioUser, minioPassword)
-                .build()
 
         val objects = minioClient.listObjects(
             ListObjectsArgs.builder()
@@ -1788,34 +1822,7 @@ private suspend fun copyMapsToS3() {
             if (existingNames.contains(name))
                 return@collect
 
-            val json = Json.encodeToString(cluster)
-
-            val bytes = json.encodeToByteArray()
-
-            val gzippedJsonBytes = ByteArrayOutputStream().use { byteStream ->
-
-                GZIPOutputStream(byteStream).use { gzipStream ->
-                    gzipStream.write(bytes)
-                    gzipStream.finish()
-                }
-                byteStream.toByteArray()
-            }
-
-            minioClient.putObject(
-                PutObjectArgs
-                    .builder()
-                    .bucket("oni-worlds")
-                    .`object`(name)
-                    .headers(
-                        mapOf(
-                            "Content-Type" to "application/json",
-                            "Content-Encoding" to "gzip",
-                            "Cache-Control" to "public, max-age=31536000, immutable"
-                        )
-                    )
-                    .stream(gzippedJsonBytes.inputStream(), gzippedJsonBytes.size.toLong(), -1)
-                    .build()
-            )
+            uploadMapToS3(cluster)
         }
 
         val duration = System.currentTimeMillis() - start
