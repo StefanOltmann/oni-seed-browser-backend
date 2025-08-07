@@ -104,7 +104,9 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
 /* Should not be necessary right now; was for migration. */
-const val POPULATE_SUMMARIES_ON_START = true
+const val POPULATE_SUMMARIES_ON_START = false
+
+const val TRANSFER_MAPS_TO_S3 = false
 
 /* Limit the results to avoid memory issues */
 const val RESULT_LIMIT_OLD = 100
@@ -1786,9 +1788,12 @@ private suspend fun createContributorTable() {
     }
 }
 
-private suspend fun uploadMapToS3(
+private fun uploadMapToS3(
     cluster: Cluster
 ) {
+
+    if (!TRANSFER_MAPS_TO_S3)
+        return
 
     val json = Json.encodeToString(cluster)
 
@@ -1823,6 +1828,9 @@ private suspend fun uploadMapToS3(
 }
 
 private suspend fun copyMapsToS3() {
+
+    if (!TRANSFER_MAPS_TO_S3)
+        return
 
     log("Transfer maps to S3...")
 
