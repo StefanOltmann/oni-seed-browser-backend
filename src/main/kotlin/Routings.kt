@@ -280,7 +280,7 @@ fun Application.configureRouting() {
 
         createContributorTable()
 
-        transferMapsToS3()
+        copyMapsToS3()
     }
 
     routing {
@@ -1749,7 +1749,7 @@ private suspend fun createContributorTable() {
     }
 }
 
-private suspend fun transferMapsToS3() {
+private suspend fun copyMapsToS3() {
 
     log("Transfer maps to S3...")
 
@@ -1765,7 +1765,7 @@ private suspend fun transferMapsToS3() {
 
         val objects = minioClient.listObjects(
             ListObjectsArgs.builder()
-                .bucket("worlds")
+                .bucket("oni-worlds")
                 .recursive(true)
                 .build()
         )
@@ -1783,7 +1783,7 @@ private suspend fun transferMapsToS3() {
 
         cursor.collect { cluster ->
 
-            val name = "${cluster.cluster.prefix}/${cluster.coordinate}.json.gz"
+            val name = "${cluster.coordinate}.json.gz"
 
             if (existingNames.contains(name))
                 return@collect
@@ -1804,7 +1804,7 @@ private suspend fun transferMapsToS3() {
             minioClient.putObject(
                 PutObjectArgs
                     .builder()
-                    .bucket("worlds")
+                    .bucket("oni-worlds")
                     .`object`(name)
                     .headers(
                         mapOf(
@@ -1819,7 +1819,7 @@ private suspend fun transferMapsToS3() {
 
         val duration = System.currentTimeMillis() - start
 
-        log("Transferred maps to S3 $duration ms.")
+        log("Copied maps to S3 $duration ms.")
 
     } catch (ex: Exception) {
 
