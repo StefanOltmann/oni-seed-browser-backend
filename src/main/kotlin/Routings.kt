@@ -1809,7 +1809,8 @@ private suspend fun copyMapsToS3() {
                     .headers(
                         mapOf(
                             "Content-Type" to "application/json",
-                            "Content-Encoding" to "gzip"
+                            "Content-Encoding" to "gzip",
+                            "Cache-Control" to "public, max-age=31536000, immutable"
                         )
                     )
                     .stream(gzippedJsonBytes.inputStream(), gzippedJsonBytes.size.toLong(), -1)
