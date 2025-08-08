@@ -859,7 +859,7 @@ fun Application.configureRouting() {
 
                         val steamId = jwt.steamId
 
-                        if (steamId != jwt.steamId)
+                        if (steamId == jwt.steamId)
                             uploaderAuthenticated = true
                         else
                             error("Steam ID mismatch. Token = ${jwt.steamId}, Upload = $steamId")
