@@ -95,7 +95,7 @@ import org.bson.Document
 import java.io.ByteArrayOutputStream
 import java.security.KeyFactory
 import java.security.MessageDigest
-import java.security.interfaces.RSAPublicKey
+import java.security.interfaces.ECPublicKey
 import java.security.spec.X509EncodedKeySpec
 import java.util.Base64
 import java.util.UUID
@@ -132,19 +132,19 @@ private val salt = System.getenv("MNI_SALT")
 
 private val messageDigest = MessageDigest.getInstance("SHA-256")
 
-private val publicKey: RSAPublicKey = System.getenv("MNI_JWT_PUBLIC_KEY")?.let { base64Key ->
+private val publicKey: ECPublicKey = System.getenv("MNI_JWT_PUBLIC_KEY")?.let { base64Key ->
     val keyBytes = Base64.getDecoder().decode(base64Key)
     val keySpec = X509EncodedKeySpec(keyBytes)
-    KeyFactory.getInstance("RSA").generatePublic(keySpec) as RSAPublicKey
+    KeyFactory.getInstance("EC").generatePublic(keySpec) as ECPublicKey
 } ?: error("Missing MNI_JWT_PUBLIC_KEY environment variable")
 
 private val minioUser: String = System.getenv("MINIO_USER")
 private val minioPassword: String = System.getenv("MINIO_PASSWORD")
 
-private val rsaAlgorithm = Algorithm.RSA256(publicKey)
+private val ecdsaAlgorithm = Algorithm.ECDSA256(publicKey)
 
 private val jwtVerifier = JWT
-    .require(rsaAlgorithm)
+    .require(ecdsaAlgorithm)
     .build()
 
 private val serverApi = ServerApi.builder()
@@ -733,7 +733,7 @@ fun Application.configureRouting() {
                 val ipAddress = call.getIpAddress()
 
                 val apiKey: String? = this.call.request.headers["MNI_API_KEY"]
-                val authToken: String? = this.call.request.headers[TOKEN_HEADER_MOD]
+                val token: String? = this.call.request.headers[TOKEN_HEADER_MOD]
 
                 if (apiKey != System.getenv("MNI_API_KEY")) {
 
@@ -851,11 +851,11 @@ fun Application.configureRouting() {
                  * Auth Token is optional, but if provided it
                  * must be valid and match the upload.
                  */
-                if (!authToken.isNullOrBlank()) {
+                if (!token.isNullOrBlank()) {
 
                     try {
 
-                        val jwt = jwtVerifier.verify(authToken)
+                        val jwt = jwtVerifier.verify(token)
 
                         val steamId = jwt.steamId
 
