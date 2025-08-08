@@ -34,8 +34,6 @@ import com.mongodb.client.model.Sorts.descending
 import com.mongodb.client.model.Updates
 import com.mongodb.kotlin.client.coroutine.MongoClient
 import com.mongodb.kotlin.client.coroutine.MongoDatabase
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.http.ContentDisposition
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
@@ -97,7 +95,7 @@ import org.bson.Document
 import java.io.ByteArrayOutputStream
 import java.security.KeyFactory
 import java.security.MessageDigest
-import java.security.interfaces.RSAPublicKey
+import java.security.interfaces.ECPublicKey
 import java.security.spec.X509EncodedKeySpec
 import java.util.Base64
 import java.util.UUID
@@ -106,7 +104,9 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
 /* Should not be necessary right now; was for migration. */
-const val POPULATE_SUMMARIES_ON_START = true
+const val POPULATE_SUMMARIES_ON_START = false
+
+const val TRANSFER_MAPS_TO_S3 = false
 
 /* Limit the results to avoid memory issues */
 const val RESULT_LIMIT_OLD = 100
@@ -116,10 +116,11 @@ const val LATEST_MAPS_LIMIT = 10
 
 const val EXPORT_BATCH_SIZE = 10000
 
-const val TOKEN_HEADER = "token"
+const val TOKEN_HEADER_WEBPAGE = "token"
+const val TOKEN_HEADER_MOD = "MNI_TOKEN"
 
 private const val LOGIN_BASE_URL: String =
-    "https://steam.stefanoltmann.workers.dev/login?redirect="
+    "https://steam.auth.stefanoltmann.de/login?redirect="
 
 private const val PUBLIC_LOGIN_URL: String =
     LOGIN_BASE_URL + "https://mapsnotincluded.github.io/oni-seed-browser/"
@@ -131,19 +132,19 @@ private val salt = System.getenv("MNI_SALT")
 
 private val messageDigest = MessageDigest.getInstance("SHA-256")
 
-private val publicKey: RSAPublicKey = System.getenv("MNI_JWT_PUBLIC_KEY")?.let { base64Key ->
+private val publicKey: ECPublicKey = System.getenv("MNI_JWT_PUBLIC_KEY")?.let { base64Key ->
     val keyBytes = Base64.getDecoder().decode(base64Key)
     val keySpec = X509EncodedKeySpec(keyBytes)
-    KeyFactory.getInstance("RSA").generatePublic(keySpec) as RSAPublicKey
+    KeyFactory.getInstance("EC").generatePublic(keySpec) as ECPublicKey
 } ?: error("Missing MNI_JWT_PUBLIC_KEY environment variable")
 
 private val minioUser: String = System.getenv("MINIO_USER")
 private val minioPassword: String = System.getenv("MINIO_PASSWORD")
 
-private val rsaAlgorithm = Algorithm.RSA256(publicKey)
+private val ecdsaAlgorithm = Algorithm.ECDSA256(publicKey)
 
 private val jwtVerifier = JWT
-    .require(rsaAlgorithm)
+    .require(ecdsaAlgorithm)
     .build()
 
 private val serverApi = ServerApi.builder()
@@ -182,7 +183,11 @@ private val strictAllFieldsCbor = Cbor {
     encodeDefaults = true
 }
 
-private val httpClient = HttpClient(OkHttp)
+private val minioClient =
+    MinioClient.builder()
+        .endpoint("http://minio:9000")
+        .credentials(minioUser, minioPassword)
+        .build()
 
 private var seedRequestCounter = 0
 
@@ -223,7 +228,7 @@ fun Application.configureRouting() {
 
         allowHeader(HttpHeaders.AccessControlAllowOrigin)
         allowHeader(HttpHeaders.ContentType)
-        allowHeader(TOKEN_HEADER)
+        allowHeader(TOKEN_HEADER_WEBPAGE)
 
         anyHost()
     }
@@ -604,7 +609,7 @@ fun Application.configureRouting() {
 
                 val filterQueryJson = Json.encodeToString(filterQuery)
 
-                log("Returned search results for filter $filterQueryJson in $duration ms.")
+                log("[SEARCH] Returned ${resultClusters.size} search results in $duration ms: $filterQueryJson")
 
             } catch (ex: Exception) {
 
@@ -637,7 +642,9 @@ fun Application.configureRouting() {
 
                 val duration = System.currentTimeMillis() - start
 
-                log("Returned search results for filter $filterQuery in $duration ms.")
+                val filterQueryJson = Json.encodeToString(filterQuery)
+
+                log("[SEARCH] Returned ${matchingCoordinates.size} search results in $duration ms: $filterQueryJson")
 
             } catch (ex: Exception) {
 
@@ -726,6 +733,7 @@ fun Application.configureRouting() {
                 val ipAddress = call.getIpAddress()
 
                 val apiKey: String? = this.call.request.headers["MNI_API_KEY"]
+                val token: String? = this.call.request.headers[TOKEN_HEADER_MOD]
 
                 if (apiKey != System.getenv("MNI_API_KEY")) {
 
@@ -834,12 +842,43 @@ fun Application.configureRouting() {
                     return@post
                 }
 
+                /*
+                 * Marker if the uploader was authenticated
+                 */
+                var uploaderAuthenticated = false
+
+                /*
+                 * Auth Token is optional, but if provided it
+                 * must be valid and match the upload.
+                 */
+                if (!token.isNullOrBlank()) {
+
+                    try {
+
+                        val jwt = jwtVerifier.verify(token)
+
+                        val steamId = jwt.steamId
+
+                        if (steamId == jwt.steamId)
+                            uploaderAuthenticated = true
+                        else
+                            error("Steam ID mismatch. Token = ${jwt.steamId}, Upload = $steamId")
+
+                    } catch (ex: Exception) {
+
+                        call.respond(HttpStatusCode.Unauthorized, "Authentication failed.")
+                        log("[UPLOAD] Rejected bad auth from $steamId: ${ex.stackTraceToString()}")
+                        return@post
+                    }
+                }
+
                 val uploaderSteamIdHash = saltedSha256(steamId)
 
                 val optimizedCluster = cluster.optimizeBiomePaths()
 
                 val optimizedClusterWithMetadata = optimizedCluster.copy(
                     uploaderSteamIdHash = uploaderSteamIdHash,
+                    uploaderAuthenticated = uploaderAuthenticated,
                     uploadDate = uploadDate
                 )
 
@@ -885,11 +924,13 @@ fun Application.configureRouting() {
                     )
                 }
 
+                uploadMapToS3(optimizedClusterWithMetadata)
+
                 call.respond(HttpStatusCode.OK, "Data was saved.")
 
                 val duration = System.currentTimeMillis() - start
 
-                log("[UPLOAD] ${cluster.coordinate} ($duration ms)")
+                log("[UPLOAD] ${cluster.coordinate} in $duration ms by $steamId (auth = $uploaderAuthenticated)")
 
             } catch (ex: Exception) {
 
@@ -996,15 +1037,13 @@ fun Application.configureRouting() {
                     .map { it["coordinate"] as String }
                     .toList()
 
-                log("The database contains ${coordinates.size} seeds reported as world gen failures.")
-
                 val asSimpleString = coordinates.sorted().joinToString("\n")
 
                 call.respond(asSimpleString)
 
                 val duration = System.currentTimeMillis() - start
 
-                log("Returned world gen failures in $duration ms.")
+                log("Returned ${coordinates.size} worldgen failures in $duration ms.")
 
             } catch (ex: Exception) {
 
@@ -1018,10 +1057,10 @@ fun Application.configureRouting() {
 
             try {
 
-                val token: String? = this.call.request.headers[TOKEN_HEADER]
+                val token: String? = this.call.request.headers[TOKEN_HEADER_WEBPAGE]
 
                 if (token.isNullOrBlank()) {
-                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER' header.")
+                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER_WEBPAGE' header.")
                     return@post
                 }
 
@@ -1141,10 +1180,10 @@ fun Application.configureRouting() {
 
             try {
 
-                val token: String? = this.call.request.headers[TOKEN_HEADER]
+                val token: String? = this.call.request.headers[TOKEN_HEADER_WEBPAGE]
 
                 if (token.isNullOrBlank()) {
-                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER' header.")
+                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER_WEBPAGE' header.")
                     return@get
                 }
 
@@ -1182,10 +1221,10 @@ fun Application.configureRouting() {
 
             try {
 
-                val token: String? = this.call.request.headers[TOKEN_HEADER]
+                val token: String? = this.call.request.headers[TOKEN_HEADER_WEBPAGE]
 
                 if (token.isNullOrBlank()) {
-                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER' header.")
+                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER_WEBPAGE' header.")
                     return@get
                 }
 
@@ -1218,10 +1257,10 @@ fun Application.configureRouting() {
 
             try {
 
-                val token: String? = this.call.request.headers[TOKEN_HEADER]
+                val token: String? = this.call.request.headers[TOKEN_HEADER_WEBPAGE]
 
                 if (token.isNullOrBlank()) {
-                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER' header.")
+                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER_WEBPAGE' header.")
                     return@get
                 }
 
@@ -1254,10 +1293,10 @@ fun Application.configureRouting() {
 
             try {
 
-                val token: String? = this.call.request.headers[TOKEN_HEADER]
+                val token: String? = this.call.request.headers[TOKEN_HEADER_WEBPAGE]
 
                 if (token.isNullOrBlank()) {
-                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER' header.")
+                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER_WEBPAGE' header.")
                     return@post
                 }
 
@@ -1311,10 +1350,10 @@ fun Application.configureRouting() {
 
             try {
 
-                val token: String? = this.call.request.headers[TOKEN_HEADER]
+                val token: String? = this.call.request.headers[TOKEN_HEADER_WEBPAGE]
 
                 if (token.isNullOrBlank()) {
-                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER' header.")
+                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER_WEBPAGE' header.")
                     return@get
                 }
 
@@ -1355,10 +1394,10 @@ fun Application.configureRouting() {
 
             try {
 
-                val token: String? = this.call.request.headers[TOKEN_HEADER]
+                val token: String? = this.call.request.headers[TOKEN_HEADER_WEBPAGE]
 
                 if (token.isNullOrBlank()) {
-                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER' header.")
+                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER_WEBPAGE' header.")
                     return@post
                 }
 
@@ -1467,7 +1506,7 @@ fun Application.configureRouting() {
 
 // TODO Call an API to get this version
 private fun findCurrentGameVersion(): Int {
-    return 677228 // Current version as of 2025-07-02
+    return 679336 // Current version as of 2025-08-08
 }
 
 private suspend fun handleGetRequestedCoordinate(
@@ -1753,19 +1792,55 @@ private suspend fun createContributorTable() {
     }
 }
 
+private fun uploadMapToS3(
+    cluster: Cluster
+) {
+
+    if (!TRANSFER_MAPS_TO_S3)
+        return
+
+    val json = Json.encodeToString(cluster)
+
+    val name = "${cluster.coordinate}.json.gz"
+
+    val bytes = json.encodeToByteArray()
+
+    val gzippedJsonBytes = ByteArrayOutputStream().use { byteStream ->
+
+        GZIPOutputStream(byteStream).use { gzipStream ->
+            gzipStream.write(bytes)
+            gzipStream.finish()
+        }
+        byteStream.toByteArray()
+    }
+
+    minioClient.putObject(
+        PutObjectArgs
+            .builder()
+            .bucket("oni-worlds")
+            .`object`(name)
+            .headers(
+                mapOf(
+                    "Content-Type" to "application/json",
+                    "Content-Encoding" to "gzip",
+                    "Cache-Control" to "public, max-age=31536000, immutable"
+                )
+            )
+            .stream(gzippedJsonBytes.inputStream(), gzippedJsonBytes.size.toLong(), -1)
+            .build()
+    )
+}
+
 private suspend fun copyMapsToS3() {
+
+    if (!TRANSFER_MAPS_TO_S3)
+        return
 
     log("Transfer maps to S3...")
 
     val start = System.currentTimeMillis()
 
     try {
-
-        val minioClient =
-            MinioClient.builder()
-                .endpoint("http://minio:9000")
-                .credentials(minioUser, minioPassword)
-                .build()
 
         val objects = minioClient.listObjects(
             ListObjectsArgs.builder()
@@ -1792,34 +1867,7 @@ private suspend fun copyMapsToS3() {
             if (existingNames.contains(name))
                 return@collect
 
-            val json = Json.encodeToString(cluster)
-
-            val bytes = json.encodeToByteArray()
-
-            val gzippedJsonBytes = ByteArrayOutputStream().use { byteStream ->
-
-                GZIPOutputStream(byteStream).use { gzipStream ->
-                    gzipStream.write(bytes)
-                    gzipStream.finish()
-                }
-                byteStream.toByteArray()
-            }
-
-            minioClient.putObject(
-                PutObjectArgs
-                    .builder()
-                    .bucket("oni-worlds")
-                    .`object`(name)
-                    .headers(
-                        mapOf(
-                            "Content-Type" to "application/json",
-                            "Content-Encoding" to "gzip",
-                            "Cache-Control" to "public, max-age=31536000, immutable"
-                        )
-                    )
-                    .stream(gzippedJsonBytes.inputStream(), gzippedJsonBytes.size.toLong(), -1)
-                    .build()
-            )
+            uploadMapToS3(cluster)
         }
 
         val duration = System.currentTimeMillis() - start

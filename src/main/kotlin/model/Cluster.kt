@@ -31,6 +31,9 @@ data class Cluster(
     val uploaderSteamIdHash: String? = null,
 
     /* As part of the upload this will be NULL, but be set on a query. */
+    val uploaderAuthenticated: Boolean? = null,
+
+    /* As part of the upload this will be NULL, but be set on a query. */
     val uploadDate: Long? = null,
 
     val gameVersion: Int,
