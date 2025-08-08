@@ -1037,7 +1037,7 @@ fun Application.configureRouting() {
 
                 } catch (ex: Exception) {
 
-                    log("Ignoring invalid coordinate $coordinate")
+                    log("[REQUEST] Ignoring invalid coordinate $coordinate (by $steamId)")
 
                     log(ex)
 
@@ -1052,10 +1052,14 @@ fun Application.configureRouting() {
 
                 if (exists) {
 
+                    log("[REQUEST] Ignoring already requested coordinate $cleanCoordinate (by $steamId)")
+
                     /* Send info that the coordinate already exists. */
                     call.respond(HttpStatusCode.Conflict, "Coordinate $cleanCoordinate was already requested.")
 
                 } else {
+
+                    log("[REQUEST] Requesting coordinate $cleanCoordinate (by $steamId)")
 
                     requestedCoordinatesCollection.insertOne(
                         RequestedCoordinate(
@@ -1301,7 +1305,7 @@ fun Application.configureRouting() {
         }
 
         /**
-         * Returns the current name the user wants to displayed as.
+         * Returns the current name the user wants to display as.
          */
         get("/username") {
 
@@ -1320,7 +1324,7 @@ fun Application.configureRouting() {
 
                 val collection = database.getCollection<Username>("usernames")
 
-                /* Delete first in case the name is changed. */
+                /* Delete it first in case the name is changed. */
                 val username = collection.find<Username>(
                     Filters.eq("steamId", steamId)
                 ).firstOrNull()
@@ -1345,7 +1349,7 @@ fun Application.configureRouting() {
         }
 
         /**
-         * Allows a user to set his username
+         * Allows a user to set a username
          */
         post("/username") {
 
