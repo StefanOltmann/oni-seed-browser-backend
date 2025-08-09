@@ -270,6 +270,9 @@ fun Application.configureRouting() {
             .createIndex(Document("uploaderSteamIdHash", 1))
 
         clusterCollection
+            .createIndex(Document("uploaderAuthenticated", 1))
+
+        clusterCollection
             .createIndex(Document("uploadDate", 1))
 
         clusterCollection
