@@ -106,7 +106,7 @@ import java.util.zip.ZipOutputStream
 /* Should not be necessary right now; was for migration. */
 const val POPULATE_SUMMARIES_ON_START = false
 
-const val TRANSFER_MAPS_TO_S3 = false
+const val TRANSFER_MAPS_TO_S3 = true
 
 /* Limit the results to avoid memory issues */
 const val RESULT_LIMIT_OLD = 100
