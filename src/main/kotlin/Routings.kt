@@ -106,7 +106,7 @@ import java.util.zip.ZipOutputStream
 /* Should not be necessary right now; was for migration. */
 const val POPULATE_SUMMARIES_ON_START = false
 
-const val TRANSFER_MAPS_TO_S3 = false
+const val TRANSFER_MAPS_TO_S3 = true
 
 /* Limit the results to avoid memory issues */
 const val RESULT_LIMIT_OLD = 100
@@ -123,7 +123,7 @@ private const val LOGIN_BASE_URL: String =
     "https://steam.auth.stefanoltmann.de/login?redirect="
 
 private const val PUBLIC_LOGIN_URL: String =
-    LOGIN_BASE_URL + "https://mapsnotincluded.github.io/oni-seed-browser/"
+    LOGIN_BASE_URL + "https://stefan-oltmann.de/oni-seed-browser/"
 
 private val connectionString: String = System.getenv("MONGO_DB_CONNECTION_STRING") ?: ""
 
