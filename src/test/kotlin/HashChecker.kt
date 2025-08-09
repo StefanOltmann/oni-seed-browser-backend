@@ -2,11 +2,15 @@ import com.mongodb.ConnectionString
 import com.mongodb.MongoClientSettings
 import com.mongodb.ServerApi
 import com.mongodb.ServerApiVersion
-import com.mongodb.client.model.Sorts.descending
+import com.mongodb.client.model.Filters
+import com.mongodb.client.model.Projections
+import com.mongodb.client.model.Updates
 import com.mongodb.kotlin.client.coroutine.MongoClient
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
-import model.Upload
+import model.Cluster
+import org.bson.Document
 
 private val connectionString: String = System.getenv("MONGO_DB_CONNECTION_STRING") ?: ""
 
@@ -25,16 +29,26 @@ fun main() = runBlocking {
 
         val database = mongoClient.getDatabase("oni")
 
-        val collection = database.getCollection<Upload>("uploads")
+        val uploadsCollection = database.getCollection<Document>("uploads")
 
-        val uploads = collection
-            .find()
-            .sort(descending("uploadDate"))
-            .limit(10)
+        val worldsCollection = database.getCollection<Cluster>("worlds")
+
+        val trustedCoordinates = uploadsCollection
+            .find(Filters.eq("installationId", "trusted-id"))
+            // .limit(10)
+            .projection(Projections.fields(Projections.include("coordinate")))
+            .map { it["coordinate"] as String }
             .toList()
+
+        println("Found ${trustedCoordinates.size} trusted coordinates.")
+
+        worldsCollection.updateMany(
+            Filters.`in`("coordinate", trustedCoordinates),
+            Updates.set(Cluster::uploaderAuthenticated.name, true)
+        )
 
         // TODO Work in progress
 
-        println(uploads)
+        println(trustedCoordinates)
     }
 }

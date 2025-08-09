@@ -281,6 +281,9 @@ fun Application.configureRouting() {
         database.getCollection<Document>("uploads")
             .createIndex(Document("uploadDate", 1))
 
+        database.getCollection<Document>("uploads")
+            .createIndex(Document("installationId", 1))
+
         log("... Done.")
 
         if (POPULATE_SUMMARIES_ON_START)
