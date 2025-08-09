@@ -106,7 +106,7 @@ import java.util.zip.ZipOutputStream
 /* Should not be necessary right now; was for migration. */
 const val POPULATE_SUMMARIES_ON_START = false
 
-const val TRANSFER_MAPS_TO_S3 = true
+const val TRANSFER_MAPS_TO_S3 = false
 
 /* Limit the results to avoid memory issues */
 const val RESULT_LIMIT_OLD = 100
@@ -1807,8 +1807,6 @@ private fun uploadMapToS3(
 
     val json = Json.encodeToString(cluster)
 
-    val name = "${cluster.coordinate}.json.gz"
-
     val bytes = json.encodeToByteArray()
 
     val gzippedJsonBytes = ByteArrayOutputStream().use { byteStream ->
@@ -1824,7 +1822,7 @@ private fun uploadMapToS3(
         PutObjectArgs
             .builder()
             .bucket("oni-worlds")
-            .`object`(name)
+            .`object`(cluster.coordinate)
             .headers(
                 mapOf(
                     "Content-Type" to "application/json",
@@ -1868,9 +1866,7 @@ private suspend fun copyMapsToS3() {
 
         cursor.collect { cluster ->
 
-            val name = "${cluster.coordinate}.json.gz"
-
-            if (existingNames.contains(name))
+            if (existingNames.contains(cluster.coordinate))
                 return@collect
 
             uploadMapToS3(cluster)
