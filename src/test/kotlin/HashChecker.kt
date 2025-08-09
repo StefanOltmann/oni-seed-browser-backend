@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import model.Cluster
 import org.bson.Document
+import kotlin.time.measureTime
 
 private val connectionString: String = System.getenv("MONGO_DB_CONNECTION_STRING") ?: ""
 
@@ -33,22 +34,25 @@ fun main() = runBlocking {
 
         val worldsCollection = database.getCollection<Cluster>("worlds")
 
-        val trustedCoordinates = uploadsCollection
-            .find(Filters.eq("installationId", "trusted-id"))
-            // .limit(10)
-            .projection(Projections.fields(Projections.include("coordinate")))
-            .map { it["coordinate"] as String }
-            .toList()
+        val time = measureTime {
 
-        println("Found ${trustedCoordinates.size} trusted coordinates.")
+            val trustedCoordinates = uploadsCollection
+                .find(Filters.eq("installationId", ""))
+                // .limit(10)
+                .projection(Projections.fields(Projections.include("coordinate")))
+                .map { it["coordinate"] as String }
+                .toList()
 
-        worldsCollection.updateMany(
-            Filters.`in`("coordinate", trustedCoordinates),
-            Updates.set(Cluster::uploaderAuthenticated.name, true)
-        )
+            println("Found ${trustedCoordinates.size} trusted coordinates.")
+
+            worldsCollection.updateMany(
+                Filters.`in`("coordinate", trustedCoordinates),
+                Updates.set(Cluster::uploaderAuthenticated.name, true)
+            )
+        }
+
+        println("Updated in $time")
 
         // TODO Work in progress
-
-        println(trustedCoordinates)
     }
 }
