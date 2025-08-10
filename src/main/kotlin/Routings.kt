@@ -138,8 +138,11 @@ private val publicKey: ECPublicKey = System.getenv("MNI_JWT_PUBLIC_KEY")?.let { 
     KeyFactory.getInstance("EC").generatePublic(keySpec) as ECPublicKey
 } ?: error("Missing MNI_JWT_PUBLIC_KEY environment variable")
 
-private val minioUser: String = System.getenv("MINIO_USER")
-private val minioPassword: String = System.getenv("MINIO_PASSWORD")
+private val minioUser: String = System.getenv("MINIO_USER") ?:
+    error("Missing MINIO_USER environment variable")
+
+private val minioPassword: String = System.getenv("MINIO_PASSWORD") ?:
+    error("Missing MINIO_PASSWORD environment variable")
 
 private val ecdsaAlgorithm = Algorithm.ECDSA256(publicKey)
 
