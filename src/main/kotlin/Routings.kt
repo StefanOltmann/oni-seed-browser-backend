@@ -197,6 +197,20 @@ private var seedRequestCounter = 0
 @OptIn(ExperimentalSerializationApi::class)
 fun Application.configureRouting() {
 
+    try {
+
+        configureRoutingInternal()
+
+    } catch (ex: Throwable) {
+
+        log("Starting server $VERSION failed.")
+        log(ex)
+    }
+}
+
+@OptIn(ExperimentalSerializationApi::class)
+private fun Application.configureRoutingInternal() {
+
     val startTime = System.currentTimeMillis()
 
     log.info("Starting Server at version $VERSION")
