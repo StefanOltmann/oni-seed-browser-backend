@@ -28,6 +28,10 @@ gitVersioning.apply {
     }
 }
 
+kotlin {
+    jvmToolchain(jdkVersion = 17)
+}
+
 sqldelight {
     databases {
         create("SearchIndexDatabase") {
