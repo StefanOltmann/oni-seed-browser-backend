@@ -38,20 +38,21 @@ object Database {
 
         println("Generated SQL: $sql")
 
-        val result = driver.executeQuery(
+        return driver.executeQuery(
             identifier = null,
             sql = sql,
-            mapper = { queryResult ->
-
-                println("Result: $queryResult")
-
-                QueryResult.Value(listOf("a", "b", "c"))
+            mapper = { cursor ->
+                QueryResult.Value(
+                    buildList {
+                        while (cursor.next().value) {
+                            add(cursor.getString(0)!!)
+                        }
+                    }
+                )
             },
             parameters = 0,
             binders = null
-        )
-
-        return result.value
+        ).value
     }
 
     fun addToSearchIndex(
@@ -74,7 +75,7 @@ object Database {
         // Process each asteroid in the cluster
         for (asteroid in cluster.asteroids) {
 
-            // Insert asteroid summary record using cluster_summary_id
+            // Insert an asteroid summary record using cluster_summary_id
             queries.insertAsteroidSummary(
                 cluster_summary_id = clusterSummaryId,
                 asteroid_id = asteroid.id.ordinal.toLong()

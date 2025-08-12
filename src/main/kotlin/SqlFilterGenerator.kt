@@ -29,7 +29,6 @@ fun generateSqlFromFilterQuery(
 ): String {
 
     val sb = StringBuilder()
-    val params = mutableListOf<Any?>()
 
     sb.appendLine("SELECT DISTINCT cs.coordinate")
     sb.appendLine("FROM cluster_summary cs")
@@ -41,8 +40,7 @@ fun generateSqlFromFilterQuery(
 
     // Cluster type filter (always AND)
     if (filterQuery.cluster != null) {
-        andClauses.add("cs.cluster_type = ?")
-        params.add(getClusterTypeOrdinal(filterQuery.cluster))
+        andClauses.add("cs.cluster_type = ${getClusterTypeOrdinal(filterQuery.cluster)}")
     }
 
     // Iterate AND groups
@@ -53,24 +51,22 @@ fun generateSqlFromFilterQuery(
             val singleRule = mutableListOf<String>()
 
             if (rule.asteroid != null) {
-                singleRule.add("ast.asteroid_id = ?")
-                params.add(getAsteroidTypeOrdinal(rule.asteroid))
+                singleRule.add("ast.asteroid_id = ${getAsteroidTypeOrdinal(rule.asteroid)}")
             }
 
             when {
                 rule.geyserCount != null -> {
                     val g = rule.geyserCount
-                    singleRule.add("ag.geyser_type = ?")
-                    params.add(getGeyserTypeOrdinal(g.geyser))
+                    singleRule.add("ag.geyser_type = ${getGeyserTypeOrdinal(g.geyser)}")
 
                     val count = g.count ?: 0
                     when (g.condition) {
                         FilterCondition.EXACTLY ->
-                            singleRule.add("ag.count = ?").also { params.add(count.toLong()) }
+                            singleRule.add("ag.count = $count")
                         FilterCondition.AT_LEAST ->
-                            singleRule.add("ag.count >= ?").also { params.add(count.toLong()) }
+                            singleRule.add("ag.count >= $count")
                         FilterCondition.AT_MOST ->
-                            singleRule.add("ag.count <= ?").also { params.add(count.toLong()) }
+                            singleRule.add("ag.count <= $count")
                     }
 
                     // Special zero-case handling: no matching geyser
@@ -78,40 +74,38 @@ fun generateSqlFromFilterQuery(
                         singleRule.clear()
                         singleRule.add(
                             "NOT EXISTS (SELECT 1 FROM asteroid_geyser ag2 " +
-                                "WHERE ag2.asteroid_summary_id = ast.id AND ag2.geyser_type = ?)"
+                                "WHERE ag2.asteroid_summary_id = ast.id " +
+                                "AND ag2.geyser_type = ${getGeyserTypeOrdinal(g.geyser)})"
                         )
-                        params.add(getGeyserTypeOrdinal(g.geyser))
                     }
                 }
 
                 rule.geyserOutput != null -> {
                     val g = rule.geyserOutput
-                    singleRule.add("ag.geyser_type = ?")
-                    params.add(getGeyserTypeOrdinal(g.geyser))
+                    singleRule.add("ag.geyser_type = ${getGeyserTypeOrdinal(g.geyser)}")
 
                     val out = g.outputInGramPerSecond ?: 0
                     when (g.condition) {
                         FilterCondition.EXACTLY ->
-                            singleRule.add("ag.total_output = ?").also { params.add(out.toLong()) }
+                            singleRule.add("ag.total_output = $out")
                         FilterCondition.AT_LEAST ->
-                            singleRule.add("ag.total_output >= ?").also { params.add(out.toLong()) }
+                            singleRule.add("ag.total_output >= $out")
                         FilterCondition.AT_MOST ->
-                            singleRule.add("ag.total_output <= ?").also { params.add(out.toLong()) }
+                            singleRule.add("ag.total_output <= $out")
                     }
                 }
 
                 rule.worldTrait != null -> {
                     val w = rule.worldTrait
                     if (w.has) {
-                        singleRule.add("awt.world_trait = ?")
-                        params.add(getWorldTraitOrdinal(w.worldTrait))
+                        singleRule.add("awt.world_trait = ${getWorldTraitOrdinal(w.worldTrait)}")
                     } else {
                         singleRule.clear()
                         singleRule.add(
                             "NOT EXISTS (SELECT 1 FROM asteroid_world_trait awt2 " +
-                                "WHERE awt2.asteroid_summary_id = ast.id AND awt2.world_trait = ?)"
+                                "WHERE awt2.asteroid_summary_id = ast.id " +
+                                "AND awt2.world_trait = ${getWorldTraitOrdinal(w.worldTrait)})"
                         )
-                        params.add(getWorldTraitOrdinal(w.worldTrait))
                     }
                 }
             }
@@ -130,9 +124,7 @@ fun generateSqlFromFilterQuery(
     }
 
     sb.appendLine("ORDER BY cs.id DESC")
-    sb.appendLine("LIMIT ? OFFSET ?")
-    params.add(limit)
-    params.add(offset)
+    sb.appendLine("LIMIT $limit OFFSET $offset")
 
     return sb.toString()
 }
