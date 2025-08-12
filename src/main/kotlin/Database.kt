@@ -30,11 +30,10 @@ object Database {
     }
 
     fun findMatchingCoordinates(
-        filterQuery: FilterQuery,
-        database: SearchIndexDatabase = Database.database
+        filterQuery: FilterQuery
     ): List<String> {
 
-        val sql = generateSqlFromFilterQuery(filterQuery, 10000, 0)
+        val sql = generateSqlFromFilterQuery(filterQuery, 100, 0)
 
         println("Generated SQL: $sql")
 

@@ -6,7 +6,6 @@ import model.filter.FilterQuery
 import org.mapsnotincluded.search.SearchIndexDatabase
 import java.util.Properties
 import kotlin.test.Test
-import kotlin.test.assertEquals
 import kotlin.time.measureTime
 
 class DatabaseTest {
@@ -81,7 +80,7 @@ class DatabaseTest {
 
             val filterQuery = Json.decodeFromString<FilterQuery>(testFilter)
 
-            val matchingCoordinates = Database.findMatchingCoordinates(filterQuery, database)
+            val matchingCoordinates = Database.findMatchingCoordinates(filterQuery)
 
             println("Found ${matchingCoordinates.size} matching coordinates: $matchingCoordinates")
 
