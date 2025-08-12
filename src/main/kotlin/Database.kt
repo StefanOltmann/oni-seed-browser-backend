@@ -1,6 +1,8 @@
+import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import model.Cluster
+import model.filter.FilterQuery
 import org.mapsnotincluded.search.ClusterSummaryQueries
 import org.mapsnotincluded.search.SearchIndexDatabase
 import java.util.Properties
@@ -20,11 +22,36 @@ object Database {
         database: SearchIndexDatabase = Database.database
     ) {
 
-        Database.database.clusterSummaryQueries.transaction {
+        database.clusterSummaryQueries.transaction {
 
             for (cluster in clusters)
                 addToSearchIndex(cluster, database)
         }
+    }
+
+    fun findMatchingCoordinates(
+        filterQuery: FilterQuery,
+        database: SearchIndexDatabase = Database.database
+    ): List<String> {
+
+        val sql = generateSqlFromFilterQuery(filterQuery, 10000, 0)
+
+        println("Generated SQL: $sql")
+
+        val result = driver.executeQuery(
+            identifier = null,
+            sql = sql,
+            mapper = { queryResult ->
+
+                println("Result: $queryResult")
+
+                QueryResult.Value(listOf("a", "b", "c"))
+            },
+            parameters = 0,
+            binders = null
+        )
+
+        return result.value
     }
 
     fun addToSearchIndex(

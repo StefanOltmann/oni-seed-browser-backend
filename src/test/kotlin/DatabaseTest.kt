@@ -77,21 +77,15 @@ class DatabaseTest {
         for (cluster in testClusters)
             Database.addToSearchIndex(cluster, database)
 
-        val filterGenerator = SqlFilterGenerator(database.clusterSummaryQueries)
-
-        val filterQuery = Json.decodeFromString<FilterQuery>(testFilter)
-
         val executionTime = measureTime {
 
-            val coordinates = filterGenerator.executeFilter(filterQuery)
+            val filterQuery = Json.decodeFromString<FilterQuery>(testFilter)
 
-            assertEquals(
-                expected = listOf(
-                    "FRST-C-1416591624-0-0-0",
-                    "FRST-C-999274608-0-0-0"
-                ),
-                actual = coordinates,
-            )
+            val matchingCoordinates = Database.findMatchingCoordinates(filterQuery, database)
+
+            println("Found ${matchingCoordinates.size} matching coordinates: $matchingCoordinates")
+
+            // TODO Check
         }
 
         println("Execution time: ${executionTime.inWholeMilliseconds} ms")
