@@ -53,6 +53,104 @@ getAsteroidSummaryId:
 SELECT id FROM asteroid_summary
 WHERE cluster_summary_id = ? AND asteroid_id = ?;
 
+
+-- selectByGeneralFilter:
+--
+-- Returns DISTINCT:
+--   coordinate, game_version, cluster_type
+--
+-- All *_filter params accept NULL to disable that filter.
+--
+-- Parameters:
+--   :cluster_type_filter     INTEGER or NULL
+--   :asteroid_id_filter      INTEGER or NULL
+--   :geyser_type_filter      INTEGER or NULL
+--   :world_trait_filter      INTEGER or NULL
+--
+--   Geyser numeric filters:
+--     :geyser_count_exact   INTEGER or NULL
+--     :geyser_count_min     INTEGER or NULL
+--     :geyser_count_max     INTEGER or NULL
+--
+--     :total_output_exact   INTEGER or NULL
+--     :total_output_min     INTEGER or NULL
+--     :total_output_max     INTEGER or NULL
+--
+--   Pagination:
+--     :limit   INTEGER  -- maximum rows to return
+--     :offset  INTEGER  -- number of result rows to skip (use 0 to start at beginning)
+--
+selectByGeneralFilter:
+SELECT DISTINCT cs.coordinate as coordinate, cs.game_version as game_version, cs.cluster_type as cluster_type
+FROM cluster_summary cs
+LEFT JOIN asteroid_summary ast
+  ON ast.cluster_summary_id = cs.id
+LEFT JOIN asteroid_geyser ag
+  ON ag.asteroid_summary_id = ast.id
+LEFT JOIN asteroid_world_trait awt
+  ON awt.asteroid_summary_id = ast.id
+WHERE
+  -- cluster_type filter (NULL disables)
+  (:cluster_type_filter IS NULL OR cs.cluster_type = :cluster_type_filter)
+
+  -- asteroid id/local-number filter (NULL disables)
+  AND (:asteroid_id_filter IS NULL OR ast.asteroid_id = :asteroid_id_filter)
+
+  -- geyser type filter (NULL disables)
+  AND (:geyser_type_filter IS NULL OR ag.geyser_type = :geyser_type_filter)
+
+  -- Geyser count filters (only apply if param not null)
+  AND (
+    (:geyser_count_exact IS NULL OR ag.count = :geyser_count_exact)
+    AND (:geyser_count_min   IS NULL OR ag.count >= :geyser_count_min)
+    AND (:geyser_count_max   IS NULL OR ag.count <= :geyser_count_max)
+  )
+
+  -- Total output filters (only apply if param not null)
+  AND (
+--    (:total_output_exact IS NULL OR ag.total_output = :total_output_exact)
+--    AND (:total_output_min   IS NULL OR ag.total_output >= :total_output_min)
+    (:total_output_min   IS NULL OR ag.total_output >= :total_output_min)
+    AND (:total_output_max   IS NULL OR ag.total_output <= :total_output_max)
+  )
+
+  -- world trait filter (NULL disables)
+  AND (:world_trait_filter IS NULL OR awt.world_trait = :world_trait_filter)
+
+ORDER BY cs.id DESC
+LIMIT :limit OFFSET :offset;
+
+--AI Suggested indexes/lookups to increase speed of selectByGeneralFilter (Test the sql with ANALYSE to see if they help)
+
+-- Covering index to help numeric filters (geyser count and/or total_output)
+CREATE INDEX IF NOT EXISTS idx_ag_geyser_type_counts
+  ON asteroid_geyser(geyser_type, count, total_output, asteroid_summary_id);
+
+--Lookups in reverse order of keys for faster lookup as we filter by these, not android_id.
+
+-- geyser type -> asteroid
+CREATE INDEX IF NOT EXISTS idx_ag_geyser_type_on_asteroid
+  ON asteroid_geyser(geyser_type, asteroid_summary_id);
+
+-- world trait -> asteroid
+CREATE INDEX IF NOT EXISTS idx_awt_trait_on_asteroid
+  ON asteroid_world_trait(world_trait, asteroid_summary_id);
+
+-- Fast asteroid-type filter
+CREATE INDEX IF NOT EXISTS idx_ast_asteroid_type
+  ON asteroid_summary(asteroid_type_id);
+
+-- Fast cluster-type filter
+CREATE INDEX IF NOT EXISTS idx_cs_cluster_type
+  ON cluster_summary(cluster_type);
+
+-- Partial index for existing geysers only
+CREATE INDEX IF NOT EXISTS idx_ag_positive_counts
+  ON asteroid_geyser(geyser_type, asteroid_summary_id)
+  WHERE count > 0;
+
+
+
 selectByClusterType:
 SELECT DISTINCT cs.coordinate, cs.game_version, cs.cluster_type
 FROM cluster_summary cs
