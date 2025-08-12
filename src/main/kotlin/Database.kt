@@ -16,6 +16,18 @@ object Database {
     private val database = SearchIndexDatabase(driver)
 
     fun addToSearchIndex(
+        clusters: List<Cluster>,
+        database: SearchIndexDatabase = Database.database
+    ) {
+
+        Database.database.clusterSummaryQueries.transaction {
+
+            for (cluster in clusters)
+                addToSearchIndex(cluster, database)
+        }
+    }
+
+    fun addToSearchIndex(
         cluster: Cluster,
         database: SearchIndexDatabase = Database.database
     ) {

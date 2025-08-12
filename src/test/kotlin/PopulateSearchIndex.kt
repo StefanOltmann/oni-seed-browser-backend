@@ -41,13 +41,13 @@ fun main() {
 
     val time = measureTime {
 
-        process(exportDataFolder) { cluster ->
+        process(exportDataFolder) { clusters ->
 
             counter++
 
-            println("$counter = ${cluster.coordinate}")
+            println("Processing batch $counter ...")
 
-            Database.addToSearchIndex(cluster)
+            Database.addToSearchIndex(clusters)
         }
 
         Database.vacuum()
@@ -59,7 +59,7 @@ fun main() {
 @OptIn(ExperimentalSerializationApi::class)
 private fun process(
     exportDataFolder: Path,
-    doWork: (Cluster) -> Unit
+    doWork: (List<Cluster>) -> Unit
 ) {
 
     val dataFiles = SystemFileSystem
@@ -75,8 +75,7 @@ private fun process(
 
             val clustersInFile = Json.decodeFromSource<List<Cluster>>(source)
 
-            for (cluster in clustersInFile)
-                doWork(cluster)
+            doWork(clustersInFile)
 
             System.gc()
         }
