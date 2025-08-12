@@ -10,6 +10,18 @@ import model.WorldTrait
 import model.filter.*
 import java.lang.StringBuilder
 
+private fun getClusterTypeOrdinal(prefix: String): Long =
+    ClusterType.entries.find { it.prefix == prefix }!!.ordinal.toLong()
+
+private fun getAsteroidTypeOrdinal(asteroidTypeName: String): Long =
+    AsteroidType.valueOf(asteroidTypeName).ordinal.toLong()
+
+private fun getGeyserTypeOrdinal(geyserTypeName: String): Long =
+    GeyserType.entries.find { it.type == geyserTypeName }!!.ordinal.toLong()
+
+private fun getWorldTraitOrdinal(worldTraitName: String): Long =
+    WorldTrait.valueOf(worldTraitName).ordinal.toLong()
+
 fun generateSqlFromFilterQuery(
     filterQuery: FilterQuery,
     limit: Long,
@@ -30,7 +42,7 @@ fun generateSqlFromFilterQuery(
     // Cluster type filter (always AND)
     if (filterQuery.cluster != null) {
         andClauses.add("cs.cluster_type = ?")
-        params.add(ClusterType.valueOf(filterQuery.cluster).ordinal.toLong())
+        params.add(getClusterTypeOrdinal(filterQuery.cluster))
     }
 
     // Iterate AND groups
@@ -42,14 +54,14 @@ fun generateSqlFromFilterQuery(
 
             if (rule.asteroid != null) {
                 singleRule.add("ast.asteroid_id = ?")
-                params.add(AsteroidType.valueOf(rule.asteroid).ordinal.toLong())
+                params.add(getAsteroidTypeOrdinal(rule.asteroid))
             }
 
             when {
                 rule.geyserCount != null -> {
                     val g = rule.geyserCount
                     singleRule.add("ag.geyser_type = ?")
-                    params.add(GeyserType.valueOf(g.geyser).ordinal.toLong())
+                    params.add(getGeyserTypeOrdinal(g.geyser))
 
                     val count = g.count ?: 0
                     when (g.condition) {
@@ -68,14 +80,14 @@ fun generateSqlFromFilterQuery(
                             "NOT EXISTS (SELECT 1 FROM asteroid_geyser ag2 " +
                                 "WHERE ag2.asteroid_summary_id = ast.id AND ag2.geyser_type = ?)"
                         )
-                        params.add(GeyserType.valueOf(g.geyser).ordinal.toLong())
+                        params.add(getGeyserTypeOrdinal(g.geyser))
                     }
                 }
 
                 rule.geyserOutput != null -> {
                     val g = rule.geyserOutput
                     singleRule.add("ag.geyser_type = ?")
-                    params.add(GeyserType.valueOf(g.geyser).ordinal.toLong())
+                    params.add(getGeyserTypeOrdinal(g.geyser))
 
                     val out = g.outputInGramPerSecond ?: 0
                     when (g.condition) {
@@ -92,14 +104,14 @@ fun generateSqlFromFilterQuery(
                     val w = rule.worldTrait
                     if (w.has) {
                         singleRule.add("awt.world_trait = ?")
-                        params.add(WorldTrait.valueOf(w.worldTrait).ordinal.toLong())
+                        params.add(getWorldTraitOrdinal(w.worldTrait))
                     } else {
                         singleRule.clear()
                         singleRule.add(
                             "NOT EXISTS (SELECT 1 FROM asteroid_world_trait awt2 " +
                                 "WHERE awt2.asteroid_summary_id = ast.id AND awt2.world_trait = ?)"
                         )
-                        params.add(WorldTrait.valueOf(w.worldTrait).ordinal.toLong())
+                        params.add(getWorldTraitOrdinal(w.worldTrait))
                     }
                 }
             }
