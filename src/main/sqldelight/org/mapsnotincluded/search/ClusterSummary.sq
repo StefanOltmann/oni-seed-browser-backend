@@ -81,7 +81,7 @@ WHERE cluster_summary_id = ? AND asteroid_id = ?;
 --     :offset  INTEGER  -- number of result rows to skip (use 0 to start at beginning)
 --
 selectByGeneralFilter:
-SELECT DISTINCT cs.coordinate as coordinate, cs.game_version as game_version, cs.cluster_type as cluster_type
+SELECT DISTINCT cs.coordinate AS coordinate
 FROM cluster_summary cs
 LEFT JOIN asteroid_summary ast
   ON ast.cluster_summary_id = cs.id
@@ -119,37 +119,6 @@ WHERE
 
 ORDER BY cs.id DESC
 LIMIT :limit OFFSET :offset;
-
---AI Suggested indexes/lookups to increase speed of selectByGeneralFilter (Test the sql with ANALYSE to see if they help)
-
--- Covering index to help numeric filters (geyser count and/or total_output)
-CREATE INDEX IF NOT EXISTS idx_ag_geyser_type_counts
-  ON asteroid_geyser(geyser_type, count, total_output, asteroid_summary_id);
-
---Lookups in reverse order of keys for faster lookup as we filter by these, not android_id.
-
--- geyser type -> asteroid
-CREATE INDEX IF NOT EXISTS idx_ag_geyser_type_on_asteroid
-  ON asteroid_geyser(geyser_type, asteroid_summary_id);
-
--- world trait -> asteroid
-CREATE INDEX IF NOT EXISTS idx_awt_trait_on_asteroid
-  ON asteroid_world_trait(world_trait, asteroid_summary_id);
-
--- Fast asteroid-type filter
-CREATE INDEX IF NOT EXISTS idx_ast_asteroid_type
-  ON asteroid_summary(asteroid_type_id);
-
--- Fast cluster-type filter
-CREATE INDEX IF NOT EXISTS idx_cs_cluster_type
-  ON cluster_summary(cluster_type);
-
--- Partial index for existing geysers only
-CREATE INDEX IF NOT EXISTS idx_ag_positive_counts
-  ON asteroid_geyser(geyser_type, asteroid_summary_id)
-  WHERE count > 0;
-
-
 
 selectByClusterType:
 SELECT DISTINCT cs.coordinate, cs.game_version, cs.cluster_type
