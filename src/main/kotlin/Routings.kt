@@ -82,6 +82,7 @@ import model.Dlc
 import model.FailedGenReport
 import model.FailedGenReportDatabase
 import model.FavoredCoordinate
+import model.FilterPerformanceAnalytics
 import model.ModBinaryChecksumDatabase
 import model.RateCoordinateRequest
 import model.RequestedCoordinate
@@ -102,6 +103,8 @@ import java.util.UUID
 import java.util.zip.GZIPOutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 
 /* Should not be necessary right now; was for migration. */
 const val POPULATE_SUMMARIES_ON_START = false
@@ -110,7 +113,7 @@ const val TRANSFER_MAPS_TO_S3 = true
 
 /* Limit the results to avoid memory issues */
 const val RESULT_LIMIT_OLD = 100
-const val RESULT_LIMIT_NEW = 300
+const val RESULT_LIMIT_NEW = 500
 
 const val LATEST_MAPS_LIMIT = 10
 
@@ -208,7 +211,7 @@ fun Application.configureRouting() {
     }
 }
 
-@OptIn(ExperimentalSerializationApi::class)
+@OptIn(ExperimentalSerializationApi::class, ExperimentalTime::class)
 private fun Application.configureRoutingInternal() {
 
     val startTime = System.currentTimeMillis()
@@ -648,7 +651,9 @@ private fun Application.configureRoutingInternal() {
 
                 val start = System.currentTimeMillis()
 
-                val filterQuery = call.receive<FilterQuery>()
+                val filterQueryJson = call.receive<String>()
+
+                val filterQuery = Json.decodeFromString<FilterQuery>(filterQueryJson)
 
                 val filter = generateFilter(filterQuery)
 
@@ -665,9 +670,22 @@ private fun Application.configureRoutingInternal() {
 
                 val duration = System.currentTimeMillis() - start
 
-                val filterQueryJson = Json.encodeToString(filterQuery)
+                /*
+                 * Capture filter performance analytics for fine-tuning the system.
+                 */
+                database
+                    .getCollection<FilterPerformanceAnalytics>("filterPerformance")
+                    .insertOne(
+                        FilterPerformanceAnalytics(
+                            date = Clock.System.now().toEpochMilliseconds(),
+                            filterQueryJson = filterQueryJson,
+                            durationMillis = duration,
+                            resultCount = matchingCoordinates.size,
+                            resultCoordinates = matchingCoordinates,
+                        )
+                    )
 
-                log("[SEARCH] Returned ${matchingCoordinates.size} search results in $duration ms: $filterQueryJson")
+                log("[SEARCH] Returned ${matchingCoordinates.size} search results in $duration ms.")
 
             } catch (ex: Exception) {
 
