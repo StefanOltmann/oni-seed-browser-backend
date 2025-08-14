@@ -460,7 +460,7 @@ private fun Application.configureRoutingInternal() {
                     .firstOrNull()
 
                 if (currentEntry == null)
-                    call.respond(HttpStatusCode.OK, "UNKNOWN")
+                    call.respond(HttpStatusCode.NotFound, "UNKNOWN")
                 else
                     call.respond(HttpStatusCode.OK, currentEntry.gitTag)
 
