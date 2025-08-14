@@ -141,11 +141,22 @@ private val publicKey: ECPublicKey = System.getenv("MNI_JWT_PUBLIC_KEY")?.let { 
     KeyFactory.getInstance("EC").generatePublic(keySpec) as ECPublicKey
 } ?: error("Missing MNI_JWT_PUBLIC_KEY environment variable")
 
-private val minioUser: String = System.getenv("MINIO_USER") ?:
-    error("Missing MINIO_USER environment variable")
+private val localS3User: String = System.getenv("LOCAL_S3_USER") ?: error("Missing LOCAL_S3_USER environment variable")
 
-private val minioPassword: String = System.getenv("MINIO_PASSWORD") ?:
-    error("Missing MINIO_PASSWORD environment variable")
+private val localS3Password: String =
+    System.getenv("LOCAL_S3_PASSWORD") ?: error("Missing LOCAL_S3_PASSWORD environment variable")
+
+private val externalS3Url: String =
+    System.getenv("EXTERNAL_S3_URL") ?: error("Missing EXTERNAL_S3_URL environment variable")
+
+private val externalS3Bucket: String =
+    System.getenv("EXTERNAL_S3_BUCKET") ?: error("Missing EXTERNAL_S3_BUCKET environment variable")
+
+private val externalS3User: String =
+    System.getenv("EXTERNAL_S3_USER") ?: error("Missing EXTERNAL_S3_USER environment variable")
+
+private val externalS3Password: String =
+    System.getenv("EXTERNAL_S3_PASSWORD") ?: error("Missing EXTERNAL_S3_PASSWORD environment variable")
 
 private val ecdsaAlgorithm = Algorithm.ECDSA256(publicKey)
 
@@ -189,10 +200,16 @@ private val strictAllFieldsCbor = Cbor {
     encodeDefaults = true
 }
 
-private val minioClient =
+private val localMinioClient =
     MinioClient.builder()
         .endpoint("http://minio:9000")
-        .credentials(minioUser, minioPassword)
+        .credentials(localS3User, localS3Password)
+        .build()
+
+private val externalMinioClient =
+    MinioClient.builder()
+        .endpoint(externalS3Url)
+        .credentials(externalS3User, externalS3Password)
         .build()
 
 private var seedRequestCounter = 0
@@ -965,7 +982,14 @@ private fun Application.configureRoutingInternal() {
                     )
                 }
 
-                uploadMapToS3(optimizedClusterWithMetadata)
+                uploadMapToS3(localMinioClient, optimizedClusterWithMetadata)
+
+                /* May fail during setup. */
+                try {
+                    uploadMapToS3(externalMinioClient, optimizedClusterWithMetadata)
+                } catch (ex: Exception) {
+                    log(ex)
+                }
 
                 call.respond(HttpStatusCode.OK, "Data was saved.")
 
@@ -1834,6 +1858,7 @@ private suspend fun createContributorTable() {
 }
 
 private fun uploadMapToS3(
+    minioClient: MinioClient,
     cluster: Cluster
 ) {
 
@@ -1856,7 +1881,12 @@ private fun uploadMapToS3(
     minioClient.putObject(
         PutObjectArgs
             .builder()
-            .bucket("oni-worlds")
+            .bucket(
+                if (minioClient == localMinioClient)
+                    "oni-worlds"
+                else
+                    externalS3Bucket
+            )
             .`object`(cluster.coordinate)
             .headers(
                 mapOf(
@@ -1881,7 +1911,7 @@ private suspend fun copyMapsToS3() {
 
     try {
 
-        val objects = minioClient.listObjects(
+        val objects = localMinioClient.listObjects(
             ListObjectsArgs.builder()
                 .bucket("oni-worlds")
                 .recursive(true)
@@ -1904,7 +1934,7 @@ private suspend fun copyMapsToS3() {
             if (existingNames.contains(cluster.coordinate))
                 return@collect
 
-            uploadMapToS3(cluster)
+            uploadMapToS3(localMinioClient, cluster)
         }
 
         val duration = System.currentTimeMillis() - start
