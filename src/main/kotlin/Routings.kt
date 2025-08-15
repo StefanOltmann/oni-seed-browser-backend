@@ -65,6 +65,7 @@ import io.minio.ListObjectsArgs
 import io.minio.MinioClient
 import io.minio.PutObjectArgs
 import io.sentry.Sentry
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
@@ -115,7 +116,7 @@ const val TRANSFER_MAPS_TO_S3 = true
 const val RESULT_LIMIT_OLD = 100
 const val RESULT_LIMIT_NEW = 500
 
-const val LATEST_MAPS_LIMIT = 10
+const val LATEST_MAPS_LIMIT = 30
 
 const val EXPORT_BATCH_SIZE = 10000
 
@@ -213,6 +214,8 @@ private val externalMinioClient =
         .build()
 
 private var seedRequestCounter = 0
+
+private val latestCoordinates = mutableListOf<String>()
 
 @OptIn(ExperimentalSerializationApi::class)
 fun Application.configureRouting() {
@@ -358,6 +361,7 @@ private fun Application.configureRoutingInternal() {
                 call.respondRedirect(LOGIN_BASE_URL + "http://localhost:$port")
         }
 
+        // DEPRECATED
         get("/coordinate/{coordinate}") {
 
             try {
@@ -618,47 +622,6 @@ private fun Application.configureRoutingInternal() {
                 log(ex)
 
                 call.respond(HttpStatusCode.InternalServerError, "Error on export")
-            }
-        }
-
-        // DEPRECATED
-        post("/search") {
-
-            try {
-
-                val start = System.currentTimeMillis()
-
-                val filterQuery = call.receive<FilterQuery>()
-
-                val filter = generateFilter(filterQuery)
-
-                val matchingSummaries: List<ClusterSummary> = database
-                    .getCollection<ClusterSummary>("summaries")
-                    .find(filter)
-                    .limit(RESULT_LIMIT_OLD)
-                    .toList()
-
-                val matchingCoordinates: List<String> =
-                    matchingSummaries.map { it.coordinate }.toList()
-
-                val resultClusters: List<Cluster> =
-                    clusterCollection
-                        .find(Filters.`in`("coordinate", matchingCoordinates))
-                        .toList()
-
-                call.respond(resultClusters)
-
-                val duration = System.currentTimeMillis() - start
-
-                val filterQueryJson = Json.encodeToString(filterQuery)
-
-                log("[SEARCH] Returned ${resultClusters.size} search results in $duration ms: $filterQueryJson")
-
-            } catch (ex: Exception) {
-
-                log(ex)
-
-                call.respond(HttpStatusCode.InternalServerError, "Error on search")
             }
         }
 
@@ -997,6 +960,18 @@ private fun Application.configureRoutingInternal() {
 
                 log("[UPLOAD] ${cluster.coordinate} in $duration ms by $steamId (auth = $uploaderAuthenticated)")
 
+                /*
+                 * Add coordinate to the latest list.
+                 * Wait a moment to allow S3 to index it.
+                 */
+
+                delay(500)
+
+                latestCoordinates.add(optimizedClusterWithMetadata.coordinate)
+
+                while (latestCoordinates.size > LATEST_MAPS_LIMIT)
+                    latestCoordinates.removeFirst()
+
             } catch (ex: Exception) {
 
                 log(ex)
@@ -1195,40 +1170,9 @@ private fun Application.configureRoutingInternal() {
         /**
          * Returns the latest maps added to the database.
          */
-        // DEPRECATED
-        get("/latest") {
-
-            try {
-
-                val latestClusters = clusterCollection
-                    .find()
-                    .sort(descending(Cluster::uploadDate.name))
-                    .limit(LATEST_MAPS_LIMIT)
-                    .toList()
-
-                call.respond(latestClusters)
-
-            } catch (ex: Exception) {
-
-                log(ex)
-
-                call.respond(HttpStatusCode.BadRequest, "Failed to get latest clusters.")
-            }
-        }
-
-        /**
-         * Returns the latest maps added to the database.
-         */
         get("/latest/v2") {
 
             try {
-
-                val latestCoordinates = clusterCollection
-                    .find()
-                    .sort(descending(Cluster::uploadDate.name))
-                    .limit(LATEST_MAPS_LIMIT)
-                    .toList()
-                    .map { it.coordinate }
 
                 call.respond(latestCoordinates)
 
@@ -1237,84 +1181,6 @@ private fun Application.configureRoutingInternal() {
                 log(ex)
 
                 call.respond(HttpStatusCode.BadRequest, "Failed to get latest clusters.")
-            }
-        }
-
-        // DEPRECATED
-        get("/favored-clusters") {
-
-            try {
-
-                val token: String? = this.call.request.headers[TOKEN_HEADER_WEBPAGE]
-
-                if (token.isNullOrBlank()) {
-                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER_WEBPAGE' header.")
-                    return@get
-                }
-
-                val jwt = jwtVerifier.verify(token)
-
-                val steamId = jwt.steamId
-
-                val favoredCoordinates: List<String> = likesCollection
-                    .find(Filters.eq("steamId", steamId))
-                    .map { it.coordinate }
-                    .toList()
-
-                val favoredClusters = clusterCollection.find(
-                    Filters.`in`("coordinate", favoredCoordinates)
-                ).toList()
-
-                call.respond(favoredClusters)
-
-            } catch (ex: JWTVerificationException) {
-
-                log("Invalid token used: ${ex.stackTraceToString()}")
-
-                call.respond(HttpStatusCode.Unauthorized, "Token was invalid.")
-
-            } catch (ex: Exception) {
-
-                log(ex)
-
-                call.respond(HttpStatusCode.BadRequest, "Failed to get favored clusters.")
-            }
-        }
-
-        // DEPRECATED
-        get("/favored-coordinates") {
-
-            try {
-
-                val token: String? = this.call.request.headers[TOKEN_HEADER_WEBPAGE]
-
-                if (token.isNullOrBlank()) {
-                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER_WEBPAGE' header.")
-                    return@get
-                }
-
-                val jwt = jwtVerifier.verify(token)
-
-                val steamId: String = jwt.steamId
-
-                val favoredCoordinates: List<String> = likesCollection
-                    .find(Filters.eq("steamId", steamId))
-                    .map { it.coordinate }
-                    .toList()
-
-                call.respond(favoredCoordinates)
-
-            } catch (ex: JWTVerificationException) {
-
-                log("Invalid token used: ${ex.stackTraceToString()}")
-
-                call.respond(HttpStatusCode.BadRequest, "Token was invalid.")
-
-            } catch (ex: Exception) {
-
-                log(ex)
-
-                call.respond(HttpStatusCode.BadRequest, "Failed to get favored coordinates.")
             }
         }
 
