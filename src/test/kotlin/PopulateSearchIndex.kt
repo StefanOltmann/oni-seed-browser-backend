@@ -61,7 +61,9 @@ fun main() {
 
     println("File size (before vacuum): ${file.length() / 1000 / 1000} MB")
 
+    Database.optimize()
     Database.vacuum()
+    Database.optimize()
 
     println("File size (after vacuum): ${file.length() / 1000 / 1000} MB")
 }

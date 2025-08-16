@@ -29,29 +29,6 @@ object Database {
         }
     }
 
-    fun findMatchingCoordinates(
-        filterQuery: FilterQuery
-    ): List<String> {
-
-        val sql = generateSqlFromFilterQuery(filterQuery, 100, 0)
-
-        return driver.executeQuery(
-            identifier = null,
-            sql = sql,
-            mapper = { cursor ->
-                QueryResult.Value(
-                    buildList {
-                        while (cursor.next().value) {
-                             add(cursor.getString(0)!!)
-                        }
-                    }
-                )
-            },
-            parameters = 0,
-            binders = null
-        ).value
-    }
-
     fun addToSearchIndex(
         cluster: Cluster,
         database: SearchIndexDatabase = Database.database
@@ -59,12 +36,12 @@ object Database {
 
         val queries: ClusterSummaryQueries = database.clusterSummaryQueries
 
-//        val cleanCoordinate = cleanCoordinate(coordinate = cluster.coordinate)
-//
-//        if (cleanCoordinate != cluster.coordinate) {
-//            println("Skipping data error: ${cluster.coordinate} != $cleanCoordinate")
-//            return
-//        }
+        val cleanCoordinate = cleanCoordinate(coordinate = cluster.coordinate)
+
+        if (cleanCoordinate != cluster.coordinate) {
+            println("Skipping data error: ${cluster.coordinate} != $cleanCoordinate")
+            return
+        }
 
 //        val exists = queries.getClusterSummaryId(
 //            coordinate = cluster.coordinate,
@@ -123,7 +100,34 @@ object Database {
         }
     }
 
+    fun findMatchingCoordinates(
+        filterQuery: FilterQuery
+    ): List<String> {
+
+        val sql = generateSqlFromFilterQuery(filterQuery, 500, 0)
+
+        return driver.executeQuery(
+            identifier = null,
+            sql = sql,
+            mapper = { cursor ->
+                QueryResult.Value(
+                    buildList {
+                        while (cursor.next().value) {
+                            add(cursor.getString(0)!!)
+                        }
+                    }
+                )
+            },
+            parameters = 0,
+            binders = null
+        ).value
+    }
+
     fun vacuum() {
         driver.execute(null, "VACUUM", 0)
+    }
+
+    fun optimize() {
+        driver.execute(null, "PRAGMA optimize", 0)
     }
 }

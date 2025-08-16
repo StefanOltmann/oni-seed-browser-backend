@@ -39,28 +39,28 @@ enum class ClusterType(
     BASE_CERES(
         prefix = "CER-A",
         requiredDlcs = listOf(Dlc.BaseGame, Dlc.FrostyPlanet),
-        exportCollection = ClusterExportCollection.FROSTYPLANET
+        exportCollection = ClusterExportCollection.BASEGAME
     ),
 
     /** Ceres */
     BASE_BLASTED_CERES(
         prefix = "CERS-A",
         requiredDlcs = listOf(Dlc.BaseGame, Dlc.FrostyPlanet),
-        exportCollection = ClusterExportCollection.FROSTYPLANET
+        exportCollection = ClusterExportCollection.BASEGAME
     ),
 
     /** Relica */
     BASE_RELICA(
         prefix = "PRE-A",
         requiredDlcs = listOf(Dlc.BaseGame, Dlc.PrehistoricPlanet),
-        exportCollection = ClusterExportCollection.PREHISTORIC
+        exportCollection = ClusterExportCollection.BASEGAME
     ),
 
     /** RelicAAAAAAAGHH */
     BASE_RELICA_LAB(
         prefix = "PRES-A",
         requiredDlcs = listOf(Dlc.BaseGame, Dlc.PrehistoricPlanet),
-        exportCollection = ClusterExportCollection.PREHISTORIC
+        exportCollection = ClusterExportCollection.BASEGAME
     ),
 
     /** Oceania */
@@ -123,98 +123,98 @@ enum class ClusterType(
     DLC_TERRA(
         prefix = "V-SNDST-C",
         requiredDlcs = listOf(Dlc.SpacedOut),
-        exportCollection = ClusterExportCollection.SPACEDOUT_CLASSIC
+        exportCollection = ClusterExportCollection.CLASSIC
     ),
 
     /** Ceres */
     DLC_CERES(
         prefix = "V-CER-C",
         requiredDlcs = listOf(Dlc.SpacedOut, Dlc.FrostyPlanet),
-        exportCollection = ClusterExportCollection.SPACEDOUT_CLASSIC
+        exportCollection = ClusterExportCollection.CLASSIC
     ),
 
     /** Ceres (lab) */
     DLC_BLASTED_CERES(
         prefix = "V-CERS-C",
         requiredDlcs = listOf(Dlc.SpacedOut, Dlc.FrostyPlanet),
-        exportCollection = ClusterExportCollection.FROSTYPLANET
+        exportCollection = ClusterExportCollection.CLASSIC
     ),
 
     /** Relica */
     DLC_RELICA(
         prefix = "V-PRE-C",
         requiredDlcs = listOf(Dlc.BaseGame, Dlc.PrehistoricPlanet),
-        exportCollection = ClusterExportCollection.PREHISTORIC
+        exportCollection = ClusterExportCollection.CLASSIC
     ),
 
     /** RelicAAAAAAAGHH */
     DLC_RELICA_LAB(
         prefix = "V-PRES-C",
         requiredDlcs = listOf(Dlc.BaseGame, Dlc.PrehistoricPlanet),
-        exportCollection = ClusterExportCollection.PREHISTORIC
+        exportCollection = ClusterExportCollection.CLASSIC
     ),
 
     /** Oceania */
     DLC_OCEANIA(
         prefix = "V-OCAN-C",
         requiredDlcs = listOf(Dlc.SpacedOut),
-        exportCollection = ClusterExportCollection.SPACEDOUT_CLASSIC
+        exportCollection = ClusterExportCollection.CLASSIC
     ),
 
     /** Squelchy */
     DLC_SQUELCHY(
         prefix = "V-SWMP-C",
         requiredDlcs = listOf(Dlc.SpacedOut),
-        exportCollection = ClusterExportCollection.SPACEDOUT_CLASSIC
+        exportCollection = ClusterExportCollection.CLASSIC
     ),
 
     /** Rime */
     DLC_RIME(
         prefix = "V-SFRZ-C",
         requiredDlcs = listOf(Dlc.SpacedOut),
-        exportCollection = ClusterExportCollection.SPACEDOUT_CLASSIC
+        exportCollection = ClusterExportCollection.CLASSIC
     ),
 
     /** Verdante */
     DLC_VERDANTE(
         prefix = "V-LUSH-C",
         requiredDlcs = listOf(Dlc.SpacedOut),
-        exportCollection = ClusterExportCollection.SPACEDOUT_CLASSIC
+        exportCollection = ClusterExportCollection.CLASSIC
     ),
 
     /** Arboria */
     DLC_ARBORIA(
         prefix = "V-FRST-C",
         requiredDlcs = listOf(Dlc.SpacedOut),
-        exportCollection = ClusterExportCollection.SPACEDOUT_CLASSIC
+        exportCollection = ClusterExportCollection.CLASSIC
     ),
 
     /** Volcanea */
     DLC_VOLCANEA(
         prefix = "V-VOLCA-C",
         requiredDlcs = listOf(Dlc.SpacedOut),
-        exportCollection = ClusterExportCollection.SPACEDOUT_CLASSIC
+        exportCollection = ClusterExportCollection.CLASSIC
     ),
 
     /** The Badlands */
     DLC_THE_BADLANDS(
         prefix = "V-BAD-C",
         requiredDlcs = listOf(Dlc.SpacedOut),
-        exportCollection = ClusterExportCollection.SPACEDOUT_CLASSIC
+        exportCollection = ClusterExportCollection.CLASSIC
     ),
 
     /** Aridio */
     DLC_ARIDIO(
         prefix = "V-HTFST-C",
         requiredDlcs = listOf(Dlc.SpacedOut),
-        exportCollection = ClusterExportCollection.SPACEDOUT_CLASSIC
+        exportCollection = ClusterExportCollection.CLASSIC
     ),
 
     /** Oasisse */
     DLC_OASISSE(
         prefix = "V-OASIS-C",
         requiredDlcs = listOf(Dlc.SpacedOut),
-        exportCollection = ClusterExportCollection.SPACEDOUT_CLASSIC
+        exportCollection = ClusterExportCollection.CLASSIC
     ),
 
     /** Terrania */
@@ -228,14 +228,14 @@ enum class ClusterType(
     DLC_CERES_MINOR(
         prefix = "CER-C",
         requiredDlcs = listOf(Dlc.SpacedOut),
-        exportCollection = ClusterExportCollection.FROSTYPLANET
+        exportCollection = ClusterExportCollection.SPACEDOUT
     ),
 
     /** Relica Minor */
     DLC_RELICA_MINOR(
         prefix = "PRE-C",
         requiredDlcs = listOf(Dlc.SpacedOut, Dlc.PrehistoricPlanet),
-        exportCollection = ClusterExportCollection.PREHISTORIC
+        exportCollection = ClusterExportCollection.SPACEDOUT
     ),
 
     /** Folia */
@@ -291,7 +291,7 @@ enum class ClusterType(
     DLC_CERES_MANTLE(
         prefix = "M-CERS-C",
         requiredDlcs = listOf(Dlc.SpacedOut, Dlc.FrostyPlanet),
-        exportCollection = ClusterExportCollection.FROSTYPLANET
+        exportCollection = ClusterExportCollection.SPACEDOUT
     );
 
     fun dlcRequirementsFulfilled(requirements: List<Dlc>): Boolean =
