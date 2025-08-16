@@ -103,6 +103,12 @@ object Database {
 
         val parts = model.CoordinateParts.fromCoordinateString(cluster.coordinate)
 
+        /* Skip data error (known unclean coordinate) */
+        if (cluster.coordinate == "CER-C-1680216866-0-D3-0")
+            return
+
+        println("Adding ${cluster.coordinate} to search index as $parts ...")
+
         queries.insertClusterSummary(
             seed = parts.seed.toLong(),
             game_version = cluster.gameVersion.toLong(),
@@ -110,23 +116,23 @@ object Database {
             remix = parts.remix
         )
 
-        // Get the cluster summary ID for this cluster
+        /* Get the cluster summary ID for this cluster */
         val clusterSummaryId = queries.getClusterSummaryId(
             seed = parts.seed.toLong(),
             cluster_type = parts.clusterType.ordinal.toLong(),
             remix = parts.remix
         ).executeAsOne()
 
-        // Process each asteroid in the cluster
+        /* Process each asteroid in the cluster */
         for (asteroid in cluster.asteroids) {
 
-            // Insert an asteroid summary record using cluster_summary_id
+            /* Insert an asteroid summary record using cluster_summary_id */
             queries.insertAsteroidSummary(
                 cluster_summary_id = clusterSummaryId,
                 asteroid_id = asteroid.id.ordinal.toLong()
             )
 
-            // Get the generated asteroid summary ID
+            /* Get the generated asteroid summary ID */
             val asteroidSummaryId = queries.getAsteroidSummaryId(
                 cluster_summary_id = clusterSummaryId,
                 asteroid_id = asteroid.id.ordinal.toLong()

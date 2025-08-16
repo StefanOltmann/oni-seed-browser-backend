@@ -673,6 +673,15 @@ private fun Application.configureRoutingInternal() {
                     return@post
                 }
 
+                /* Coordinate must be clean */
+                val cleanCoordinate = cleanCoordinate(cluster.coordinate)
+
+                if (!cluster.coordinate.equals(cleanCoordinate, ignoreCase = true)) {
+                    call.respond(HttpStatusCode.NotAcceptable, "Illegal coordinate: ${cluster.coordinate} != $cleanCoordinate")
+                    log("[UPLOAD] Rejected illegal data (coordinate): ${cluster.coordinate} != $cleanCoordinate")
+                    return@post
+                }
+
                 /* Cluster must have asteroids */
                 if (cluster.asteroids.isEmpty()) {
                     call.respond(HttpStatusCode.NotAcceptable, "Illegal data: No asteroids")
