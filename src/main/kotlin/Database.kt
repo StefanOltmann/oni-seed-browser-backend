@@ -102,7 +102,8 @@ object Database {
     }
 
     fun findMatchingCoordinates(
-        filterQuery: FilterQuery
+        filterQuery: FilterQuery,
+        driver: SqlDriver = Database.driver
     ): List<String> {
 
         val sql = generateSqlFromFilterQuery(filterQuery, 500, 0)

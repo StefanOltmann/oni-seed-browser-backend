@@ -25,6 +25,7 @@ import model.filter.FilterQuery
 import org.mapsnotincluded.search.SearchIndexDatabase
 import java.util.Properties
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.time.measureTime
 
 class DatabaseTest {
@@ -99,11 +100,14 @@ class DatabaseTest {
 
             val filterQuery = Json.decodeFromString<FilterQuery>(testFilter)
 
-            val matchingCoordinates = Database.findMatchingCoordinates(filterQuery)
+            val matchingCoordinates = Database.findMatchingCoordinates(filterQuery, driver)
 
-            println("Found ${matchingCoordinates.size} matching coordinates: $matchingCoordinates")
+            assert(matchingCoordinates.isNotEmpty())
 
-            // TODO Check
+            assertEquals(
+                expected = listOf("FRST-C-999274608-0-0-0", "FRST-C-1416591624-0-0-0"),
+                actual = matchingCoordinates
+            )
         }
 
         println("Execution time: ${executionTime.inWholeMilliseconds} ms")
