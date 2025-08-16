@@ -17,27 +17,44 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import java.security.KeyPairGenerator
-import java.util.Base64
+package model
 
-fun main() {
+object WorldTraitMask {
 
-    val keyPair = KeyPairGenerator.getInstance("RSA").run {
-        initialize(2048)
-        generateKeyPair()
+    fun toMask(traits: Collection<WorldTrait>): Long {
+
+        var mask = 0L
+
+        for (trait in traits) {
+            val bit = 1L shl trait.ordinal
+            mask = mask or bit
+        }
+
+        return mask
     }
 
-    println(
-        """
-        # MNI_JWT_PRIVATE_KEY
-        ${Base64.getEncoder().encodeToString(keyPair.private.encoded)}
-        """.trimIndent()
-    )
+    fun fromMask(mask: Long): List<WorldTrait> {
 
-    println(
-        """
-        # MNI_JWT_PUBLIC_KEY
-        ${Base64.getEncoder().encodeToString(keyPair.public.encoded)}
-        """.trimIndent()
-    )
+        if (mask == 0L)
+            return emptyList()
+
+        val result = ArrayList<WorldTrait>()
+
+        for (trait in WorldTrait.entries) {
+
+            val bit = 1L shl trait.ordinal
+
+            if ((mask and bit) != 0L)
+                result.add(trait)
+        }
+
+        return result
+    }
+
+    fun has(mask: Long, trait: WorldTrait): Boolean {
+
+        val bit = 1L shl trait.ordinal
+
+        return (mask and bit) != 0L
+    }
 }

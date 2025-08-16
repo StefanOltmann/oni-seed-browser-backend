@@ -22,6 +22,9 @@ private fun getGeyserTypeOrdinal(geyserTypeName: String): Long =
 private fun getWorldTraitOrdinal(worldTraitName: String): Long =
     WorldTrait.valueOf(worldTraitName).ordinal.toLong()
 
+private fun getWorldTraitBit(worldTraitName: String): Long =
+    1L shl WorldTrait.valueOf(worldTraitName).ordinal
+
 fun generateSqlFromFilterQuery(
     filterQuery: FilterQuery,
     limit: Long,
@@ -34,7 +37,6 @@ fun generateSqlFromFilterQuery(
     sb.appendLine("FROM cluster_summary cs")
     sb.appendLine("LEFT JOIN asteroid_summary ast ON ast.cluster_summary_id = cs.id")
     sb.appendLine("LEFT JOIN asteroid_geyser ag ON ag.asteroid_summary_id = ast.id")
-    sb.appendLine("LEFT JOIN asteroid_world_trait awt ON awt.asteroid_summary_id = ast.id")
 
     val andClauses = mutableListOf<String>()
 
@@ -112,20 +114,12 @@ fun generateSqlFromFilterQuery(
 
                     val worldTrait = rule.worldTrait
 
-                    if (worldTrait.has) {
+                    val bit = getWorldTraitBit(worldTrait.worldTrait)
 
-                        singleRule.add("awt.world_trait = ${getWorldTraitOrdinal(worldTrait.worldTrait)}")
-
-                    } else {
-
-                        singleRule.clear()
-
-                        singleRule.add(
-                            "NOT EXISTS (SELECT 1 FROM asteroid_world_trait awt2 " +
-                                "WHERE awt2.asteroid_summary_id = ast.id " +
-                                "AND awt2.world_trait = ${getWorldTraitOrdinal(worldTrait.worldTrait)})"
-                        )
-                    }
+                    if (worldTrait.has)
+                        singleRule.add("(ast.world_traits_mask & $bit) != 0")
+                    else
+                        singleRule.add("(ast.world_traits_mask & $bit) = 0")
                 }
             }
 

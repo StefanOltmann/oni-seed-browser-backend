@@ -8,17 +8,12 @@ CREATE TABLE asteroid_summary (
     id INTEGER PRIMARY KEY,
     cluster_summary_id INTEGER NOT NULL,
     asteroid_id INTEGER NOT NULL,
+    world_traits_mask INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY (cluster_summary_id) REFERENCES cluster_summary(id) ON DELETE CASCADE
 );
 
 -- CREATE UNIQUE INDEX idx_asteroid_summary_cluster_asteroid ON asteroid_summary(cluster_summary_id, asteroid_id);
 
-CREATE TABLE asteroid_world_trait (
-  asteroid_summary_id INTEGER NOT NULL,
-  world_trait INTEGER NOT NULL,
-  PRIMARY KEY (asteroid_summary_id, world_trait),
-  FOREIGN KEY (asteroid_summary_id) REFERENCES asteroid_summary(id) ON DELETE CASCADE
-) WITHOUT ROWID;
 
 CREATE TABLE asteroid_geyser (
     asteroid_summary_id INTEGER NOT NULL,
@@ -34,12 +29,9 @@ INSERT INTO cluster_summary (coordinate, cluster_type)
 VALUES (?, ?);
 
 insertAsteroidSummary:
-INSERT INTO asteroid_summary (cluster_summary_id, asteroid_id)
-VALUES (?, ?);
+INSERT INTO asteroid_summary (cluster_summary_id, asteroid_id, world_traits_mask)
+VALUES (?, ?, ?);
 
-insertWorldTrait:
-INSERT INTO asteroid_world_trait (asteroid_summary_id, world_trait)
-VALUES (?, ?);
 
 insertGeyser:
 INSERT INTO asteroid_geyser (asteroid_summary_id, geyser_type, count, total_output)

@@ -4,6 +4,7 @@ import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.runBlocking
 import model.Cluster
+import model.WorldTraitMask
 import model.filter.FilterQuery
 import org.mapsnotincluded.search.ClusterSummaryQueries
 import org.mapsnotincluded.search.SearchIndexDatabase
@@ -72,18 +73,11 @@ object Database {
             /* Insert an asteroid summary record using cluster_summary_id */
             queries.insertAsteroidSummary(
                 cluster_summary_id = clusterSummaryId,
-                asteroid_id = asteroid.id.ordinal.toLong()
+                asteroid_id = asteroid.id.ordinal.toLong(),
+                world_traits_mask = WorldTraitMask.toMask(asteroid.worldTraits)
             )
 
             val asteroidSummaryId = queries.getLastInsertedRowId().executeAsOne()
-
-            /* Insert world traits for this asteroid */
-            for (worldTrait in asteroid.worldTraits) {
-                queries.insertWorldTrait(
-                    asteroid_summary_id = asteroidSummaryId,
-                    world_trait = worldTrait.ordinal.toLong()
-                )
-            }
 
             /* Process geysers to calculate counts and total outputs */
             val geyserData = asteroid.geysers
@@ -112,6 +106,8 @@ object Database {
     ): List<String> {
 
         val sql = generateSqlFromFilterQuery(filterQuery, 500, 0)
+
+        println(sql)
 
         return driver.executeQuery(
             identifier = null,
