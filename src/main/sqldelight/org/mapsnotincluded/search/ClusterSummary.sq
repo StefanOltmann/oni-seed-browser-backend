@@ -1,6 +1,7 @@
 CREATE TABLE cluster_summary (
     id INTEGER PRIMARY KEY,
-    coordinate TEXT UNIQUE NOT NULL
+    coordinate TEXT UNIQUE NOT NULL,
+    cluster_type INTEGER NOT NULL
 );
 
 CREATE TABLE asteroid_summary (
@@ -29,8 +30,8 @@ CREATE TABLE asteroid_geyser (
 ) WITHOUT ROWID;
 
 insertClusterSummary:
-INSERT INTO cluster_summary (coordinate)
-VALUES (?);
+INSERT INTO cluster_summary (coordinate, cluster_type)
+VALUES (?, ?);
 
 insertAsteroidSummary:
 INSERT INTO asteroid_summary (cluster_summary_id, asteroid_id)

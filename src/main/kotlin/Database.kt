@@ -76,7 +76,8 @@ object Database {
 //        }
 
         queries.insertClusterSummary(
-            coordinate = cluster.coordinate
+            coordinate = cluster.coordinate,
+            cluster_type = cluster.cluster.ordinal.toLong()
         )
 
         val clusterSummaryId = queries.getLastInsertedRowId().executeAsOne()
