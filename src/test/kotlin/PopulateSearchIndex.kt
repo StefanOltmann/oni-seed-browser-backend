@@ -23,6 +23,7 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.io.decodeFromSource
 import model.Cluster
+import java.io.File
 import kotlin.time.measureTime
 
 /*
@@ -52,11 +53,17 @@ fun main() {
 
             println("Processed batch $counter in $taskTime")
         }
-
-        Database.vacuum()
     }
 
     println("Operation took $time")
+
+    val file = File("data/searchindex.db")
+
+    println("File size (before vacuum): ${file.length() / 1024 / 1024} MB")
+
+    Database.vacuum()
+
+    println("File size (after vacuum): ${file.length() / 1024 / 1024} MB")
 }
 
 @OptIn(ExperimentalSerializationApi::class)
@@ -71,8 +78,6 @@ private fun process(
         .sortedBy { it.name }
 
     for (file in dataFiles) {
-
-        println("Processing $file ...")
 
         SystemFileSystem.source(file).buffered().use { source ->
 

@@ -59,14 +59,12 @@ object Database {
 
         val queries: ClusterSummaryQueries = database.clusterSummaryQueries
 
-        val cleanCoordinate = cleanCoordinate(coordinate = cluster.coordinate)
-
-        if (cleanCoordinate != cluster.coordinate) {
-            println("Skipping data error: ${cluster.coordinate} != $cleanCoordinate")
-            return
-        }
-
-        // println("Adding ${cluster.coordinate} to search index as $parts ...")
+//        val cleanCoordinate = cleanCoordinate(coordinate = cluster.coordinate)
+//
+//        if (cleanCoordinate != cluster.coordinate) {
+//            println("Skipping data error: ${cluster.coordinate} != $cleanCoordinate")
+//            return
+//        }
 
 //        val exists = queries.getClusterSummaryId(
 //            coordinate = cluster.coordinate,
@@ -81,10 +79,7 @@ object Database {
             coordinate = cluster.coordinate
         )
 
-        /* Get the cluster summary ID for this cluster */
-        val clusterSummaryId = queries.getClusterSummaryId(
-            coordinate = cluster.coordinate,
-        ).executeAsOne()
+        val clusterSummaryId = queries.getLastInsertedRowId().executeAsOne()
 
         /* Process each asteroid in the cluster */
         for (asteroid in cluster.asteroids) {
@@ -95,13 +90,9 @@ object Database {
                 asteroid_id = asteroid.id.ordinal.toLong()
             )
 
-            /* Get the generated asteroid summary ID */
-            val asteroidSummaryId = queries.getAsteroidSummaryId(
-                cluster_summary_id = clusterSummaryId,
-                asteroid_id = asteroid.id.ordinal.toLong()
-            ).executeAsOne()
+            val asteroidSummaryId = queries.getLastInsertedRowId().executeAsOne()
 
-            // Insert world traits for this asteroid
+            /* Insert world traits for this asteroid */
             for (worldTrait in asteroid.worldTraits) {
                 queries.insertWorldTrait(
                     asteroid_summary_id = asteroidSummaryId,
@@ -109,7 +100,7 @@ object Database {
                 )
             }
 
-            // Process geysers to calculate counts and total outputs
+            /* Process geysers to calculate counts and total outputs */
             val geyserData = asteroid.geysers
                 .groupBy { it.id.ordinal }
                 .mapValues { (_, geysers) ->
@@ -119,7 +110,7 @@ object Database {
                     )
                 }
 
-            // Insert geyser data (both count and total output)
+            /* Insert geyser data (both count and total output) */
             for ((geyserType, data) in geyserData) {
                 queries.insertGeyser(
                     asteroid_summary_id = asteroidSummaryId,

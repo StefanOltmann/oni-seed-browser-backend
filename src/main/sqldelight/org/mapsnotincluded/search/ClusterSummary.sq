@@ -50,3 +50,6 @@ VALUES (?, ?, ?, ?);
 getAsteroidSummaryId:
 SELECT id FROM asteroid_summary
 WHERE cluster_summary_id = ? AND asteroid_id = ?;
+
+getLastInsertedRowId:
+SELECT last_insert_rowid();
