@@ -1,6 +1,8 @@
 import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.runBlocking
 import model.Cluster
 import model.filter.FilterQuery
 import org.mapsnotincluded.search.ClusterSummaryQueries
@@ -18,14 +20,19 @@ object Database {
     private val database = SearchIndexDatabase(driver)
 
     fun addToSearchIndex(
-        clusters: List<Cluster>,
+        clusterFlow: Flow<Cluster>,
         database: SearchIndexDatabase = Database.database
     ) {
 
         database.clusterSummaryQueries.transaction {
 
-            for (cluster in clusters)
-                addToSearchIndex(cluster, database)
+            runBlocking {
+
+                clusterFlow.collect { cluster ->
+
+                    addToSearchIndex(cluster, database)
+                }
+            }
         }
     }
 

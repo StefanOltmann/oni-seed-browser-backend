@@ -16,6 +16,8 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.io.buffered
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
@@ -38,21 +40,11 @@ fun main() {
         return
     }
 
-    var counter = 0
-
     val time = measureTime {
 
-        process(exportDataFolder) { clusters ->
-
-            counter++
-
-            val taskTime = measureTime {
-
-                Database.addToSearchIndex(clusters)
-            }
-
-            println("Processed batch $counter in $taskTime")
-        }
+        Database.addToSearchIndex(
+            clusterFlow = readClustersFromFolder(exportDataFolder)
+        )
     }
 
     println("Operation took $time")
@@ -69,10 +61,9 @@ fun main() {
 }
 
 @OptIn(ExperimentalSerializationApi::class)
-private fun process(
-    exportDataFolder: Path,
-    doWork: (List<Cluster>) -> Unit
-) {
+private fun readClustersFromFolder(
+    exportDataFolder: Path
+): Flow<Cluster> = flow {
 
     val dataFiles = SystemFileSystem
         .list(exportDataFolder)
@@ -83,9 +74,15 @@ private fun process(
 
         SystemFileSystem.source(file).buffered().use { source ->
 
-            val clustersInFile = Json.decodeFromSource<List<Cluster>>(source)
+            val time = measureTime {
 
-            doWork(clustersInFile)
+                val clustersInFile = Json.decodeFromSource<List<Cluster>>(source)
+
+                for (cluster in clustersInFile)
+                    emit(cluster)
+            }
+
+            println("Processed ${file.name} in $time ...")
 
             System.gc()
         }
