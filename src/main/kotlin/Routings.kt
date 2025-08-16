@@ -56,7 +56,6 @@ import io.ktor.server.request.receive
 import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondOutputStream
-import io.ktor.server.response.respondRedirect
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
@@ -84,13 +83,11 @@ import model.FailedGenReport
 import model.FailedGenReportDatabase
 import model.FavoredCoordinate
 import model.FilterPerformanceAnalytics
-import model.ModBinaryChecksumDatabase
 import model.RateCoordinateRequest
 import model.RequestedCoordinate
 import model.RequestedCoordinateStatus
 import model.Upload
 import model.UploadDatabase
-import model.Username
 import model.filter.FilterQuery
 import model.search.ClusterSummary
 import org.bson.Document
@@ -112,8 +109,6 @@ const val POPULATE_SUMMARIES_ON_START = false
 
 const val TRANSFER_MAPS_TO_S3 = true
 
-/* Limit the results to avoid memory issues */
-const val RESULT_LIMIT_OLD = 100
 const val RESULT_LIMIT_NEW = 500
 
 const val LATEST_MAPS_LIMIT = 30
@@ -122,12 +117,6 @@ const val EXPORT_BATCH_SIZE = 10000
 
 const val TOKEN_HEADER_WEBPAGE = "token"
 const val TOKEN_HEADER_MOD = "MNI_TOKEN"
-
-private const val LOGIN_BASE_URL: String =
-    "https://steam.auth.stefanoltmann.de/login?redirect="
-
-private const val PUBLIC_LOGIN_URL: String =
-    LOGIN_BASE_URL + "https://stefan-oltmann.de/oni-seed-browser/"
 
 private val connectionString: String = System.getenv("MONGO_DB_CONNECTION_STRING") ?: ""
 
@@ -344,136 +333,6 @@ private fun Application.configureRoutingInternal() {
             val minutes = uptimeMinutes % 60
 
             call.respondText("ONI Seed Browser Backend $VERSION (up since $uptimeHours hours and $minutes minutes)")
-        }
-
-        /**
-         * Login with Steam using the Steam backend
-         *
-         * This is intended for the standalone version!
-         */
-        get("/connect/{port}") {
-
-            val port = call.parameters["port"]
-
-            if (port == "0")
-                call.respondRedirect(PUBLIC_LOGIN_URL)
-            else
-                call.respondRedirect(LOGIN_BASE_URL + "http://localhost:$port")
-        }
-
-        // DEPRECATED
-        get("/coordinate/{coordinate}") {
-
-            try {
-
-                val coordinate = call.parameters["coordinate"]
-
-                if (coordinate.isNullOrBlank()) {
-
-                    call.respond(HttpStatusCode.BadRequest, "Invalid coordinate '$coordinate'")
-
-                    return@get
-                }
-
-                val cluster: Cluster? = clusterCollection.find(
-                    Filters.eq("coordinate", coordinate)
-                ).firstOrNull()
-
-                if (cluster != null)
-                    call.respond(cluster)
-                else
-                    call.respond(HttpStatusCode.NotFound, "No data found for coordinate: $coordinate")
-
-            } catch (ex: Exception) {
-
-                log(ex)
-
-                call.respond(HttpStatusCode.InternalServerError, "Error on getting coordinate")
-            }
-        }
-
-        post("/add-mod-binary-checksum") {
-
-            try {
-
-                val ipAddress = call.getIpAddress()
-
-                val start = System.currentTimeMillis()
-
-                val apiKey: String? = this.call.request.headers["API_KEY"]
-
-                if (apiKey != System.getenv("DATABASE_EXPORT_API_KEY")) {
-
-                    log("Unauthorized API key used by $ipAddress.")
-
-                    call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
-
-                    return@post
-                }
-
-                val gitTag: String? = this.call.request.headers["GIT_TAG"]
-
-                if (gitTag.isNullOrBlank()) {
-
-                    call.respond(HttpStatusCode.BadRequest, "Missing git tag.")
-
-                    return@post
-                }
-
-                val checksum = call.receive<String>()
-
-                if (checksum.isBlank()) {
-                    call.respond(HttpStatusCode.NotAcceptable, "checksum was not set.")
-                    return@post
-                }
-
-                val modBinaryChecksumCollection =
-                    database.getCollection<ModBinaryChecksumDatabase>("modBinaryChecksums")
-
-                modBinaryChecksumCollection.insertOne(
-                    ModBinaryChecksumDatabase(
-                        gitTag = gitTag,
-                        checksum = checksum,
-                        timestamp = System.currentTimeMillis()
-                    )
-                )
-
-                call.respond(HttpStatusCode.OK, "Checksum was saved.")
-
-                val duration = System.currentTimeMillis() - start
-
-                log("Accepted new checksum $checksum in $duration ms.")
-
-            } catch (ex: Exception) {
-
-                log(ex)
-
-                call.respond(HttpStatusCode.InternalServerError)
-            }
-        }
-
-        get("/current-mod-version") {
-
-            try {
-
-                val collection = database.getCollection<ModBinaryChecksumDatabase>("modBinaryChecksums")
-
-                val currentEntry = collection.find()
-                    .sort(descending("timestamp"))
-                    .limit(1)
-                    .firstOrNull()
-
-                if (currentEntry == null)
-                    call.respond(HttpStatusCode.NotFound, "UNKNOWN")
-                else
-                    call.respond(HttpStatusCode.OK, currentEntry.gitTag)
-
-            } catch (ex: Exception) {
-
-                log(ex)
-
-                call.respond(HttpStatusCode.InternalServerError, "Error on reporting current mod version")
-            }
         }
 
         get("/export/{collection}") {
@@ -836,6 +695,15 @@ private fun Application.configureRoutingInternal() {
                     return@post
                 }
 
+                val modHash = upload.fileHashes["modHash"]
+
+                /* ModHash must be sent. */
+                if (modHash.isNullOrBlank()) {
+                    call.respond(HttpStatusCode.NotAcceptable, "Illegal data: No 'modHash'.")
+                    log("[UPLOAD] Rejected illegal data (no modHash): $upload")
+                    return@post
+                }
+
                 val uploadDate: Long = System.currentTimeMillis()
 
                 val uploadDatabase = UploadDatabase(
@@ -916,12 +784,12 @@ private fun Application.configureRoutingInternal() {
                         Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.COMPLETED)
                     )
 
-                /* Add to search index */
+                /* Add to the search index */
                 database
                     .getCollection<ClusterSummary>("summaries")
                     .insertOne(ClusterSummary.create(cluster))
 
-                /* Update the contributors info */
+                /* Update the contributor info */
 
                 val newMapCount = countMaps(database, uploaderSteamIdHash)
 
@@ -1274,107 +1142,6 @@ private fun Application.configureRoutingInternal() {
             }
         }
 
-        /**
-         * Returns the current name the user wants to display as.
-         */
-        get("/username") {
-
-            try {
-
-                val token: String? = this.call.request.headers[TOKEN_HEADER_WEBPAGE]
-
-                if (token.isNullOrBlank()) {
-                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER_WEBPAGE' header.")
-                    return@get
-                }
-
-                val jwt = jwtVerifier.verify(token)
-
-                val steamId: String = jwt.steamId
-
-                val collection = database.getCollection<Username>("usernames")
-
-                /* Delete it first in case the name is changed. */
-                val username = collection.find<Username>(
-                    Filters.eq("steamId", steamId)
-                ).firstOrNull()
-
-                if (username == null)
-                    call.respond(HttpStatusCode.NotFound)
-                else
-                    call.respondText(username.username)
-
-            } catch (ex: JWTVerificationException) {
-
-                log("Invalid token used: ${ex.stackTraceToString()}")
-
-                call.respond(HttpStatusCode.Unauthorized, "Token was invalid.")
-
-            } catch (ex: Exception) {
-
-                log(ex)
-
-                call.respond(HttpStatusCode.BadRequest, "Failed to get username.")
-            }
-        }
-
-        /**
-         * Allows a user to set a username
-         */
-        post("/username") {
-
-            try {
-
-                val token: String? = this.call.request.headers[TOKEN_HEADER_WEBPAGE]
-
-                if (token.isNullOrBlank()) {
-                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER_WEBPAGE' header.")
-                    return@post
-                }
-
-                val jwt = jwtVerifier.verify(token)
-
-                val steamId: String = jwt.steamId
-
-                val wantedUsername = call.receive<String>()
-
-                val wantedUsernameTrimmed = wantedUsername.trim()
-
-                val collection = database.getCollection<Username>("usernames")
-
-                /* Delete it first in case the name is changed. */
-                collection.deleteOne(
-                    Filters.eq("steamId", steamId)
-                )
-
-                if (wantedUsernameTrimmed.isNotEmpty()) {
-
-                    /* Insert new name. */
-                    collection.insertOne(
-                        Username(
-                            steamId = steamId,
-                            username = wantedUsernameTrimmed
-                        )
-                    )
-                }
-
-                /* Send OK status. */
-                call.respond(HttpStatusCode.OK, "Username updated.")
-
-            } catch (ex: JWTVerificationException) {
-
-                log("Invalid token used: ${ex.stackTraceToString()}")
-
-                call.respond(HttpStatusCode.Unauthorized, "Token was invalid.")
-
-            } catch (ex: Exception) {
-
-                log(ex)
-
-                call.respond(HttpStatusCode.BadRequest, "Failed to set username.")
-            }
-        }
-
         /*
          * Provides requested coordinates to the running mod.
          */
@@ -1437,7 +1204,7 @@ private fun Application.configureRoutingInternal() {
 
 // TODO Call an API to get this version
 private fun findCurrentGameVersion(): Int {
-    return 679336 // Current version as of 2025-08-08
+    return 679336 // Current version as of 2025-08-16
 }
 
 private suspend fun handleGetRequestedCoordinate(
@@ -1662,13 +1429,6 @@ private suspend fun createContributorTable() {
 
     try {
 
-        val usernameCollection = database.getCollection<Username>("usernames")
-
-        val usernameMap = usernameCollection.find()
-            .map { it.steamId to it.username }
-            .toList()
-            .toMap()
-
         val uploadCollection = database.getCollection<Document>("uploads")
 
         val aggregation = listOf(
@@ -1686,7 +1446,7 @@ private suspend fun createContributorTable() {
         for (entry in counts) {
 
             /*
-             * We count only Steam users here, because we
+             * We count only Steam users here because we
              * only have a login with Steam.
              */
             if (!entry.key.startsWith("Steam-"))
@@ -1697,9 +1457,6 @@ private suspend fun createContributorTable() {
 
             val saltedSteamId = saltedSha256(steamId)
 
-            @SuppressWarnings("MagicNumber")
-            val username = usernameMap[steamId]
-
             contributorsCollection.deleteOne(
                 Filters.eq("steamIdHash", saltedSteamId)
             )
@@ -1707,7 +1464,7 @@ private suspend fun createContributorTable() {
             contributorsCollection.insertOne(
                 Contributor(
                     steamIdHash = saltedSteamId,
-                    username = username,
+                    username = null,
                     mapCount = entry.value
                 )
             )

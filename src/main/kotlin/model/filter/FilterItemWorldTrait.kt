@@ -25,7 +25,7 @@ import kotlinx.serialization.Transient
 @Serializable
 data class FilterItemWorldTrait(
 
-    /** True, if condition is positive */
+    /** True, if the condition is positive */
     val has: Boolean,
 
     val worldTrait: String

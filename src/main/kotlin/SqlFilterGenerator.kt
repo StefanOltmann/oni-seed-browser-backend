@@ -7,8 +7,8 @@ import model.AsteroidType
 import model.ClusterType
 import model.GeyserType
 import model.WorldTrait
-import model.filter.*
-import java.lang.StringBuilder
+import model.filter.FilterCondition
+import model.filter.FilterQuery
 
 private fun getClusterTypeOrdinal(prefix: String): Long =
     ClusterType.entries.find { it.prefix == prefix }!!.ordinal.toLong()
