@@ -101,19 +101,19 @@ object Database {
 
         val queries: ClusterSummaryQueries = database.clusterSummaryQueries
 
-        // Insert the main cluster summary record
         val parts = model.CoordinateParts.fromCoordinateString(cluster.coordinate)
+
         queries.insertClusterSummary(
             seed = parts.seed.toLong(),
             game_version = cluster.gameVersion.toLong(),
-            cluster_type = cluster.cluster.ordinal.toLong(),
+            cluster_type = parts.clusterType.ordinal.toLong(),
             remix = parts.remix
         )
 
         // Get the cluster summary ID for this cluster
         val clusterSummaryId = queries.getClusterSummaryId(
             seed = parts.seed.toLong(),
-            cluster_type = cluster.cluster.ordinal.toLong(),
+            cluster_type = parts.clusterType.ordinal.toLong(),
             remix = parts.remix
         ).executeAsOne()
 
