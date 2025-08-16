@@ -1440,10 +1440,10 @@ private suspend fun createContributorTable() {
 
     try {
 
-        val uploadCollection = database.getCollection<Document>("uploads")
+        val uploadCollection = database.getCollection<Document>("worlds")
 
         val aggregation = listOf(
-            Aggregates.group("\$userId", Accumulators.sum("count", 1)),
+            Aggregates.group("\$uploaderSteamIdHash", Accumulators.sum("count", 1)),
             Aggregates.sort(descending("count"))
         )
 
@@ -1456,25 +1456,13 @@ private suspend fun createContributorTable() {
 
         for (entry in counts) {
 
-            /*
-             * We count only Steam users here because we
-             * only have a login with Steam.
-             */
-            if (!entry.key.startsWith("Steam-"))
-                continue
-
-            @SuppressWarnings("MagicNumber")
-            val steamId = entry.key.drop(6)
-
-            val saltedSteamId = saltedSha256(steamId)
-
             contributorsCollection.deleteOne(
-                Filters.eq("steamIdHash", saltedSteamId)
+                Filters.eq("steamIdHash", entry.key)
             )
 
             contributorsCollection.insertOne(
                 Contributor(
-                    steamIdHash = saltedSteamId,
+                    steamIdHash = entry.key,
                     username = null,
                     mapCount = entry.value
                 )
