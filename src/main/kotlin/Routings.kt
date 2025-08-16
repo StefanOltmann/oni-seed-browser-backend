@@ -63,6 +63,7 @@ import io.ktor.server.routing.routing
 import io.minio.ListObjectsArgs
 import io.minio.MinioClient
 import io.minio.PutObjectArgs
+import io.minio.RemoveObjectArgs
 import io.sentry.Sentry
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.firstOrNull
@@ -1533,6 +1534,25 @@ private fun uploadMapToS3(
     )
 }
 
+private fun deleteFromS3(
+    minioClient: MinioClient,
+    coordinate: String
+) {
+
+    minioClient.removeObject(
+        RemoveObjectArgs
+            .builder()
+            .bucket(
+                if (minioClient == localMinioClient)
+                    "oni-worlds"
+                else
+                    externalS3Bucket
+            )
+            .`object`(coordinate)
+            .build()
+    )
+}
+
 private suspend fun copyMapsToS3() {
 
     if (!TRANSFER_MAPS_TO_S3)
@@ -1562,12 +1582,26 @@ private suspend fun copyMapsToS3() {
 
         val cursor = clusterCollection.find().batchSize(1000)
 
+        val existingClusterCoordinates = mutableSetOf<String>()
+
         cursor.collect { cluster ->
+
+            existingClusterCoordinates.add(cluster.coordinate)
 
             if (existingNames.contains(cluster.coordinate))
                 return@collect
 
             uploadMapToS3(localMinioClient, cluster)
+        }
+
+        val coordinatesToDelete = existingNames.minus(existingClusterCoordinates)
+
+        for (map in coordinatesToDelete) {
+
+            println("Delete $map from S3...")
+
+            deleteFromS3(localMinioClient, map)
+            deleteFromS3(externalMinioClient, map)
         }
 
         val duration = System.currentTimeMillis() - start
