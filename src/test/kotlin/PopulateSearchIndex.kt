@@ -59,11 +59,11 @@ fun main() {
 
     val file = File("data/searchindex.db")
 
-    println("File size (before vacuum): ${file.length() / 1024 / 1024} MB")
+    println("File size (before vacuum): ${file.length() / 1000 / 1000} MB")
 
     Database.vacuum()
 
-    println("File size (after vacuum): ${file.length() / 1024 / 1024} MB")
+    println("File size (after vacuum): ${file.length() / 1000 / 1000} MB")
 }
 
 @OptIn(ExperimentalSerializationApi::class)

@@ -6,17 +6,17 @@ CREATE TABLE cluster_summary (
 CREATE TABLE asteroid_summary (
     id INTEGER PRIMARY KEY,
     cluster_summary_id INTEGER NOT NULL,
-    asteroid_id INTEGER NOT NULL,
-    FOREIGN KEY (cluster_summary_id) REFERENCES cluster_summary(id) ON DELETE CASCADE
+    asteroid_id INTEGER NOT NULL
+    -- FOREIGN KEY (cluster_summary_id) REFERENCES cluster_summary(id) ON DELETE CASCADE
 );
 
-CREATE UNIQUE INDEX idx_asteroid_summary_cluster_asteroid ON asteroid_summary(cluster_summary_id, asteroid_id);
+-- CREATE UNIQUE INDEX idx_asteroid_summary_cluster_asteroid ON asteroid_summary(cluster_summary_id, asteroid_id);
 
 CREATE TABLE asteroid_world_trait (
   asteroid_summary_id INTEGER NOT NULL,
   world_trait INTEGER NOT NULL,
-  PRIMARY KEY (asteroid_summary_id, world_trait),
-  FOREIGN KEY (asteroid_summary_id) REFERENCES asteroid_summary(id) ON DELETE CASCADE
+  PRIMARY KEY (asteroid_summary_id, world_trait)
+  -- FOREIGN KEY (asteroid_summary_id) REFERENCES asteroid_summary(id) ON DELETE CASCADE
 ) WITHOUT ROWID;
 
 CREATE TABLE asteroid_geyser (
@@ -24,16 +24,13 @@ CREATE TABLE asteroid_geyser (
     geyser_type INTEGER NOT NULL,
     count INTEGER NOT NULL,
     total_output INTEGER NOT NULL,
-    PRIMARY KEY (asteroid_summary_id, geyser_type),
-    FOREIGN KEY (asteroid_summary_id) REFERENCES asteroid_summary(id) ON DELETE CASCADE
+    PRIMARY KEY (asteroid_summary_id, geyser_type)
+    -- FOREIGN KEY (asteroid_summary_id) REFERENCES asteroid_summary(id) ON DELETE CASCADE
 ) WITHOUT ROWID;
 
 insertClusterSummary:
 INSERT INTO cluster_summary (coordinate)
 VALUES (?);
-
-getClusterSummaryId:
-SELECT id FROM cluster_summary WHERE coordinate = ?;
 
 insertAsteroidSummary:
 INSERT INTO asteroid_summary (cluster_summary_id, asteroid_id)
@@ -46,10 +43,6 @@ VALUES (?, ?);
 insertGeyser:
 INSERT INTO asteroid_geyser (asteroid_summary_id, geyser_type, count, total_output)
 VALUES (?, ?, ?, ?);
-
-getAsteroidSummaryId:
-SELECT id FROM asteroid_summary
-WHERE cluster_summary_id = ? AND asteroid_id = ?;
 
 getLastInsertedRowId:
 SELECT last_insert_rowid();
