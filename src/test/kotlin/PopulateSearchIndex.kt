@@ -45,9 +45,12 @@ fun main() {
 
             counter++
 
-            println("Processing batch $counter ...")
+            val taskTime = measureTime {
 
-            Database.addToSearchIndex(clusters)
+                Database.addToSearchIndex(clusters)
+            }
+
+            println("Processed batch $counter in $taskTime")
         }
 
         Database.vacuum()

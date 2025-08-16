@@ -1,10 +1,10 @@
 CREATE TABLE cluster_summary (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id INTEGER PRIMARY KEY,
     coordinate TEXT UNIQUE NOT NULL
 );
 
 CREATE TABLE asteroid_summary (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id INTEGER PRIMARY KEY,
     cluster_summary_id INTEGER NOT NULL,
     asteroid_id INTEGER NOT NULL,
     FOREIGN KEY (cluster_summary_id) REFERENCES cluster_summary(id) ON DELETE CASCADE

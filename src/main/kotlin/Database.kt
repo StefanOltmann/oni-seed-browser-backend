@@ -68,19 +68,23 @@ object Database {
 
         // println("Adding ${cluster.coordinate} to search index as $parts ...")
 
+//        val exists = queries.getClusterSummaryId(
+//            coordinate = cluster.coordinate,
+//        ).executeAsOneOrNull() != null
+//
+//        if (exists) {
+//            error("Duplicate coordinate: ${cluster.coordinate}")
+//            return
+//        }
+
         queries.insertClusterSummary(
             coordinate = cluster.coordinate
         )
 
         /* Get the cluster summary ID for this cluster */
-        val clusterSummaryIdList = queries.getClusterSummaryId(
+        val clusterSummaryId = queries.getClusterSummaryId(
             coordinate = cluster.coordinate,
-        ).executeAsList()
-
-        if (clusterSummaryIdList.size != 1)
-            error("Error on coordinate ${cluster.coordinate}")
-
-        val clusterSummaryId = clusterSummaryIdList.first()
+        ).executeAsOne()
 
         /* Process each asteroid in the cluster */
         for (asteroid in cluster.asteroids) {
