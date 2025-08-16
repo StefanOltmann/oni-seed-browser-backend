@@ -69,9 +69,7 @@ object Database {
         // println("Adding ${cluster.coordinate} to search index as $parts ...")
 
         queries.insertClusterSummary(
-            coordinate = cluster.coordinate,
-            game_version = cluster.gameVersion.toLong(),
-            cluster_type = cluster.cluster.ordinal.toLong()
+            coordinate = cluster.coordinate
         )
 
         /* Get the cluster summary ID for this cluster */
