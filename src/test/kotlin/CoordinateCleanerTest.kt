@@ -1,11 +1,3 @@
-import junit.framework.TestCase.assertFalse
-import model.ClusterType
-import model.Dlc
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
-import kotlin.test.assertTrue
-
 /*
  * ONI Seed Browser Backend
  * Copyright (C) 2025 Stefan Oltmann
@@ -24,6 +16,14 @@ import kotlin.test.assertTrue
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+
+import junit.framework.TestCase.assertFalse
+import model.ClusterType
+import model.Dlc
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 
 class CoordinateCleanerTest {
 
