@@ -1,12 +1,9 @@
 CREATE TABLE cluster_summary (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    seed INTEGER NOT NULL,
+    coordinate TEXT UNIQUE NOT NULL,
     game_version INTEGER NOT NULL,
-    cluster_type INTEGER NOT NULL,
-    remix TEXT
+    cluster_type INTEGER NOT NULL
 );
-
-CREATE UNIQUE INDEX idx_cluster_unique ON cluster_summary(seed, cluster_type, remix);
 
 CREATE TABLE asteroid_summary (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -34,11 +31,11 @@ CREATE TABLE asteroid_geyser (
 ) WITHOUT ROWID;
 
 insertClusterSummary:
-INSERT INTO cluster_summary (seed, game_version, cluster_type, remix)
-VALUES (?, ?, ?, ?);
+INSERT INTO cluster_summary (coordinate, game_version, cluster_type)
+VALUES (?, ?, ?);
 
 getClusterSummaryId:
-SELECT id FROM cluster_summary WHERE seed = :seed AND cluster_type = :cluster_type AND ((remix IS NULL AND :remix IS NULL) OR remix = :remix);
+SELECT id FROM cluster_summary WHERE coordinate = ?;
 
 insertAsteroidSummary:
 INSERT INTO asteroid_summary (cluster_summary_id, asteroid_id)

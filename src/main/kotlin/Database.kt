@@ -33,36 +33,7 @@ object Database {
         filterQuery: FilterQuery
     ): List<String> {
 
-        val sqlInitial = generateSqlFromFilterQuery(filterQuery, 100, 0)
-
-        // Detect whether the current DB has migrated columns (seed/remix) or legacy 'coordinate'
-        val hasSeedColumn = driver.executeQuery(
-            identifier = null,
-            sql = "PRAGMA table_info(cluster_summary)",
-            mapper = { cursor ->
-                QueryResult.Value(
-                    run {
-                        var found = false
-                        while (cursor.next().value) {
-                            val colName = cursor.getString(1)
-                            if (colName.equals("seed", ignoreCase = true)) {
-                                found = true
-                            }
-                        }
-                        found
-                    }
-                )
-            },
-            parameters = 0,
-            binders = null
-        ).value
-
-        val sql = if (hasSeedColumn) sqlInitial else sqlInitial.replace(
-            "SELECT DISTINCT cs.seed, cs.remix, cs.cluster_type",
-            "SELECT DISTINCT cs.coordinate"
-        )
-
-        println("Generated SQL: $sql")
+        val sql = generateSqlFromFilterQuery(filterQuery, 100, 0)
 
         return driver.executeQuery(
             identifier = null,
@@ -71,20 +42,7 @@ object Database {
                 QueryResult.Value(
                     buildList {
                         while (cursor.next().value) {
-                            if (hasSeedColumn) {
-                                val seed = cursor.getLong(0)!!.toInt()
-                                val remix = cursor.getString(1)
-                                val clusterTypeOrdinal = cursor.getLong(2)!!.toInt()
-                                val clusterType = model.ClusterType.entries[clusterTypeOrdinal]
-                                val coordinate = model.CoordinateParts(
-                                    clusterType = clusterType,
-                                    seed = seed,
-                                    remix = remix
-                                ).toCoordinateString()
-                                add(coordinate)
-                            } else {
-                                add(cursor.getString(0)!!)
-                            }
+                             add(cursor.getString(0)!!)
                         }
                     }
                 )
@@ -101,8 +59,6 @@ object Database {
 
         val queries: ClusterSummaryQueries = database.clusterSummaryQueries
 
-        val parts = model.CoordinateParts.fromCoordinateString(cluster.coordinate)
-
         val cleanCoordinate = cleanCoordinate(coordinate = cluster.coordinate)
 
         if (cleanCoordinate != cluster.coordinate) {
@@ -113,17 +69,14 @@ object Database {
         // println("Adding ${cluster.coordinate} to search index as $parts ...")
 
         queries.insertClusterSummary(
-            seed = parts.seed.toLong(),
+            coordinate = cluster.coordinate,
             game_version = cluster.gameVersion.toLong(),
-            cluster_type = parts.clusterType.ordinal.toLong(),
-            remix = parts.remix
+            cluster_type = cluster.cluster.ordinal.toLong()
         )
 
         /* Get the cluster summary ID for this cluster */
         val clusterSummaryIdList = queries.getClusterSummaryId(
-            seed = parts.seed.toLong(),
-            cluster_type = parts.clusterType.ordinal.toLong(),
-            remix = parts.remix
+            coordinate = cluster.coordinate,
         ).executeAsList()
 
         if (clusterSummaryIdList.size != 1)
