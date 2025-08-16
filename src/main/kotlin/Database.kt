@@ -107,6 +107,11 @@ object Database {
         if (cluster.coordinate == "CER-C-1680216866-0-D3-0")
             return
 
+        val cleanCoordinate = cleanCoordinate(coordinate = cluster.coordinate)
+
+        if (cleanCoordinate != cluster.coordinate)
+            error("Illegal coordinate: ${cluster.coordinate} != $cleanCoordinate")
+
         println("Adding ${cluster.coordinate} to search index as $parts ...")
 
         queries.insertClusterSummary(
