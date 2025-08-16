@@ -105,7 +105,8 @@ import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
 /* Should not be necessary right now; was for migration. */
-const val POPULATE_SUMMARIES_ON_START = false
+val POPULATE_SUMMARIES_ON_START: Boolean =
+    (System.getenv("POPULATE_SUMMARIES_ON_START") ?: "false") == "true"
 
 const val TRANSFER_MAPS_TO_S3 = true
 
