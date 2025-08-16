@@ -33,8 +33,28 @@ data class CoordinateParts(
 
     companion object {
 
-//        fun fromCoordinateString(coordinate: String): CoordinateParts {
-//            // IMPLEMENT
-//        }
+        fun fromCoordinateString(coordinate: String): CoordinateParts {
+
+            val upper = coordinate.uppercase()
+
+            val clusterType = ClusterType.entries.find {
+                upper.startsWith(it.prefix)
+            } ?: throw IllegalArgumentException("Unknown cluster type in coordinate: $coordinate")
+
+            val remainder = upper.substring(clusterType.prefix.length + 1)
+            val parts = remainder.split('-')
+
+            if (parts.size != 4)
+                throw IllegalArgumentException("Invalid coordinate format: $coordinate")
+
+            val seedStr = parts[0]
+            val seed = seedStr.toIntOrNull()
+                ?: throw IllegalArgumentException("Seed must be an integer: $coordinate")
+
+            val remixRaw = parts[3]
+            val remix = if (remixRaw == "0" || remixRaw.isBlank()) null else remixRaw
+
+            return CoordinateParts(clusterType = clusterType, seed = seed, remix = remix)
+        }
     }
 }
