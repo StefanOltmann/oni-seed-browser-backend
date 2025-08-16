@@ -30,7 +30,7 @@ fun generateSqlFromFilterQuery(
 
     val sb = StringBuilder()
 
-    sb.appendLine("SELECT DISTINCT cs.coordinate")
+    sb.appendLine("SELECT DISTINCT cs.seed, cs.remix, cs.cluster_type")
     sb.appendLine("FROM cluster_summary cs")
     sb.appendLine("LEFT JOIN asteroid_summary ast ON ast.cluster_summary_id = cs.id")
     sb.appendLine("LEFT JOIN asteroid_geyser ag ON ag.asteroid_summary_id = ast.id")
