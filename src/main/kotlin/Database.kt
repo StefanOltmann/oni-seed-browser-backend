@@ -74,7 +74,7 @@ object Database {
             queries.insertAsteroidSummary(
                 cluster_summary_id = clusterSummaryId,
                 asteroid_id = asteroid.id.ordinal.toLong(),
-                world_traits_mask = WorldTraitMask.toMask(asteroid.worldTraits)
+                world_traits_mask = WorldTraitMask.toMask(asteroid.worldTraits).toLong()
             )
 
             val asteroidSummaryId = queries.getLastInsertedRowId().executeAsOne()

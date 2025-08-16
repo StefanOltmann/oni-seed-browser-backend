@@ -679,7 +679,10 @@ private fun Application.configureRoutingInternal() {
                 val cleanCoordinate = cleanCoordinate(cluster.coordinate)
 
                 if (!cluster.coordinate.equals(cleanCoordinate, ignoreCase = true)) {
-                    call.respond(HttpStatusCode.NotAcceptable, "Illegal coordinate: ${cluster.coordinate} != $cleanCoordinate")
+                    call.respond(
+                        HttpStatusCode.NotAcceptable,
+                        "Illegal coordinate: ${cluster.coordinate} != $cleanCoordinate"
+                    )
                     log("[UPLOAD] Rejected illegal data (coordinate): ${cluster.coordinate} != $cleanCoordinate")
                     return@post
                 }

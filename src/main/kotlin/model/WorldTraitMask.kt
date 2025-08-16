@@ -21,40 +21,40 @@ package model
 
 object WorldTraitMask {
 
-    fun toMask(traits: Collection<WorldTrait>): Long {
+    fun toMask(traits: Collection<WorldTrait>): Int {
 
-        var mask = 0L
+        var mask = 0
 
         for (trait in traits) {
-            val bit = 1L shl trait.ordinal
+            val bit = 1 shl trait.ordinal
             mask = mask or bit
         }
 
         return mask
     }
 
-    fun fromMask(mask: Long): List<WorldTrait> {
+    fun fromMask(mask: Int): List<WorldTrait> {
 
-        if (mask == 0L)
+        if (mask == 0)
             return emptyList()
 
         val result = ArrayList<WorldTrait>()
 
         for (trait in WorldTrait.entries) {
 
-            val bit = 1L shl trait.ordinal
+            val bit = 1 shl trait.ordinal
 
-            if ((mask and bit) != 0L)
+            if ((mask and bit) != 0)
                 result.add(trait)
         }
 
         return result
     }
 
-    fun has(mask: Long, trait: WorldTrait): Boolean {
+    fun has(mask: Int, trait: WorldTrait): Boolean {
 
-        val bit = 1L shl trait.ordinal
+        val bit = 1 shl trait.ordinal
 
-        return (mask and bit) != 0L
+        return (mask and bit) != 0
     }
 }
