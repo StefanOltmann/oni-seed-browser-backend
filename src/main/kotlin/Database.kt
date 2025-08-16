@@ -103,16 +103,14 @@ object Database {
 
         val parts = model.CoordinateParts.fromCoordinateString(cluster.coordinate)
 
-        /* Skip data error (known unclean coordinate) */
-        if (cluster.coordinate == "CER-C-1680216866-0-D3-0")
-            return
-
         val cleanCoordinate = cleanCoordinate(coordinate = cluster.coordinate)
 
-        if (cleanCoordinate != cluster.coordinate)
-            error("Illegal coordinate: ${cluster.coordinate} != $cleanCoordinate")
+        if (cleanCoordinate != cluster.coordinate) {
+            println("Skipping data error: ${cluster.coordinate} != $cleanCoordinate")
+            return
+        }
 
-        println("Adding ${cluster.coordinate} to search index as $parts ...")
+        // println("Adding ${cluster.coordinate} to search index as $parts ...")
 
         queries.insertClusterSummary(
             seed = parts.seed.toLong(),
@@ -122,11 +120,16 @@ object Database {
         )
 
         /* Get the cluster summary ID for this cluster */
-        val clusterSummaryId = queries.getClusterSummaryId(
+        val clusterSummaryIdList = queries.getClusterSummaryId(
             seed = parts.seed.toLong(),
             cluster_type = parts.clusterType.ordinal.toLong(),
             remix = parts.remix
-        ).executeAsOne()
+        ).executeAsList()
+
+        if (clusterSummaryIdList.size != 1)
+            error("Error on coordinate ${cluster.coordinate}")
+
+        val clusterSummaryId = clusterSummaryIdList.first()
 
         /* Process each asteroid in the cluster */
         for (asteroid in cluster.asteroids) {
