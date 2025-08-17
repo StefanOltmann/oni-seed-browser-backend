@@ -65,6 +65,8 @@ import io.minio.MinioClient
 import io.minio.PutObjectArgs
 import io.minio.RemoveObjectArgs
 import io.sentry.Sentry
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
@@ -113,7 +115,7 @@ const val TRANSFER_MAPS_TO_S3 = true
 
 const val RESULT_LIMIT_NEW = 500
 
-const val LATEST_MAPS_LIMIT = 30
+const val LATEST_MAPS_LIMIT = 50
 
 const val EXPORT_BATCH_SIZE = 10000
 
@@ -205,6 +207,8 @@ private val externalMinioClient =
         .build()
 
 private var seedRequestCounter = 0
+
+private val backgroundScope = CoroutineScope(Dispatchers.Default)
 
 private val latestCoordinates = mutableListOf<String>()
 
@@ -846,13 +850,21 @@ private fun Application.configureRoutingInternal() {
                  * Add coordinate to the latest list.
                  * Wait a moment to allow S3 to index it.
                  */
+                 backgroundScope.launch {
 
-                delay(500)
+                    delay(2000)
 
-                latestCoordinates.add(optimizedClusterWithMetadata.coordinate)
+                     /*
+                      * Add it to the top of the list.
+                      */
+                    latestCoordinates.add(0, optimizedClusterWithMetadata.coordinate)
 
-                while (latestCoordinates.size > LATEST_MAPS_LIMIT)
-                    latestCoordinates.removeFirst()
+                     /*
+                      * Remove the last entry
+                      */
+                    while (latestCoordinates.size > LATEST_MAPS_LIMIT)
+                        latestCoordinates.removeLast()
+                }
 
             } catch (ex: Exception) {
 
