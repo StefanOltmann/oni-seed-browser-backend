@@ -86,6 +86,7 @@ import model.FailedGenReport
 import model.FailedGenReportDatabase
 import model.FavoredCoordinate
 import model.FilterPerformanceAnalytics
+import model.OriginalBiomePaths
 import model.RateCoordinateRequest
 import model.RequestedCoordinate
 import model.RequestedCoordinateStatus
@@ -779,6 +780,22 @@ private fun Application.configureRoutingInternal() {
                     }
                 }
 
+                /*
+                 * Collect some test data for a polybool-java Kotlin port.
+                 */
+                val biomePathsCollection = database.getCollection<OriginalBiomePaths>("biomepaths")
+
+                for (asteroid in cluster.asteroids) {
+
+                    biomePathsCollection.insertOne(
+                        OriginalBiomePaths(
+                            coordinate = cluster.coordinate,
+                            asteroidId = asteroid.id.name,
+                            biomePaths = asteroid.biomePaths
+                        )
+                    )
+                }
+
                 val uploaderSteamIdHash = saltedSha256(steamId)
 
                 val optimizedCluster = cluster.optimizeBiomePaths()
@@ -850,18 +867,18 @@ private fun Application.configureRoutingInternal() {
                  * Add coordinate to the latest list.
                  * Wait a moment to allow S3 to index it.
                  */
-                 backgroundScope.launch {
+                backgroundScope.launch {
 
                     delay(2000)
 
-                     /*
-                      * Add it to the top of the list.
-                      */
+                    /*
+                     * Add it to the top of the list.
+                     */
                     latestCoordinates.add(0, optimizedClusterWithMetadata.coordinate)
 
-                     /*
-                      * Remove the last entry
-                      */
+                    /*
+                     * Remove the last entry
+                     */
                     while (latestCoordinates.size > LATEST_MAPS_LIMIT)
                         latestCoordinates.removeLast()
                 }
