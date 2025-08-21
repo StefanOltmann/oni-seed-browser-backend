@@ -100,7 +100,7 @@ dependencies {
     /*
      * Biome path optimization
      */
-    implementation("com.menecats:polybool-java:1.0.1")
+    implementation("de.stefan-oltmann:polybool-kotlin:0.1.0")
 
     /*
      * JWT handling

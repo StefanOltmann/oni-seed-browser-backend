@@ -17,11 +17,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import com.menecats.polybool.Epsilon
-import com.menecats.polybool.PolyBool
-import com.menecats.polybool.helpers.PolyBoolHelper.epsilon
-import com.menecats.polybool.helpers.PolyBoolHelper.polygon
-import com.menecats.polybool.models.Polygon
+import de.stefan_oltmann.polybool.Epsilon
+import de.stefan_oltmann.polybool.PolyBool
+import de.stefan_oltmann.polybool.models.Polygon
 import model.Asteroid
 import model.BiomePaths
 import model.Cluster
@@ -48,12 +46,12 @@ fun BiomePaths.optimize(): BiomePaths {
 
         val polygon = Polygon(regionPointsList)
 
-        val epsilon: Epsilon = epsilon()
+        val epsilon = Epsilon()
 
         val mergedPolygon: Polygon = PolyBool.union(
             epsilon,
             polygon,
-            polygon()
+            Polygon()
         )
 
         val resultListList = mutableListOf<List<Point>>()
