@@ -53,6 +53,7 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.cors.routing.CORS
 import io.ktor.server.plugins.origin
 import io.ktor.server.request.receive
+import io.ktor.server.request.receiveText
 import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondOutputStream
@@ -630,7 +631,9 @@ private fun Application.configureRoutingInternal() {
                     return@post
                 }
 
-                val upload = call.receive<Upload>()
+                val originalData = call.receiveText()
+
+                val upload = Json.decodeFromString<Upload>(originalData)
 
                 if (upload.userId.isBlank()) {
 
@@ -845,6 +848,38 @@ private fun Application.configureRoutingInternal() {
                 val duration = System.currentTimeMillis() - start
 
                 log("[UPLOAD] ${cluster.coordinate} in $duration ms by $steamId (auth = $uploaderAuthenticated)")
+
+                /* Collect some original uploads, may fail */
+                try {
+
+                    val gzippedJsonBytes = ByteArrayOutputStream().use { byteStream ->
+
+                        GZIPOutputStream(byteStream).use { gzipStream ->
+                            gzipStream.write(originalData.encodeToByteArray())
+                            gzipStream.finish()
+                        }
+                        byteStream.toByteArray()
+                    }
+
+                    externalMinioClient.putObject(
+                        PutObjectArgs
+                            .builder()
+                            .bucket("oni-original-uploads")
+                            .`object`(cluster.coordinate)
+                            .headers(
+                                mapOf(
+                                    "Content-Type" to "application/json",
+                                    "Content-Encoding" to "gzip",
+                                    "Cache-Control" to "public, max-age=31536000, immutable"
+                                )
+                            )
+                            .stream(gzippedJsonBytes.inputStream(), gzippedJsonBytes.size.toLong(), -1)
+                            .build()
+                    )
+
+                } catch (ex: Exception) {
+                    log(ex)
+                }
 
                 /*
                  * Add coordinate to the latest list.
