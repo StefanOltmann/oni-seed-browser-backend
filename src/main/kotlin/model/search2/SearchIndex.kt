@@ -56,7 +56,13 @@ class SearchIndex(
              * The outer loop iterates through groups that are connected by AND.
              * A cluster summary must satisfy ALL of these groups to be a match.
              */
-            for (andGroup in filterQuery.rules) {
+            for (orRules in filterQuery.rules) {
+
+                /*
+                 * Ignore empty OR-rules. Should not happen.
+                 */
+                if (orRules.isEmpty())
+                    continue
 
                 /*
                  * For each group, we check if ANY rule within it matches (OR logic).
@@ -64,9 +70,9 @@ class SearchIndex(
                  */
                 var groupMatches = false
 
-                for (orRule in andGroup) {
+                for (orRule in orRules) {
 
-                    /* Find the requested asteroid summary by enum name */
+                    /* Find the requested asteroid summary by enum name or ignore this rule. */
                     val asteroidSummary = clusterSummary.asteroidSummaries.firstOrNull {
                         it.id.name == orRule.asteroid
                     } ?: continue
@@ -76,29 +82,25 @@ class SearchIndex(
                         orRule.geyserCount != null -> {
 
                             val item = orRule.geyserCount
+
                             val geyserTypeName = item.geyser
+
                             val geyserType = GeyserType.entries.find { it.type == geyserTypeName }
+                                ?: error("Geyser type not found for $geyserTypeName.")
 
-                            if (geyserType == null) {
+                            val index = geyserType.ordinal
 
-                                false
+                            val count = if (index < asteroidSummary.geyserCounts.size)
+                                asteroidSummary.geyserCounts[index].toInt()
+                            else
+                                0
 
-                            } else {
+                            val expected = item.count ?: 0
 
-                                val index = geyserType.ordinal
-
-                                val count = if (index < asteroidSummary.geyserCounts.size)
-                                    asteroidSummary.geyserCounts[index].toInt()
-                                else
-                                    0
-
-                                val expected = item.count ?: 0
-
-                                when (item.condition) {
-                                    FilterCondition.EXACTLY -> count == expected
-                                    FilterCondition.AT_LEAST -> if (expected == 0) count > 0 else count >= expected
-                                    FilterCondition.AT_MOST -> count <= expected
-                                }
+                            when (item.condition) {
+                                FilterCondition.EXACTLY -> count == expected
+                                FilterCondition.AT_LEAST -> if (expected == 0) count > 0 else count >= expected
+                                FilterCondition.AT_MOST -> count <= expected
                             }
                         }
 
@@ -109,34 +111,28 @@ class SearchIndex(
                             val geyserTypeName = item.geyser
 
                             val geyserType = GeyserType.entries.find { it.type == geyserTypeName }
+                                ?: error("Geyser type not found for $geyserTypeName.")
 
-                            if (geyserType == null) {
+                            val index = geyserType.ordinal
 
-                                false
+                            val count = if (index < asteroidSummary.geyserCounts.size)
+                                asteroidSummary.geyserCounts[index].toInt()
+                            else
+                                0
 
-                            } else {
+                            val average = if (index < asteroidSummary.geyserAvgOutputs.size)
+                                asteroidSummary.geyserAvgOutputs[index].toInt()
+                            else
+                                0
 
-                                val index = geyserType.ordinal
+                            /* Convert average to total as required */
+                            val total = average * count
+                            val expected = item.outputInGramPerSecond ?: 0
 
-                                val count = if (index < asteroidSummary.geyserCounts.size)
-                                    asteroidSummary.geyserCounts[index].toInt()
-                                else
-                                    0
-
-                                val average = if (index < asteroidSummary.geyserAvgOutputs.size)
-                                    asteroidSummary.geyserAvgOutputs[index].toInt()
-                                else
-                                    0
-
-                                /* Convert average to total as required */
-                                val total = average * count
-                                val expected = item.outputInGramPerSecond ?: 0
-
-                                when (item.condition) {
-                                    FilterCondition.EXACTLY -> total == expected
-                                    FilterCondition.AT_LEAST -> total >= expected
-                                    FilterCondition.AT_MOST -> total <= expected
-                                }
+                            when (item.condition) {
+                                FilterCondition.EXACTLY -> total == expected
+                                FilterCondition.AT_LEAST -> total >= expected
+                                FilterCondition.AT_MOST -> total <= expected
                             }
                         }
 
@@ -147,26 +143,20 @@ class SearchIndex(
                             val trait = try {
                                 WorldTrait.valueOf(item.worldTrait)
                             } catch (_: IllegalArgumentException) {
-                                null
+                                error("World trait not found for ${item.worldTrait}.")
                             }
 
-                            if (trait == null) {
+                            val hasTrait = WorldTraitMask.has(asteroidSummary.worldTraitsBitMask, trait)
 
-                                false
-
-                            } else {
-
-                                val hasTrait = WorldTraitMask.has(asteroidSummary.worldTraitsBitMask, trait)
-
-                                if (item.has)
-                                    hasTrait
-                                else
-                                    !hasTrait
-                            }
+                            if (item.has)
+                                hasTrait
+                            else
+                                !hasTrait
                         }
 
                         /* Unsupported or empty rule */
-                        else -> false
+                        else ->
+                            error("Unsupported filter rule: $orRule")
                     }
 
                     /* If we find just one matching rule, this group is satisfied (OR logic). */

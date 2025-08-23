@@ -42,17 +42,19 @@ fun main() {
 
         val results = searchIndex.match(filterQuery = query)
 
-        if (results.size < 500) {
+        if (results.size < 20) {
 
-            //println(query)
+            println(Json.encodeToString(query))
 
-            //println("--> Found ${results.size} results")
+            println("--> Found ${results.size} results")
+
+            for (result in results)
+                println(" -> $result")
 
         } else {
 
             // println("${results.size} results? for $query")
         }
-
     }
 }
 
