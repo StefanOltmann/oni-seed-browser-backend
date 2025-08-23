@@ -29,6 +29,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.io.decodeFromSource
 import kotlinx.serialization.protobuf.ProtoBuf
 import model.Cluster
+import model.ClusterType
 import model.search2.ClusterSummaryCompact
 import java.io.File
 import kotlin.time.measureTime
@@ -46,11 +47,9 @@ fun main() = runBlocking {
         return@runBlocking
     }
 
-    val json = Json {
-        encodeDefaults = true
-    }
-
     val protobuf = ProtoBuf {}
+
+    var overallClusterCount = 0
 
     var overallProtoSize = 0
 
@@ -58,31 +57,38 @@ fun main() = runBlocking {
 
         val flow = readClustersFromFolder(exportDataFolder)
 
-        val clusterSummaries = mutableListOf<ClusterSummaryCompact>()
+        val clustersPerType = mutableMapOf<ClusterType, MutableList<ClusterSummaryCompact>>()
 
         flow.collect { cluster ->
 
-            clusterSummaries.add(ClusterSummaryCompact.create(cluster))
+            val summaries = clustersPerType.getOrPut(cluster.cluster) { mutableListOf<ClusterSummaryCompact>() }
+
+            summaries.add(ClusterSummaryCompact.create(cluster))
         }
 
-        val jsonBytes = json.encodeToString(clusterSummaries).encodeToByteArray()
+        for ((type, clusters) in clustersPerType) {
 
-        val protobufBytes = protobuf.encodeToByteArray(clusterSummaries)
+            println("${type.prefix} = Collected ${clusters.size} clusters. Serializing now...")
 
-        overallProtoSize += protobufBytes.size
+            val protobufBytes = protobuf.encodeToByteArray(clusters)
 
-        println(" -> ORIGINAL: proto = " + protobufBytes.size + " - json = " + jsonBytes.size)
+            println(" -> ORIGINAL: proto = " + (protobufBytes.size / 1000000.0))
 
-        val zippedJsonBytes = ZipUtil.zipBytes(jsonBytes)
-        val zippedProtobufBytes = ZipUtil.zipBytes(protobufBytes)
+            val zippedProtobufBytes = ZipUtil.zipBytes(protobufBytes)
 
-        println(" -> ZIPPED  : proto = " + zippedProtobufBytes.size + " - json = " + zippedJsonBytes.size)
+            println(" -> ZIPPED  : proto = " + (zippedProtobufBytes.size / 1000000.0))
 
-        File("build/cluster-summaries.json.gz").writeBytes(zippedJsonBytes)
-        File("build/cluster-summaries.proto.gz").writeBytes(zippedProtobufBytes)
+            overallProtoSize += zippedProtobufBytes.size
+
+            overallClusterCount += clusters.size
+
+            File("build/index-${type.prefix}.proto.gz").writeBytes(zippedProtobufBytes)
+        }
+
+        println("Completed")
     }
 
-    println("Operation took $time. Overall proto size: $overallProtoSize")
+    println("Operation took $time. For $overallClusterCount clusters = ${overallProtoSize / 1000000} MB")
 }
 
 @OptIn(ExperimentalSerializationApi::class)
