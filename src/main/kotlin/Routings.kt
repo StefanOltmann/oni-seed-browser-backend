@@ -60,6 +60,7 @@ import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
+import io.minio.GetObjectArgs
 import io.minio.ListObjectsArgs
 import io.minio.MinioClient
 import io.minio.PutObjectArgs
@@ -74,8 +75,10 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.flow.toSet
 import kotlinx.coroutines.launch
 import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.encodeToByteArray
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToStream
+import kotlinx.serialization.protobuf.ProtoBuf
 import model.Cluster
 import model.ClusterExportCollection
 import model.ClusterType
@@ -92,6 +95,7 @@ import model.Upload
 import model.UploadDatabase
 import model.filter.FilterQuery
 import model.search.ClusterSummary
+import model.search2.SearchIndex
 import org.bson.Document
 import java.security.KeyFactory
 import java.security.MessageDigest
@@ -103,6 +107,7 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
+import kotlin.time.measureTime
 
 /* Should not be necessary right now; was for migration. */
 val POPULATE_SUMMARIES_ON_START: Boolean =
@@ -317,6 +322,8 @@ private fun Application.configureRoutingInternal() {
         createContributorTable()
 
         copyMapsToS3()
+
+        createSearchIndexes()
     }
 
     routing {
@@ -869,18 +876,18 @@ private fun Application.configureRoutingInternal() {
                  * Add coordinate to the latest list.
                  * Wait a moment to allow S3 to index it.
                  */
-                 backgroundScope.launch {
+                backgroundScope.launch {
 
                     delay(2000)
 
-                     /*
-                      * Add it to the top of the list.
-                      */
+                    /*
+                     * Add it to the top of the list.
+                     */
                     latestCoordinates.add(0, optimizedClusterWithMetadata.coordinate)
 
-                     /*
-                      * Remove the last entry
-                      */
+                    /*
+                     * Remove the last entry
+                     */
                     while (latestCoordinates.size > LATEST_MAPS_LIMIT)
                         latestCoordinates.removeLast()
                 }
@@ -1622,6 +1629,94 @@ private suspend fun copyMapsToS3() {
         val duration = System.currentTimeMillis() - start
 
         log("Copied maps to S3 $duration ms.")
+
+    } catch (ex: Exception) {
+
+        log(ex)
+    }
+}
+
+private fun createSearchIndexes() {
+
+    log("Create search indexes from S3 ...")
+
+    val start = System.currentTimeMillis()
+
+    try {
+
+        for (cluster in ClusterType.entries) {
+
+            val time = measureTime {
+
+                val results = localMinioClient.listObjects(
+                    ListObjectsArgs.builder()
+                        .bucket("oni-worlds")
+                        .prefix(cluster.prefix)
+                        .build()
+                )
+
+                println("Found ${results.count()} files for cluster $cluster")
+
+                if (results.count() == 0)
+                    return@measureTime
+
+                val searchIndex = SearchIndex(cluster)
+
+                for (result in results) {
+
+                    val item = result.get()
+
+                    val compressedBytes: ByteArray = localMinioClient.getObject(
+                        GetObjectArgs.builder()
+                            .bucket("oni-worlds")
+                            .`object`(item.objectName())
+                            .build()
+                    ).use { inputStream ->
+                        inputStream.readAllBytes()
+                    }
+
+                    val json = compressedBytes.decodeToString()
+
+                    try {
+
+                        val cluster = Json.decodeFromString<Cluster>(json)
+
+                        searchIndex.add(cluster)
+
+                    } catch (ex: Exception) {
+
+                        println(json)
+
+                        throw ex
+                    }
+                }
+
+                val protobufBytes = ProtoBuf.encodeToByteArray(searchIndex)
+
+                val zippedProtobufBytes = ZipUtil.zipBytes(protobufBytes)
+
+                localMinioClient.putObject(
+                    PutObjectArgs
+                        .builder()
+                        .bucket("oni-search")
+                        .`object`(cluster.prefix)
+                        .headers(
+                            mapOf(
+                                "Content-Type" to "application/protobuf",
+                                "Content-Encoding" to "gzip"
+                            )
+                        )
+                        .stream(zippedProtobufBytes.inputStream(), zippedProtobufBytes.size.toLong(), -1)
+                        .build()
+                )
+            }
+
+            log("[INDEX] Processed $cluster in $time.")
+        }
+
+        val duration = System.currentTimeMillis() - start
+
+        log("Created search indexes in $duration ms.")
 
     } catch (ex: Exception) {
 
