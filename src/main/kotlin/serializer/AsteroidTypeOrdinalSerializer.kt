@@ -1,5 +1,5 @@
 /*
- * ONI Seed Browser Backend
+ * ONI Seed Browser
  * Copyright (C) 2025 Stefan Oltmann
  * https://stefan-oltmann.de/oni-seed-browser
  *
@@ -17,29 +17,24 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package model.search
+package serializer
 
-import kotlinx.serialization.Serializable
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import model.AsteroidType
-import model.WorldTrait
-import serializer.AsteroidTypeStringSerializer
 
-@Serializable
-data class AsteroidSummary(
+object AsteroidTypeOrdinalSerializer : KSerializer<AsteroidType> {
 
-    @Serializable(with = AsteroidTypeStringSerializer::class)
-    val id: AsteroidType,
+    override val descriptor: SerialDescriptor =
+        PrimitiveSerialDescriptor("AsteroidTypeOrdinalSerializer", PrimitiveKind.BYTE)
 
-    val worldTraits: List<WorldTrait>,
+    override fun serialize(encoder: Encoder, value: AsteroidType) =
+        encoder.encodeByte(value.ordinal.toByte())
 
-    /**
-     * Count of all geysers of that type
-     */
-    val geyserCounts: Map<String, Byte>,
-
-    /**
-     * Sum of all avgEmitRate values for the geyser type
-     */
-    val geyserTotalOutputs: Map<String, Int>
-
-)
+    override fun deserialize(decoder: Decoder): AsteroidType =
+        AsteroidType.entries[decoder.decodeInt()]
+}

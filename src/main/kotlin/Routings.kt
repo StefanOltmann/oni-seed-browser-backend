@@ -39,7 +39,6 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
-import io.ktor.serialization.kotlinx.cbor.cbor
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationCall
@@ -75,7 +74,6 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.flow.toSet
 import kotlinx.coroutines.launch
 import kotlinx.serialization.ExperimentalSerializationApi
-import kotlinx.serialization.cbor.Cbor
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToStream
 import model.Cluster
@@ -95,14 +93,12 @@ import model.UploadDatabase
 import model.filter.FilterQuery
 import model.search.ClusterSummary
 import org.bson.Document
-import java.io.ByteArrayOutputStream
 import java.security.KeyFactory
 import java.security.MessageDigest
 import java.security.interfaces.ECPublicKey
 import java.security.spec.X509EncodedKeySpec
 import java.util.Base64
 import java.util.UUID
-import java.util.zip.GZIPOutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import kotlin.time.Clock
@@ -189,12 +185,6 @@ private val strictAllFieldsJson = Json {
     encodeDefaults = true
 }
 
-@OptIn(ExperimentalSerializationApi::class)
-private val strictAllFieldsCbor = Cbor {
-    ignoreUnknownKeys = false
-    encodeDefaults = true
-}
-
 private val localMinioClient =
     MinioClient.builder()
         .endpoint("http://minio:9000")
@@ -236,7 +226,6 @@ private fun Application.configureRoutingInternal() {
 
     install(ContentNegotiation) {
         json(strictAllFieldsJson)
-        cbor(strictAllFieldsCbor)
     }
 
     install(Compression) {
@@ -852,14 +841,9 @@ private fun Application.configureRoutingInternal() {
                 /* Collect some original uploads, may fail */
                 try {
 
-                    val gzippedJsonBytes = ByteArrayOutputStream().use { byteStream ->
-
-                        GZIPOutputStream(byteStream).use { gzipStream ->
-                            gzipStream.write(originalData.encodeToByteArray())
-                            gzipStream.finish()
-                        }
-                        byteStream.toByteArray()
-                    }
+                    val gzippedJsonBytes = ZipUtil.zipBytes(
+                        originalData.encodeToByteArray()
+                    )
 
                     externalMinioClient.putObject(
                         PutObjectArgs
@@ -1539,16 +1523,9 @@ private fun uploadMapToS3(
 
     val json = Json.encodeToString(cluster)
 
-    val bytes = json.encodeToByteArray()
-
-    val gzippedJsonBytes = ByteArrayOutputStream().use { byteStream ->
-
-        GZIPOutputStream(byteStream).use { gzipStream ->
-            gzipStream.write(bytes)
-            gzipStream.finish()
-        }
-        byteStream.toByteArray()
-    }
+    val gzippedJsonBytes = ZipUtil.zipBytes(
+        json.encodeToByteArray()
+    )
 
     minioClient.putObject(
         PutObjectArgs

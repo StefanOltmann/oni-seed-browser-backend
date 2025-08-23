@@ -25,21 +25,21 @@ import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
-import model.ClusterType
+import model.GeyserType
 
-object ClusterTypeSerializer : KSerializer<ClusterType> {
+object GeyserTypeStringSerializer : KSerializer<GeyserType> {
 
     override val descriptor: SerialDescriptor =
-        PrimitiveSerialDescriptor("Cluster", PrimitiveKind.STRING)
+        PrimitiveSerialDescriptor("GeyserTypeStringSerializer", PrimitiveKind.STRING)
 
-    override fun serialize(encoder: Encoder, value: ClusterType) =
-        encoder.encodeString(value.prefix)
+    override fun serialize(encoder: Encoder, value: GeyserType) =
+        encoder.encodeString(value.type)
 
-    override fun deserialize(decoder: Decoder): ClusterType {
+    override fun deserialize(decoder: Decoder): GeyserType {
 
-        val prefix = decoder.decodeString()
+        val type = decoder.decodeString()
 
-        return ClusterType.entries.find { it.prefix == prefix }
-            ?: throw IllegalArgumentException("Unknown prefix: $prefix")
+        return GeyserType.entries.find { it.type == type }
+            ?: throw IllegalArgumentException("Unknown type: $type")
     }
 }

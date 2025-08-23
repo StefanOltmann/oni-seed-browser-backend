@@ -25,20 +25,21 @@ import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
-import model.AsteroidType
+import model.ClusterType
 
-object AsteroidTypeSerializer : KSerializer<AsteroidType> {
+object ClusterTypePrefixSerializer : KSerializer<ClusterType> {
 
     override val descriptor: SerialDescriptor =
-        PrimitiveSerialDescriptor("GeyserType", PrimitiveKind.STRING)
+        PrimitiveSerialDescriptor("ClusterTypePrefixSerializer", PrimitiveKind.STRING)
 
-    override fun serialize(encoder: Encoder, value: AsteroidType) =
-        encoder.encodeString(value.name)
+    override fun serialize(encoder: Encoder, value: ClusterType) =
+        encoder.encodeString(value.prefix)
 
-    override fun deserialize(decoder: Decoder): AsteroidType {
+    override fun deserialize(decoder: Decoder): ClusterType {
 
-        val type = decoder.decodeString()
+        val prefix = decoder.decodeString()
 
-        return AsteroidType.valueOf(type)
+        return ClusterType.entries.find { it.prefix == prefix }
+            ?: throw IllegalArgumentException("Unknown prefix: $prefix")
     }
 }

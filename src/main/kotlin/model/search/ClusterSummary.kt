@@ -23,7 +23,7 @@ import kotlinx.serialization.Serializable
 import model.Cluster
 import model.ClusterType
 import model.Geyser
-import serializer.ClusterTypeSerializer
+import serializer.ClusterTypePrefixSerializer
 
 @Serializable
 data class ClusterSummary(
@@ -32,7 +32,7 @@ data class ClusterSummary(
 
     val gameVersion: Int,
 
-    @Serializable(with = ClusterTypeSerializer::class)
+    @Serializable(with = ClusterTypePrefixSerializer::class)
     val clusterType: ClusterType,
 
     val asteroidSummaries: List<AsteroidSummary>
@@ -54,7 +54,7 @@ data class ClusterSummary(
                             worldTraits = asteroid.worldTraits,
                             geyserCounts = asteroid.geysers
                                 .groupBy(Geyser::id)
-                                .map { it.key.type to it.value.size }
+                                .map { it.key.type to it.value.size.toByte() }
                                 .toMap(),
                             geyserTotalOutputs = asteroid.geysers
                                 .groupBy(Geyser::id)

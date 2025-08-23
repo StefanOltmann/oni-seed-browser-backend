@@ -17,26 +17,43 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package model
+package model.search2
 
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
-import serializer.AsteroidTypeStringSerializer
+import kotlinx.serialization.protobuf.ProtoNumber
+import kotlinx.serialization.protobuf.ProtoPacked
+import model.AsteroidType
+import model.WorldTrait
 
 @Serializable
-data class Asteroid(
+@OptIn(ExperimentalSerializationApi::class)
+data class AsteroidSummaryCompact(
 
-    @Serializable(with = AsteroidTypeStringSerializer::class)
+    // @Serializable(with = AsteroidTypeOrdinalSerializer::class)
+    @ProtoNumber(1)
     val id: AsteroidType,
 
-    val offsetX: Int,
-    val offsetY: Int,
-
-    val sizeX: Int,
-    val sizeY: Int,
-
+    @ProtoNumber(2)
+    @ProtoPacked
     val worldTraits: List<WorldTrait>,
-    val biomePaths: String,
 
-    val pointsOfInterest: List<PointOfInterest>,
-    val geysers: List<Geyser>
+    /**
+     * Count of all geysers
+     *
+     * Index = GeyserType ordinal
+     */
+    @ProtoNumber(3)
+    @ProtoPacked
+    val geyserCounts: List<Byte>,
+
+    /**
+     * Sum of all avgEmitRate values for the geyser type
+     *
+     * Index = GeyserType ordinal
+     */
+    @ProtoNumber(4)
+    @ProtoPacked
+    val geyserAvgOutputs: List<Int>
+
 )

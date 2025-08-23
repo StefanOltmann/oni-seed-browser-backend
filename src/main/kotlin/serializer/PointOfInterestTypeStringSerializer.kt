@@ -25,21 +25,21 @@ import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
-import model.GeyserType
+import model.PointOfInterestType
 
-object GeyserTypeSerializer : KSerializer<GeyserType> {
+object PointOfInterestTypeStringSerializer : KSerializer<PointOfInterestType> {
 
     override val descriptor: SerialDescriptor =
-        PrimitiveSerialDescriptor("GeyserType", PrimitiveKind.STRING)
+        PrimitiveSerialDescriptor("PointOfInterestType", PrimitiveKind.STRING)
 
-    override fun serialize(encoder: Encoder, value: GeyserType) =
-        encoder.encodeString(value.type)
+    override fun serialize(encoder: Encoder, value: PointOfInterestType) =
+        encoder.encodeString(value.id)
 
-    override fun deserialize(decoder: Decoder): GeyserType {
+    override fun deserialize(decoder: Decoder): PointOfInterestType {
 
-        val type = decoder.decodeString()
+        val id = decoder.decodeString()
 
-        return GeyserType.entries.find { it.type == type }
-            ?: throw IllegalArgumentException("Unknown type: $type")
+        return PointOfInterestType.entries.find { it.id == id }
+            ?: throw IllegalArgumentException("Unknown id: $id")
     }
 }

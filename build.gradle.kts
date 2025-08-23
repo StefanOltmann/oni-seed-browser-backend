@@ -78,7 +78,7 @@ dependencies {
     implementation("io.ktor:ktor-server-html-builder:$ktorVersion")
 
     implementation("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
-    implementation("io.ktor:ktor-serialization-kotlinx-cbor:$ktorVersion")
+    implementation("io.ktor:ktor-serialization-kotlinx-protobuf:${ktorVersion}")
 
     /*
      * Ktor client
