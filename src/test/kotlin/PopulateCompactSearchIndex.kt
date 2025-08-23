@@ -47,11 +47,13 @@ fun main() = runBlocking {
         return@runBlocking
     }
 
-    val protobuf = ProtoBuf {}
-
     var overallClusterCount = 0
 
     var overallProtoSize = 0
+
+    val exportFolder = File("build/searchindex")
+
+    exportFolder.mkdirs()
 
     val time = measureTime {
 
@@ -70,7 +72,7 @@ fun main() = runBlocking {
 
             println("${type.prefix} = Collected ${clusters.size} clusters. Serializing now...")
 
-            val protobufBytes = protobuf.encodeToByteArray(searchIndex)
+            val protobufBytes = ProtoBuf.encodeToByteArray(searchIndex)
 
             val zippedProtobufBytes = ZipUtil.zipBytes(protobufBytes)
 
@@ -80,7 +82,7 @@ fun main() = runBlocking {
 
             overallClusterCount += clusters.size
 
-            File("build/searchindex/${type.prefix}").writeBytes(zippedProtobufBytes)
+            File(exportFolder, type.prefix).writeBytes(zippedProtobufBytes)
         }
 
         println("Completed")
