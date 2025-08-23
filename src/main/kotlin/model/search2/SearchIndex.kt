@@ -2,6 +2,7 @@ package model.search2
 
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import kotlinx.serialization.protobuf.ProtoNumber
 import model.Cluster
 import model.ClusterType
@@ -24,10 +25,66 @@ class SearchIndex(
     @ProtoNumber(2)
     val timestamp: Long = Clock.System.now().toEpochMilliseconds(),
 
-    @ProtoNumber(3)
-    val summaries: Array<ClusterSummaryCompact>
-
 ) {
+
+    @ProtoNumber(3)
+    private val _summaries: MutableList<ClusterSummaryCompact> = mutableListOf()
+
+    @Transient
+    val summaries: List<ClusterSummaryCompact> = _summaries
+
+    /*
+     * Adds a cluster to the search index.
+     */
+    fun add(cluster: Cluster) {
+
+        if (cluster.cluster != clusterType)
+            error("Cluster must be $clusterType, but is ${cluster.cluster}")
+
+        val seed = cluster.coordinate
+            .substringAfter(cluster.cluster.prefix + "-")
+            .substringBefore("-")
+            .toInt()
+
+        val remix = cluster.coordinate.substringAfterLast("-")
+
+        _summaries.add(
+            ClusterSummaryCompact(
+                seed = seed,
+                remix = if (remix == "0") null else remix,
+                asteroidSummaries = buildList {
+
+                    for (asteroid in cluster.asteroids) {
+
+                        val geyserCounts: Map<GeyserType, Byte> = asteroid.geysers
+                            .groupBy(Geyser::id)
+                            .map { it.key to it.value.size.toByte() }
+                            .toMap()
+
+                        val geyserAvgOutput: Map<GeyserType, Short> = asteroid.geysers
+                            .groupBy(Geyser::id)
+                            .map {
+                                it.key to (it.value.sumOf { g -> g.avgEmitRate } / it.value.size).toShort()
+                            }
+                            .toMap()
+
+                        add(
+                            AsteroidSummaryCompact(
+                                id = asteroid.id,
+                                worldTraitsBitMask = WorldTraitMask.toMask(asteroid.worldTraits),
+                                geyserCounts = GeyserType.entries.map {
+                                    geyserCounts[it] ?: 0
+                                }.toByteArray(),
+                                geyserAvgOutputs = GeyserType.entries.map {
+                                    geyserAvgOutput[it] ?: 0
+                                }.toShortArray()
+                            )
+                        )
+                    }
+                }.toTypedArray()
+            )
+        )
+    }
 
     /**
      * Finds matching cluster summaries for the given filter query.
@@ -182,74 +239,6 @@ class SearchIndex(
 
         }.map {
             clusterType.prefix + "-" + it.seed + "-0-0-" + (it.remix ?: "0")
-        }
-    }
-
-    companion object {
-
-        fun create(clusters: List<Cluster>): SearchIndex {
-
-            if (clusters.isEmpty())
-                error("Cluster list must not be empty.")
-
-            val clusterType = clusters.first().cluster
-
-            val summaries = mutableListOf<ClusterSummaryCompact>()
-
-            for (cluster in clusters) {
-
-                if (cluster.cluster != clusterType)
-                    error("Cluster list must contain clusters of the same type.")
-
-                val seed = cluster.coordinate
-                    .substringAfter(cluster.cluster.prefix + "-")
-                    .substringBefore("-")
-                    .toInt()
-
-                val remix = cluster.coordinate.substringAfterLast("-")
-
-                summaries.add(
-                    ClusterSummaryCompact(
-                        seed = seed,
-                        remix = if (remix == "0") null else remix,
-                        asteroidSummaries = buildList {
-
-                            for (asteroid in cluster.asteroids) {
-
-                                val geyserCounts: Map<GeyserType, Byte> = asteroid.geysers
-                                    .groupBy(Geyser::id)
-                                    .map { it.key to it.value.size.toByte() }
-                                    .toMap()
-
-                                val geyserAvgOutput: Map<GeyserType, Short> = asteroid.geysers
-                                    .groupBy(Geyser::id)
-                                    .map {
-                                        it.key to (it.value.sumOf { g -> g.avgEmitRate } / it.value.size).toShort()
-                                    }
-                                    .toMap()
-
-                                add(
-                                    AsteroidSummaryCompact(
-                                        id = asteroid.id,
-                                        worldTraitsBitMask = WorldTraitMask.toMask(asteroid.worldTraits),
-                                        geyserCounts = GeyserType.entries.map {
-                                            geyserCounts[it] ?: 0
-                                        }.toByteArray(),
-                                        geyserAvgOutputs = GeyserType.entries.map {
-                                            geyserAvgOutput[it] ?: 0
-                                        }.toShortArray()
-                                    )
-                                )
-                            }
-                        }.toTypedArray()
-                    )
-                )
-            }
-
-            return SearchIndex(
-                clusterType = clusterType,
-                summaries = summaries.toTypedArray()
-            )
         }
     }
 }

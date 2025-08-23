@@ -68,7 +68,10 @@ fun main() = runBlocking {
 
         for ((type, clusters) in clustersPerType) {
 
-            val searchIndex = SearchIndex.create(clusters)
+            val searchIndex = SearchIndex(type)
+
+            for (cluster in clusters)
+                searchIndex.add(cluster)
 
             println("${type.prefix} = Collected ${clusters.size} clusters. Serializing now...")
 
