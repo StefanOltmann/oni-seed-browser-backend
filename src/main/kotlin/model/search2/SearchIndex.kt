@@ -37,17 +37,19 @@ class SearchIndex(
      * - AND-of-OR semantics: each inner list is OR-connected; the outer list is AND-connected.
      * - Only geyserCount, geyserOutput, and worldTrait filters are supported (as in SQL/Mongo generators).
      */
-    fun find(
+    fun match(
         filterQuery: FilterQuery
-    ): Array<ClusterSummaryCompact> {
+    ): List<String> {
 
         /* Cluster type must match this index; otherwise nothing can match */
         if (filterQuery.cluster != clusterType.prefix)
-            return emptyArray()
+            return emptyList()
 
         /* If no rules are specified, all clusters match. */
         if (filterQuery.rules.isEmpty())
-            return summaries
+            return summaries.map {
+                clusterType.prefix + "-" + it.seed + "-0-0-" + (it.remix ?: "0")
+            }
 
         return summaries.filter { clusterSummary ->
 
@@ -57,23 +59,20 @@ class SearchIndex(
              */
             for (orGroup in filterQuery.rules) {
 
-                var groupHasSupportedRule = false
                 var groupMatches = false
 
-                for (rule in orGroup) {
+                for (andRule in orGroup) {
 
                     /* Find the requested asteroid summary by enum name */
                     val asteroidSummary = clusterSummary.asteroidSummaries.firstOrNull {
-                        it.id.name == rule.asteroid
+                        it.id.name == andRule.asteroid
                     } ?: continue
 
                     val matchesRule = when {
 
-                        rule.geyserCount != null -> {
+                        andRule.geyserCount != null -> {
 
-                            groupHasSupportedRule = true
-
-                            val item = rule.geyserCount
+                            val item = andRule.geyserCount
 
                             val geyserTypeName = item.geyser
 
@@ -102,9 +101,9 @@ class SearchIndex(
                             }
                         }
 
-                        rule.geyserOutput != null -> {
+                        andRule.geyserOutput != null -> {
 
-                            val item = rule.geyserOutput
+                            val item = andRule.geyserOutput
 
                             val geyserTypeName = item.geyser
 
@@ -141,9 +140,9 @@ class SearchIndex(
                             }
                         }
 
-                        rule.worldTrait != null -> {
+                        andRule.worldTrait != null -> {
 
-                            val item = rule.worldTrait
+                            val item = andRule.worldTrait
 
                             val trait = try {
                                 WorldTrait.valueOf(item.worldTrait)
@@ -178,13 +177,15 @@ class SearchIndex(
                     }
                 }
 
-                if (groupHasSupportedRule && !groupMatches)
+                if (!groupMatches)
                     return@filter false
             }
 
             true
 
-        }.toTypedArray()
+        }.map {
+            clusterType.prefix + "-" + it.seed + "-0-0-" + (it.remix ?: "0")
+        }
     }
 
     companion object {
