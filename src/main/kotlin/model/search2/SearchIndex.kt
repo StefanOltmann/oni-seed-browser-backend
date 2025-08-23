@@ -54,12 +54,12 @@ class SearchIndex(
         return summaries.filter { clusterSummary ->
 
             /*
-             * For each AND group, at least one OR rule must match,
-             * unless the group contains no supported rules
+             * For each AND group, all rules within it must OR match.
              */
             for (orGroup in filterQuery.rules) {
 
-                var groupMatches = false
+                /* Assume the group matches */
+                var groupMatches = true
 
                 for (andRule in orGroup) {
 
@@ -169,10 +169,9 @@ class SearchIndex(
                         else -> false
                     }
 
-                    if (matchesRule) {
-
-                        groupMatches = true
-
+                    /* If any rule fails, the group fails. */
+                    if (!matchesRule) {
+                        groupMatches = false
                         break
                     }
                 }
