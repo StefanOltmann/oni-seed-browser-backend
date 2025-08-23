@@ -30,7 +30,7 @@ import kotlinx.serialization.json.io.decodeFromSource
 import kotlinx.serialization.protobuf.ProtoBuf
 import model.Cluster
 import model.ClusterType
-import model.search2.ClusterSummaryCompact
+import model.search2.SearchIndex
 import java.io.File
 import kotlin.time.measureTime
 
@@ -57,32 +57,30 @@ fun main() = runBlocking {
 
         val flow = readClustersFromFolder(exportDataFolder)
 
-        val clustersPerType = mutableMapOf<ClusterType, MutableList<ClusterSummaryCompact>>()
+        val clustersPerType = mutableMapOf<ClusterType, MutableList<Cluster>>()
 
         flow.collect { cluster ->
 
-            val summaries = clustersPerType.getOrPut(cluster.cluster) { mutableListOf<ClusterSummaryCompact>() }
-
-            summaries.add(ClusterSummaryCompact.create(cluster))
+            clustersPerType.getOrPut(cluster.cluster) { mutableListOf() }.add(cluster)
         }
 
         for ((type, clusters) in clustersPerType) {
 
+            val searchIndex = SearchIndex.create(clusters)
+
             println("${type.prefix} = Collected ${clusters.size} clusters. Serializing now...")
 
-            val protobufBytes = protobuf.encodeToByteArray(clusters)
-
-            println(" -> ORIGINAL: proto = " + (protobufBytes.size / 1000000.0))
+            val protobufBytes = protobuf.encodeToByteArray(searchIndex)
 
             val zippedProtobufBytes = ZipUtil.zipBytes(protobufBytes)
 
-            println(" -> ZIPPED  : proto = " + (zippedProtobufBytes.size / 1000000.0))
+            println(" -> ZIPPED = " + (zippedProtobufBytes.size / 1000000.0) + " MB")
 
             overallProtoSize += zippedProtobufBytes.size
 
             overallClusterCount += clusters.size
 
-            File("build/index-${type.prefix}.proto.gz").writeBytes(zippedProtobufBytes)
+            File("build/searchindex/${type.prefix}").writeBytes(zippedProtobufBytes)
         }
 
         println("Completed")
