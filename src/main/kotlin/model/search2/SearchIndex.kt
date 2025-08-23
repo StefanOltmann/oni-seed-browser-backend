@@ -29,6 +29,164 @@ class SearchIndex(
 
 ) {
 
+    /**
+     * Finds matching cluster summaries for the given filter query.
+     * Notes:
+     * - FilterQuery compares TOTAL geyser output; compact index stores AVERAGE per geyser type,
+     *   so we compute total = avgOutput * count for comparisons.
+     * - AND-of-OR semantics: each inner list is OR-connected; the outer list is AND-connected.
+     * - Only geyserCount, geyserOutput, and worldTrait filters are supported (as in SQL/Mongo generators).
+     */
+    fun find(
+        filterQuery: FilterQuery
+    ): Array<ClusterSummaryCompact> {
+
+        /* Cluster type must match this index; otherwise nothing can match */
+        if (filterQuery.cluster != clusterType.prefix)
+            return emptyArray()
+
+        /* If no rules are specified, all clusters match. */
+        if (filterQuery.rules.isEmpty())
+            return summaries
+
+        return summaries.filter { clusterSummary ->
+
+            /*
+             * For each AND group, at least one OR rule must match,
+             * unless the group contains no supported rules
+             */
+            for (orGroup in filterQuery.rules) {
+
+                var groupHasSupportedRule = false
+                var groupMatches = false
+
+                for (rule in orGroup) {
+
+                    /* Find the requested asteroid summary by enum name */
+                    val asteroidSummary = clusterSummary.asteroidSummaries.firstOrNull {
+                        it.id.name == rule.asteroid
+                    } ?: continue
+
+                    val matchesRule = when {
+
+                        rule.geyserCount != null -> {
+
+                            groupHasSupportedRule = true
+
+                            val item = rule.geyserCount
+
+                            val geyserTypeName = item.geyser
+
+                            val geyserType = GeyserType.entries.find { it.type == geyserTypeName }
+
+                            if (geyserType == null) {
+
+                                false
+
+                            } else {
+
+                                val index = geyserType.ordinal
+
+                                val count = if (index < asteroidSummary.geyserCounts.size)
+                                    asteroidSummary.geyserCounts[index].toInt()
+                                else
+                                    0
+
+                                val expected = item.count ?: 0
+
+                                when (item.condition) {
+                                    FilterCondition.EXACTLY -> count == expected
+                                    FilterCondition.AT_LEAST -> if (expected == 0) count > 0 else count >= expected
+                                    FilterCondition.AT_MOST -> count <= expected
+                                }
+                            }
+                        }
+
+                        rule.geyserOutput != null -> {
+
+                            val item = rule.geyserOutput
+
+                            val geyserTypeName = item.geyser
+
+                            val geyserType = GeyserType.entries.find { it.type == geyserTypeName }
+
+                            if (geyserType == null) {
+
+                                false
+
+                            } else {
+
+                                val index = geyserType.ordinal
+
+                                val count = if (index < asteroidSummary.geyserCounts.size)
+                                    asteroidSummary.geyserCounts[index].toInt()
+                                else
+                                    0
+
+                                val average = if (index < asteroidSummary.geyserAvgOutputs.size)
+                                    asteroidSummary.geyserAvgOutputs[index].toInt()
+                                else
+                                    0
+
+                                /* Convert average to total as required */
+                                val total = average * count
+
+                                val expected = item.outputInGramPerSecond ?: 0
+
+                                when (item.condition) {
+                                    FilterCondition.EXACTLY -> total == expected
+                                    FilterCondition.AT_LEAST -> total >= expected
+                                    FilterCondition.AT_MOST -> total <= expected
+                                }
+                            }
+                        }
+
+                        rule.worldTrait != null -> {
+
+                            val item = rule.worldTrait
+
+                            val trait = try {
+                                WorldTrait.valueOf(item.worldTrait)
+                            } catch (_: IllegalArgumentException) {
+                                null
+                            }
+
+                            if (trait == null) {
+
+                                false
+
+                            } else {
+
+                                val hasTrait = WorldTraitMask.has(asteroidSummary.worldTraitsBitMask, trait)
+
+                                if (item.has)
+                                    hasTrait
+                                else
+                                    !hasTrait
+                            }
+                        }
+
+                        /* Unsupported or empty rule */
+                        else -> false
+                    }
+
+                    if (matchesRule) {
+
+                        groupMatches = true
+
+                        break
+                    }
+                }
+
+                if (groupHasSupportedRule && !groupMatches)
+                    return@filter false
+            }
+
+            true
+
+        }.toTypedArray()
+    }
+
     companion object {
 
         fun create(clusters: List<Cluster>): SearchIndex {
@@ -95,114 +253,5 @@ class SearchIndex(
                 summaries = summaries.toTypedArray()
             )
         }
-    }
-
-    /**
-     * Finds matching cluster summaries for the given filter query.
-     * Notes:
-     * - FilterQuery compares TOTAL geyser output; compact index stores AVERAGE per geyser type,
-     *   so we compute total = avgOutput * count for comparisons.
-     * - AND-of-OR semantics: each inner list is OR-connected; the outer list is AND-connected.
-     * - Only geyserCount, geyserOutput, and worldTrait filters are supported (as in SQL/Mongo generators).
-     */
-    fun find(filterQuery: FilterQuery): Array<ClusterSummaryCompact> {
-
-        /* Cluster type must match this index; otherwise nothing can match */
-        if (filterQuery.cluster != clusterType.prefix)
-            return emptyArray()
-
-        /* If no rules are specified, all clusters match. */
-        if (filterQuery.rules.isEmpty())
-            return summaries
-
-        return summaries.filter { clusterSummary ->
-
-            // For each AND group, at least one OR rule must match, unless the group contains no supported rules
-            for (orGroup in filterQuery.rules) {
-
-                var groupHasSupportedRule = false
-                var groupMatches = false
-
-                for (rule in orGroup) {
-
-                    // Find the requested asteroid summary by enum name
-                    val asteroidSummary = clusterSummary.asteroidSummaries.firstOrNull {
-                        it.id.name == rule.asteroid
-                    } ?: continue
-
-                    val matchesRule = when {
-
-                        rule.geyserCount != null -> {
-                            groupHasSupportedRule = true
-                            val item = rule.geyserCount
-                            val geyserTypeName = item.geyser
-                            val geyserType = GeyserType.entries.find { it.type == geyserTypeName }
-                            if (geyserType == null) {
-                                false
-                            } else {
-                                val idx = geyserType.ordinal
-                                val count =
-                                    if (idx >= 0 && idx < asteroidSummary.geyserCounts.size) asteroidSummary.geyserCounts[idx].toInt() else 0
-                                val expected = item.count ?: 0
-                                when (item.condition) {
-                                    FilterCondition.EXACTLY -> count == expected
-                                    FilterCondition.AT_LEAST -> if (expected == 0) count > 0 else count >= expected
-                                    FilterCondition.AT_MOST -> count <= expected
-                                }
-                            }
-                        }
-
-                        rule.geyserOutput != null -> {
-                            val item = rule.geyserOutput
-                            val geyserTypeName = item.geyser
-                            val geyserType = GeyserType.entries.find { it.type == geyserTypeName }
-                            if (geyserType == null) {
-                                false
-                            } else {
-                                val idx = geyserType.ordinal
-                                val count =
-                                    if (idx >= 0 && idx < asteroidSummary.geyserCounts.size) asteroidSummary.geyserCounts[idx].toInt() else 0
-                                val avg =
-                                    if (idx >= 0 && idx < asteroidSummary.geyserAvgOutputs.size) asteroidSummary.geyserAvgOutputs[idx].toInt() else 0
-                                val total = avg * count // convert average to total as required
-                                val expected = item.outputInGramPerSecond ?: 0
-                                when (item.condition) {
-                                    FilterCondition.EXACTLY -> total == expected
-                                    FilterCondition.AT_LEAST -> total >= expected
-                                    FilterCondition.AT_MOST -> total <= expected
-                                }
-                            }
-                        }
-
-                        rule.worldTrait != null -> {
-                            val item = rule.worldTrait
-                            val trait = try {
-                                WorldTrait.valueOf(item.worldTrait)
-                            } catch (_: IllegalArgumentException) {
-                                null
-                            }
-                            if (trait == null) {
-                                false
-                            } else {
-                                val hasTrait = WorldTraitMask.has(asteroidSummary.worldTraitsBitMask, trait)
-                                if (item.has) hasTrait else !hasTrait
-                            }
-                        }
-
-                        else -> false /* Unsupported or empty rule */
-                    }
-
-                    if (matchesRule) {
-                        groupMatches = true
-                        break
-                    }
-                }
-
-                if (groupHasSupportedRule && !groupMatches)
-                    return@filter false
-            }
-
-            true
-        }.toTypedArray()
     }
 }
