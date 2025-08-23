@@ -50,7 +50,7 @@ fun main() {
 
         } else {
 
-            println("${results.size} results? for $query")
+            // println("${results.size} results? for $query")
         }
 
     }

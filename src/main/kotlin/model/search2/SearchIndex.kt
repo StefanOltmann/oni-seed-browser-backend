@@ -35,7 +35,6 @@ class SearchIndex(
      * - FilterQuery compares TOTAL geyser output; compact index stores AVERAGE per geyser type,
      *   so we compute total = avgOutput * count for comparisons.
      * - AND-of-OR semantics: each inner list is OR-connected; the outer list is AND-connected.
-     * - Only geyserCount, geyserOutput, and worldTrait filters are supported (as in SQL/Mongo generators).
      */
     fun match(
         filterQuery: FilterQuery
@@ -54,28 +53,30 @@ class SearchIndex(
         return summaries.filter { clusterSummary ->
 
             /*
-             * For each AND group, all rules within it must OR match.
+             * The outer loop iterates through groups that are connected by AND.
+             * A cluster summary must satisfy ALL of these groups to be a match.
              */
-            for (orGroup in filterQuery.rules) {
+            for (andGroup in filterQuery.rules) {
 
-                /* Assume the group matches */
-                var groupMatches = true
+                /*
+                 * For each group, we check if ANY rule within it matches (OR logic).
+                 * We start by assuming no rules in the group have matched yet.
+                 */
+                var groupMatches = false
 
-                for (andRule in orGroup) {
+                for (orRule in andGroup) {
 
                     /* Find the requested asteroid summary by enum name */
                     val asteroidSummary = clusterSummary.asteroidSummaries.firstOrNull {
-                        it.id.name == andRule.asteroid
+                        it.id.name == orRule.asteroid
                     } ?: continue
 
                     val matchesRule = when {
 
-                        andRule.geyserCount != null -> {
+                        orRule.geyserCount != null -> {
 
-                            val item = andRule.geyserCount
-
+                            val item = orRule.geyserCount
                             val geyserTypeName = item.geyser
-
                             val geyserType = GeyserType.entries.find { it.type == geyserTypeName }
 
                             if (geyserType == null) {
@@ -101,9 +102,9 @@ class SearchIndex(
                             }
                         }
 
-                        andRule.geyserOutput != null -> {
+                        orRule.geyserOutput != null -> {
 
-                            val item = andRule.geyserOutput
+                            val item = orRule.geyserOutput
 
                             val geyserTypeName = item.geyser
 
@@ -129,7 +130,6 @@ class SearchIndex(
 
                                 /* Convert average to total as required */
                                 val total = average * count
-
                                 val expected = item.outputInGramPerSecond ?: 0
 
                                 when (item.condition) {
@@ -140,9 +140,9 @@ class SearchIndex(
                             }
                         }
 
-                        andRule.worldTrait != null -> {
+                        orRule.worldTrait != null -> {
 
-                            val item = andRule.worldTrait
+                            val item = orRule.worldTrait
 
                             val trait = try {
                                 WorldTrait.valueOf(item.worldTrait)
@@ -169,17 +169,25 @@ class SearchIndex(
                         else -> false
                     }
 
-                    /* If any rule fails, the group fails. */
-                    if (!matchesRule) {
-                        groupMatches = false
+                    /* If we find just one matching rule, this group is satisfied (OR logic). */
+                    if (matchesRule) {
+
+                        groupMatches = true
+
+                        /* No need to check other rules in this group. */
                         break
                     }
                 }
 
+                /*
+                 * If, after checking all rules, no match was found in the group,
+                 * the whole cluster fails the filter (AND logic).
+                 */
                 if (!groupMatches)
                     return@filter false
             }
 
+            /* If the cluster summary has survived all the AND groups, it's a match. */
             true
 
         }.map {
@@ -226,7 +234,7 @@ class SearchIndex(
                                 val geyserAvgOutput: Map<GeyserType, Short> = asteroid.geysers
                                     .groupBy(Geyser::id)
                                     .map {
-                                        it.key to (it.value.sumOf { cluster -> cluster.avgEmitRate } / it.value.size).toShort()
+                                        it.key to (it.value.sumOf { g -> g.avgEmitRate } / it.value.size).toShort()
                                     }
                                     .toMap()
 
