@@ -14,7 +14,6 @@ CREATE TABLE asteroid_summary (
 
 -- CREATE UNIQUE INDEX idx_asteroid_summary_cluster_asteroid ON asteroid_summary(cluster_summary_id, asteroid_id);
 
-
 CREATE TABLE asteroid_geyser (
     asteroid_summary_id INTEGER NOT NULL,
     geyser_type INTEGER NOT NULL,
@@ -31,7 +30,6 @@ VALUES (?, ?);
 insertAsteroidSummary:
 INSERT INTO asteroid_summary (cluster_summary_id, asteroid_id, world_traits_mask)
 VALUES (?, ?, ?);
-
 
 insertGeyser:
 INSERT INTO asteroid_geyser (asteroid_summary_id, geyser_type, count, total_output)

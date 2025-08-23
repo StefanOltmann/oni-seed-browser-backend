@@ -25,7 +25,7 @@ import kotlinx.serialization.protobuf.ProtoNumber
 
 @Serializable
 @OptIn(ExperimentalSerializationApi::class)
-data class ClusterSummaryCompact(
+class ClusterSummaryCompact(
 
     @ProtoNumber(1)
     val seed: Int,
@@ -34,6 +34,6 @@ data class ClusterSummaryCompact(
     val remix: String? = null,
 
     @ProtoNumber(3)
-    val asteroidSummaries: List<AsteroidSummaryCompact>
+    val asteroidSummaries: Array<AsteroidSummaryCompact>
 
 )

@@ -25,5 +25,11 @@ fun main() {
 
     println("Everything loaded")
 
+    repeat(3) {
+        System.gc()
+    }
+
+    println("GC executed")
+
     Thread.sleep(Long.MAX_VALUE)
 }

@@ -7,14 +7,14 @@ import model.Cluster
 import model.ClusterType
 import model.Geyser
 import model.GeyserType
+import model.WorldTraitMask
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
 @OptIn(ExperimentalTime::class, ExperimentalSerializationApi::class)
 @Serializable
-data class SearchIndex(
+class SearchIndex(
 
-    // @Serializable(with = ClusterTypeOrdinalSerializer::class)
     @ProtoNumber(1)
     val clusterType: ClusterType,
 
@@ -22,7 +22,7 @@ data class SearchIndex(
     val timestamp: Long = Clock.System.now().toEpochMilliseconds(),
 
     @ProtoNumber(3)
-    val summaries: List<ClusterSummaryCompact>
+    val summaries: Array<ClusterSummaryCompact>
 
 ) {
 
@@ -62,34 +62,34 @@ data class SearchIndex(
                                     .map { it.key to it.value.size.toByte() }
                                     .toMap()
 
-                                val geyserAvgOutput: Map<GeyserType, Int> = asteroid.geysers
+                                val geyserAvgOutput: Map<GeyserType, Short> = asteroid.geysers
                                     .groupBy(Geyser::id)
                                     .map {
-                                        it.key to it.value.sumOf { cluster -> cluster.avgEmitRate }
+                                        it.key to (it.value.sumOf { cluster -> cluster.avgEmitRate } / it.value.size).toShort()
                                     }
                                     .toMap()
 
                                 add(
                                     AsteroidSummaryCompact(
                                         id = asteroid.id,
-                                        worldTraits = asteroid.worldTraits,
+                                        worldTraitsBitMask = WorldTraitMask.toMask(asteroid.worldTraits),
                                         geyserCounts = GeyserType.entries.map {
                                             geyserCounts[it] ?: 0
-                                        },
+                                        }.toByteArray(),
                                         geyserAvgOutputs = GeyserType.entries.map {
                                             geyserAvgOutput[it] ?: 0
-                                        }
+                                        }.toShortArray()
                                     )
                                 )
                             }
-                        }
+                        }.toTypedArray()
                     )
                 )
             }
 
             return SearchIndex(
                 clusterType = clusterType,
-                summaries = summaries
+                summaries = summaries.toTypedArray()
             )
         }
     }

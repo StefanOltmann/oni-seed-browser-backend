@@ -24,19 +24,16 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoNumber
 import kotlinx.serialization.protobuf.ProtoPacked
 import model.AsteroidType
-import model.WorldTrait
 
 @Serializable
 @OptIn(ExperimentalSerializationApi::class)
-data class AsteroidSummaryCompact(
+class AsteroidSummaryCompact(
 
-    // @Serializable(with = AsteroidTypeOrdinalSerializer::class)
     @ProtoNumber(1)
     val id: AsteroidType,
 
     @ProtoNumber(2)
-    @ProtoPacked
-    val worldTraits: List<WorldTrait>,
+    val worldTraitsBitMask: Int,
 
     /**
      * Count of all geysers
@@ -45,15 +42,15 @@ data class AsteroidSummaryCompact(
      */
     @ProtoNumber(3)
     @ProtoPacked
-    val geyserCounts: List<Byte>,
+    val geyserCounts: ByteArray,
 
     /**
-     * Sum of all avgEmitRate values for the geyser type
+     * Average of all avgEmitRate values for the geyser type
      *
      * Index = GeyserType ordinal
      */
     @ProtoNumber(4)
     @ProtoPacked
-    val geyserAvgOutputs: List<Int>
+    val geyserAvgOutputs: ShortArray
 
 )
