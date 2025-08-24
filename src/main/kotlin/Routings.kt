@@ -974,7 +974,7 @@ private fun Application.configureRoutingInternal() {
 
                 val duration = System.currentTimeMillis() - start
 
-                log("Completed failed worldgen report in $duration ms.")
+                log("[UPLOAD] Ingested failed worldgen report in $duration ms by ${failedGenReport.userId}.")
 
             } catch (ex: Exception) {
 
@@ -1003,7 +1003,7 @@ private fun Application.configureRoutingInternal() {
 
                 val duration = System.currentTimeMillis() - start
 
-                log("Returned ${coordinates.size} worldgen failures in $duration ms.")
+                log("[REPORT] Returned ${coordinates.size} worldgen failures in $duration ms.")
 
             } catch (ex: Exception) {
 
@@ -1580,7 +1580,7 @@ private suspend fun copyMapsToS3() {
     if (!TRANSFER_MAPS_TO_S3)
         return
 
-    log("Transfer maps to S3...")
+    log("[S3] Transfer maps to S3...")
 
     val start = System.currentTimeMillis()
 
@@ -1606,6 +1606,8 @@ private suspend fun copyMapsToS3() {
 
         val existingClusterCoordinates = mutableSetOf<String>()
 
+        var addedCount = 0
+
         cursor.collect { cluster ->
 
             existingClusterCoordinates.add(cluster.coordinate)
@@ -1614,6 +1616,8 @@ private suspend fun copyMapsToS3() {
                 return@collect
 
             uploadMapToS3(localMinioClient, cluster)
+
+            addedCount++
         }
 
         val coordinatesToDelete = existingNames.minus(existingClusterCoordinates)
@@ -1628,7 +1632,7 @@ private suspend fun copyMapsToS3() {
 
         val duration = System.currentTimeMillis() - start
 
-        log("Copied maps to S3 $duration ms.")
+        log("[S3] Completed in $duration ms. Added $addedCount. Deleted ${coordinatesToDelete.size}.")
 
     } catch (ex: Exception) {
 
@@ -1638,7 +1642,7 @@ private suspend fun copyMapsToS3() {
 
 private fun createSearchIndexes() {
 
-    log("Create search indexes from S3 ...")
+    log("[INDEX] Create search indexes from S3 ...")
 
     val start = System.currentTimeMillis()
 
@@ -1675,7 +1679,9 @@ private fun createSearchIndexes() {
                         inputStream.readAllBytes()
                     }
 
-                    val json = compressedBytes.decodeToString()
+                    val bytes = ZipUtil.unzipBytes(compressedBytes)
+
+                    val json = bytes.decodeToString()
 
                     try {
 
@@ -1716,7 +1722,7 @@ private fun createSearchIndexes() {
 
         val duration = System.currentTimeMillis() - start
 
-        log("Created search indexes in $duration ms.")
+        log("[INDEX] Created search indexes in $duration ms.")
 
     } catch (ex: Exception) {
 
