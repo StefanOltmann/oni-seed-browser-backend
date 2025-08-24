@@ -29,7 +29,7 @@ fun generateFilter(filterQuery: FilterQuery): Bson {
 
     val clusterAndRemixFilter = Filters.and(
         Filters.eq("clusterType", filterQuery.cluster),
-        Filters.regex("coordinate", ".*-" + filterQuery.remix)
+        Filters.eq("remix", filterQuery.remix)
     )
 
     /* If there are no rules, return all clusters. */

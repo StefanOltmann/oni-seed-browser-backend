@@ -35,6 +35,8 @@ data class ClusterSummary(
     @Serializable(with = ClusterTypePrefixSerializer::class)
     val clusterType: ClusterType,
 
+    val remix: String,
+
     val asteroidSummaries: List<AsteroidSummary>
 
 ) {
@@ -45,6 +47,7 @@ data class ClusterSummary(
             coordinate = cluster.coordinate,
             gameVersion = cluster.gameVersion,
             clusterType = cluster.cluster,
+            remix = cluster.coordinate.substringAfterLast("-"),
             asteroidSummaries = buildList {
 
                 for (asteroid in cluster.asteroids)
