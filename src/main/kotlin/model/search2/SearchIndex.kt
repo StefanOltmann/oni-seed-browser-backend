@@ -109,6 +109,14 @@ class SearchIndex(
 
         return summaries.filter { clusterSummary ->
 
+            val effectiveRemix = clusterSummary.remix ?: "0"
+
+            /*
+             * Check if the cluster's remix matches.
+             */
+            if (filterQuery.remix != effectiveRemix)
+                return@filter false
+
             /*
              * The outer loop iterates through groups that are connected by AND.
              * A cluster summary must satisfy ALL of these groups to be a match.

@@ -26,10 +26,13 @@ data class FilterQuery(
 
     val cluster: String,
 
-    val dlcs: List<String>,
+    /* Ignored field */
+    val dlcs: List<String>? = null,
 
     /* Ignored field */
     val mode: String? = null,
+
+    val remix: String = "0",
 
     /**
      * List of connected OR-rules.

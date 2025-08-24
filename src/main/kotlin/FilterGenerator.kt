@@ -27,14 +27,18 @@ import org.bson.conversions.Bson
 
 fun generateFilter(filterQuery: FilterQuery): Bson {
 
-    val clusterFilter = Filters.eq("clusterType", filterQuery.cluster)
+    val clusterAndRemixFilter = Filters.and(
+        Filters.eq("clusterType", filterQuery.cluster),
+        Filters.regex("coordinate", ".*-" + filterQuery.remix)
+    )
 
+    /* If there are no rules, return all clusters. */
     if (filterQuery.rules.isEmpty())
-        return clusterFilter
+        return clusterAndRemixFilter
 
     val andRulesBson = mutableListOf<Bson>()
 
-    andRulesBson.add(clusterFilter)
+    andRulesBson.add(clusterAndRemixFilter)
 
     for (orRules in filterQuery.rules) {
 
