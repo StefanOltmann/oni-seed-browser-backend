@@ -265,59 +265,66 @@ private fun Application.configureRoutingInternal() {
 
     launch {
 
+        log("[SETTING] populating summaries on start: $POPULATE_SUMMARIES_ON_START")
+
         /*
          * Set "coordinate" as a unique key
          */
 
-        log("Setting missing indices...")
+        log("[INIT] Setting missing indices...")
 
         /*
          * Unique key indexes
          */
 
-        val uniqueIndexOptions = IndexOptions().unique(true)
+        val time = measureTime {
 
-        clusterCollection
-            .createIndex(Document("coordinate", 1), uniqueIndexOptions)
+            val uniqueIndexOptions = IndexOptions().unique(true)
 
-        database.getCollection<Document>("uploads")
-            .createIndex(Document("coordinate", 1), uniqueIndexOptions)
+            clusterCollection
+                .createIndex(Document("coordinate", 1), uniqueIndexOptions)
 
-        failedWorldGenReportsCollection
-            .createIndex(Document("coordinate", 1), uniqueIndexOptions)
+            database.getCollection<Document>("uploads")
+                .createIndex(Document("coordinate", 1), uniqueIndexOptions)
 
-        requestedCoordinatesCollection
-            .createIndex(Document("coordinate", 1), uniqueIndexOptions)
+            failedWorldGenReportsCollection
+                .createIndex(Document("coordinate", 1), uniqueIndexOptions)
 
-        database.getCollection<Document>("summaries")
-            .createIndex(Document("coordinate", 1), uniqueIndexOptions)
+            requestedCoordinatesCollection
+                .createIndex(Document("coordinate", 1), uniqueIndexOptions)
 
-        /*
-         * Indexes for aggregation speed
-         */
+            database.getCollection<Document>("summaries")
+                .createIndex(Document("coordinate", 1), uniqueIndexOptions)
 
-        clusterCollection
-            .createIndex(Document("uploaderSteamIdHash", 1))
+            /*
+             * Indexes for aggregation speed
+             */
 
-        clusterCollection
-            .createIndex(Document("uploaderAuthenticated", 1))
+            clusterCollection
+                .createIndex(Document("uploaderSteamIdHash", 1))
 
-        clusterCollection
-            .createIndex(Document("uploadDate", 1))
+            clusterCollection
+                .createIndex(Document("uploaderAuthenticated", 1))
 
-        clusterCollection
-            .createIndex(Document("cluster", 1))
+            clusterCollection
+                .createIndex(Document("uploadDate", 1))
 
-        database.getCollection<Document>("uploads")
-            .createIndex(Document("uploadDate", 1))
+            clusterCollection
+                .createIndex(Document("cluster", 1))
 
-        database.getCollection<Document>("uploads")
-            .createIndex(Document("installationId", 1))
+            database.getCollection<Document>("uploads")
+                .createIndex(Document("uploadDate", 1))
 
-        log("... Done.")
+            database.getCollection<Document>("uploads")
+                .createIndex(Document("installationId", 1))
+        }
+
+        log("[INIT] Missing indexes set in $time.")
 
         if (POPULATE_SUMMARIES_ON_START)
             populateSummaries()
+        else
+            log("[INIT] Skipping population of summaries on start.")
 
         createContributorTable()
 
@@ -1412,7 +1419,7 @@ private suspend fun populateSummaries() {
 
     try {
 
-        log("Starting populate summary entries...")
+        log("[INDEX] Starting populate summary entries...")
 
         val start = System.currentTimeMillis()
 
@@ -1445,12 +1452,12 @@ private suspend fun populateSummaries() {
 
         } else {
 
-            log("Search index is up to date.")
+            log("[INDEX] Search index is up to date.")
         }
 
         val duration = System.currentTimeMillis() - start
 
-        log("Created search index in $duration ms.")
+        log("[INDEX] Created search index in $duration ms.")
 
     } catch (ex: Exception) {
 
