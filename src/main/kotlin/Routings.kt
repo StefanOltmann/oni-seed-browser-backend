@@ -267,59 +267,7 @@ private fun Application.configureRoutingInternal() {
 
         log("[SETTING] populating summaries on start: $POPULATE_SUMMARIES_ON_START")
 
-        /*
-         * Set "coordinate" as a unique key
-         */
-
-        log("[INIT] Setting missing indices...")
-
-        /*
-         * Unique key indexes
-         */
-
-        val time = measureTime {
-
-            val uniqueIndexOptions = IndexOptions().unique(true)
-
-            clusterCollection
-                .createIndex(Document("coordinate", 1), uniqueIndexOptions)
-
-            database.getCollection<Document>("uploads")
-                .createIndex(Document("coordinate", 1), uniqueIndexOptions)
-
-            failedWorldGenReportsCollection
-                .createIndex(Document("coordinate", 1), uniqueIndexOptions)
-
-            requestedCoordinatesCollection
-                .createIndex(Document("coordinate", 1), uniqueIndexOptions)
-
-            database.getCollection<Document>("summaries")
-                .createIndex(Document("coordinate", 1), uniqueIndexOptions)
-
-            /*
-             * Indexes for aggregation speed
-             */
-
-            clusterCollection
-                .createIndex(Document("uploaderSteamIdHash", 1))
-
-            clusterCollection
-                .createIndex(Document("uploaderAuthenticated", 1))
-
-            clusterCollection
-                .createIndex(Document("uploadDate", 1))
-
-            clusterCollection
-                .createIndex(Document("cluster", 1))
-
-            database.getCollection<Document>("uploads")
-                .createIndex(Document("uploadDate", 1))
-
-            database.getCollection<Document>("uploads")
-                .createIndex(Document("installationId", 1))
-        }
-
-        log("[INIT] Missing indexes set in $time.")
+        setMissingIndices()
 
         if (POPULATE_SUMMARIES_ON_START)
             populateSummaries()
@@ -1478,6 +1426,68 @@ private suspend fun countMaps(
     )
 
     return worldsCollection.aggregate(pipeline).firstOrNull()?.getInteger("count") ?: 0
+}
+
+private suspend fun setMissingIndices() {
+
+    /*
+     * Unique key indexes
+     */
+
+    try {
+
+        log("[INIT] Setting missing indices")
+
+        val time = measureTime {
+
+            val uniqueIndexOptions = IndexOptions().unique(true)
+
+            clusterCollection
+                .createIndex(Document("coordinate", 1), uniqueIndexOptions)
+
+            database.getCollection<Document>("uploads")
+                .createIndex(Document("coordinate", 1), uniqueIndexOptions)
+
+            failedWorldGenReportsCollection
+                .createIndex(Document("coordinate", 1), uniqueIndexOptions)
+
+            requestedCoordinatesCollection
+                .createIndex(Document("coordinate", 1), uniqueIndexOptions)
+
+            database.getCollection<Document>("summaries")
+                .createIndex(Document("coordinate", 1), uniqueIndexOptions)
+
+            /*
+             * Indexes for aggregation speed
+             */
+
+            clusterCollection
+                .createIndex(Document("uploaderSteamIdHash", 1))
+
+            clusterCollection
+                .createIndex(Document("uploaderAuthenticated", 1))
+
+            clusterCollection
+                .createIndex(Document("uploadDate", 1))
+
+            clusterCollection
+                .createIndex(Document("cluster", 1))
+
+            database.getCollection<Document>("uploads")
+                .createIndex(Document("uploadDate", 1))
+
+            database.getCollection<Document>("uploads")
+                .createIndex(Document("installationId", 1))
+        }
+
+        log("[INIT] Missing indexes set in $time.")
+
+    } catch (ex: Exception) {
+
+        log("[INIT] Failed to set missing indices at start: ${ex.message}")
+
+        log(ex)
+    }
 }
 
 private suspend fun createContributorTable() {
