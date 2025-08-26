@@ -32,7 +32,11 @@ data class FilterQuery(
     /* Ignored field */
     val mode: String? = null,
 
-    val remix: String = "0",
+    /*
+     * Only match remix, if set.
+     * Otherwise: ignore.
+     */
+    val remix: String? = null,
 
     /**
      * List of connected OR-rules.
