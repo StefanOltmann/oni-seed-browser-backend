@@ -28,7 +28,8 @@ data class FilterRule(
 
     /* Items */
     val geyserCount: FilterItemGeyserCount?,
+    val goodGeyserCount: FilterItemGeyserCount?,
     val geyserOutput: FilterItemGeyserOutput?,
     val worldTrait: FilterItemWorldTrait?,
-    val spaceDestinationCount: FilterItemSpaceDestinationCount? // only base game
+    // val spaceDestinationCount: FilterItemSpaceDestinationCount? // only base game
 )

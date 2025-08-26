@@ -61,10 +61,10 @@ class SearchIndex(
                             .map { it.key to it.value.size.toByte() }
                             .toMap()
 
-                        val geyserAvgOutput: Map<GeyserType, Short> = asteroid.geysers
+                        val goodGeyserCounts: Map<GeyserType, Byte> = asteroid.geysers
                             .groupBy(Geyser::id)
                             .map {
-                                it.key to (it.value.sumOf { g -> g.avgEmitRate } / it.value.size).toShort()
+                                it.key to (it.value.count { g -> g.avgEmitRate >= g.id.meanAvgEmitRate }).toByte()
                             }
                             .toMap()
 
@@ -75,9 +75,9 @@ class SearchIndex(
                                 geyserCounts = GeyserType.entries.map {
                                     geyserCounts[it] ?: 0
                                 }.toByteArray(),
-                                geyserAvgOutputs = GeyserType.entries.map {
-                                    geyserAvgOutput[it] ?: 0
-                                }.toShortArray()
+                                goodGeyserCounts = GeyserType.entries.map {
+                                    goodGeyserCounts[it] ?: 0
+                                }.toByteArray()
                             )
                         )
                     }
@@ -112,9 +112,9 @@ class SearchIndex(
             val effectiveRemix = clusterSummary.remix ?: "0"
 
             /*
-             * Check if the cluster's remix matches.
+             * Check if the cluster's remix matches, if set.
              */
-            if (filterQuery.remix != effectiveRemix)
+            if (filterQuery.remix != null && filterQuery.remix != effectiveRemix)
                 return@filter false
 
             /*
@@ -169,9 +169,9 @@ class SearchIndex(
                             }
                         }
 
-                        orRule.geyserOutput != null -> {
+                        orRule.goodGeyserCount != null -> {
 
-                            val item = orRule.geyserOutput
+                            val item = orRule.goodGeyserCount
 
                             val geyserTypeName = item.geyser
 
@@ -180,24 +180,17 @@ class SearchIndex(
 
                             val index = geyserType.ordinal
 
-                            val count = if (index < asteroidSummary.geyserCounts.size)
-                                asteroidSummary.geyserCounts[index].toInt()
+                            val goodCount = if (index < asteroidSummary.goodGeyserCounts.size)
+                                asteroidSummary.goodGeyserCounts[index].toInt()
                             else
                                 0
 
-                            val average = if (index < asteroidSummary.geyserAvgOutputs.size)
-                                asteroidSummary.geyserAvgOutputs[index].toInt()
-                            else
-                                0
-
-                            /* Convert average to total as required */
-                            val total = average * count
-                            val expected = item.outputInGramPerSecond ?: 0
+                            val expected = item.count ?: 0
 
                             when (item.condition) {
-                                FilterCondition.EXACTLY -> total == expected
-                                FilterCondition.AT_LEAST -> total >= expected
-                                FilterCondition.AT_MOST -> total <= expected
+                                FilterCondition.EXACTLY -> goodCount == expected
+                                FilterCondition.AT_LEAST -> if (expected == 0) goodCount > 0 else goodCount >= expected
+                                FilterCondition.AT_MOST -> goodCount <= expected
                             }
                         }
 

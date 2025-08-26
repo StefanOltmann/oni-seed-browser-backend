@@ -45,12 +45,12 @@ class AsteroidSummaryCompact(
     val geyserCounts: ByteArray,
 
     /**
-     * Average of all avgEmitRate values for the geyser type
+     * Count of all good (= avg or better) geysers
      *
      * Index = GeyserType ordinal
      */
     @ProtoNumber(4)
     @ProtoPacked
-    val geyserAvgOutputs: ShortArray
+    val goodGeyserCounts: ByteArray
 
 )
