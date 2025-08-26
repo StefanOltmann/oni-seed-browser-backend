@@ -30,5 +30,6 @@ data class FilterRule(
     val geyserCount: FilterItemGeyserCount? = null,
     val goodGeyserCount: FilterItemGeyserCount? = null,
     val geyserOutput: FilterItemGeyserOutput? = null,
-    val worldTrait: FilterItemWorldTrait? = null
+    val worldTrait: FilterItemWorldTrait? = null,
+    val zoneType: FilterItemZoneType? = null
 )

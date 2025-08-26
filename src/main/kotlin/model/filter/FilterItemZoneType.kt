@@ -19,10 +19,15 @@
 
 package model.filter
 
-enum class FilterItemType {
+import kotlinx.serialization.Serializable
+import model.ZoneType
 
-    GEYSER_COUNT,
-    GEYSER_OUTPUT,
-    WORLD_TRAIT,
-    SPACE_DESTINATION_COUNT
-}
+@Serializable
+data class FilterItemZoneType(
+
+    /** True, if the condition is positive */
+    val has: Boolean,
+
+    val zoneType: ZoneType
+
+) : FilterItem

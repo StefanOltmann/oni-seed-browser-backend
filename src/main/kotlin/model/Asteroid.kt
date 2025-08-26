@@ -39,4 +39,9 @@ data class Asteroid(
 
     val pointsOfInterest: List<PointOfInterest>,
     val geysers: List<Geyser>
-)
+
+) {
+
+    fun getBiomes(): Set<ZoneType> =
+        BiomePaths.parse(biomePaths).polygonMap.keys
+}

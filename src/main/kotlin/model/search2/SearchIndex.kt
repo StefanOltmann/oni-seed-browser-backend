@@ -10,6 +10,7 @@ import model.Geyser
 import model.GeyserType
 import model.WorldTrait
 import model.WorldTraitMask
+import model.ZoneTypeMask
 import model.filter.FilterCondition
 import model.filter.FilterQuery
 import kotlin.time.Clock
@@ -25,7 +26,7 @@ class SearchIndex(
     @ProtoNumber(2)
     val timestamp: Long = Clock.System.now().toEpochMilliseconds(),
 
-) {
+    ) {
 
     @ProtoNumber(3)
     private val _summaries: MutableList<ClusterSummaryCompact> = mutableListOf()
@@ -72,6 +73,7 @@ class SearchIndex(
                             AsteroidSummaryCompact(
                                 id = asteroid.id,
                                 worldTraitsBitMask = WorldTraitMask.toMask(asteroid.worldTraits),
+                                zoneTypesBitMask = ZoneTypeMask.toMask(asteroid.getBiomes()),
                                 geyserCounts = GeyserType.entries.map {
                                     geyserCounts[it] ?: 0
                                 }.toByteArray(),
@@ -210,6 +212,18 @@ class SearchIndex(
                                 hasTrait
                             else
                                 !hasTrait
+                        }
+
+                        orRule.zoneType != null -> {
+
+                            val item = orRule.zoneType
+
+                            val hasZoneType = ZoneTypeMask.has(asteroidSummary.zoneTypesBitMask, item.zoneType)
+
+                            if (item.has)
+                                hasZoneType
+                            else
+                                !hasZoneType
                         }
 
                         /* Outdated rules result in mismatches. */

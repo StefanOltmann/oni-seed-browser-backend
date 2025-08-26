@@ -26,7 +26,9 @@ object WorldTraitMask {
         var mask = 0
 
         for (trait in traits) {
+
             val bit = 1 shl trait.ordinal
+
             mask = mask or bit
         }
 

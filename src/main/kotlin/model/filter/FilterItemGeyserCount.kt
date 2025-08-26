@@ -20,7 +20,6 @@
 package model.filter
 
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.Transient
 
 @Serializable
 data class FilterItemGeyserCount(
@@ -30,9 +29,4 @@ data class FilterItemGeyserCount(
     val condition: FilterCondition,
     val count: Int?
 
-) : FilterItem {
-
-    @Transient
-    override val type: FilterItemType = FilterItemType.GEYSER_COUNT
-
-}
+)

@@ -17,25 +17,46 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package model.filter
+package model
 
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.Transient
+object ZoneTypeMask {
 
-/**
- * Basegame-only filter
- */
-@Serializable
-data class FilterItemSpaceDestinationCount(
+    fun toMask(zoneTypes: Collection<ZoneType>): Int {
 
-    val poi: String,
+        var mask = 0
 
-    val condition: FilterCondition,
-    val count: Int
+        for (zoneType in zoneTypes) {
 
-) : FilterItem {
+            val bit = 1 shl zoneType.ordinal
 
-    @Transient
-    override val type: FilterItemType = FilterItemType.SPACE_DESTINATION_COUNT
+            mask = mask or bit
+        }
 
+        return mask
+    }
+
+    fun fromMask(mask: Int): List<ZoneType> {
+
+        if (mask == 0)
+            return emptyList()
+
+        val result = ArrayList<ZoneType>()
+
+        for (zoneType in ZoneType.entries) {
+
+            val bit = 1 shl zoneType.ordinal
+
+            if ((mask and bit) != 0)
+                result.add(zoneType)
+        }
+
+        return result
+    }
+
+    fun has(mask: Int, zoneType: ZoneType): Boolean {
+
+        val bit = 1 shl zoneType.ordinal
+
+        return (mask and bit) != 0
+    }
 }

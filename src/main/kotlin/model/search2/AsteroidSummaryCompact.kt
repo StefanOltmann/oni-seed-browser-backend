@@ -35,12 +35,15 @@ class AsteroidSummaryCompact(
     @ProtoNumber(2)
     val worldTraitsBitMask: Int,
 
+    @ProtoNumber(3)
+    val zoneTypesBitMask: Int,
+
     /**
      * Count of all geysers
      *
      * Index = GeyserType ordinal
      */
-    @ProtoNumber(3)
+    @ProtoNumber(4)
     @ProtoPacked
     val geyserCounts: ByteArray,
 
@@ -49,7 +52,7 @@ class AsteroidSummaryCompact(
      *
      * Index = GeyserType ordinal
      */
-    @ProtoNumber(4)
+    @ProtoNumber(5)
     @ProtoPacked
     val goodGeyserCounts: ByteArray
 
