@@ -27,9 +27,8 @@ data class FilterRule(
     val asteroid: String,
 
     /* Items */
-    val geyserCount: FilterItemGeyserCount?,
-    val goodGeyserCount: FilterItemGeyserCount?,
-    val geyserOutput: FilterItemGeyserOutput?,
-    val worldTrait: FilterItemWorldTrait?,
-    // val spaceDestinationCount: FilterItemSpaceDestinationCount? // only base game
+    val geyserCount: FilterItemGeyserCount? = null,
+    val goodGeyserCount: FilterItemGeyserCount? = null,
+    val geyserOutput: FilterItemGeyserOutput? = null,
+    val worldTrait: FilterItemWorldTrait? = null
 )

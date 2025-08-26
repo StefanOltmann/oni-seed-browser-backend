@@ -1,5 +1,5 @@
 /*
- * ONI Seed Browser Backend
+ * ONI Seed Browser
  * Copyright (C) 2025 Stefan Oltmann
  * https://stefan-oltmann.de/oni-seed-browser
  *
@@ -21,7 +21,7 @@ package model
 
 data class BiomePaths(
 
-    val polygonMap: Map<String, List<List<Point>>>
+    val polygonMap: Map<ZoneType, List<List<Point>>>
 
 ) {
 
@@ -64,7 +64,7 @@ data class BiomePaths(
 
         fun parse(biomePaths: String): BiomePaths {
 
-            val polygonMap = mutableMapOf<String, List<List<Point>>>()
+            val polygonMap = mutableMapOf<ZoneType, List<List<Point>>>()
 
             val lines = biomePaths
                 .replace("\\n", "\n") // be robust for wrong newline
@@ -74,7 +74,7 @@ data class BiomePaths(
 
                 val splittedLine = line.split(':')
 
-                val zoneType = splittedLine[0]
+                val zoneType = ZoneType.valueOf(splittedLine[0])
                 val pointsLists = splittedLine[1].split(';')
 
                 val biomePointsLists = mutableListOf<List<Point>>()

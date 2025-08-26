@@ -1,0 +1,71 @@
+/*
+ * ONI Seed Browser
+ * Copyright (C) 2025 Stefan Oltmann
+ * https://stefan-oltmann.de/oni-seed-browser
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package model
+
+import kotlinx.serialization.Serializable
+
+@Suppress("UNUSED")
+@Serializable
+enum class ZoneType(
+    val id: Int
+) {
+    /*
+     * Ordered by how they should appear in the biome list.
+     */
+
+    /** Default starting area, should always come first. */
+    Sandstone(3),
+    Barren(16),
+
+    Space(7),
+
+    FrozenWastes(0),
+
+    // CrystalCaverns(1Res.string. zoneType//(0xFFAC72C1)),
+    BoggyMarsh(2),
+    ToxicJungle(4),
+
+    Ocean(8),
+    Rust(9),
+    Forest(10),
+    Radioactive(1),
+    Swamp(12),
+    Wasteland(13),
+
+    // RocketInterior(1Res.string. zoneType//,Color(0xFF9E48DF)),
+    Metallic(15),
+    Moo(17),
+
+    /* Ceres */
+    IceCaves(18),
+    CarrotQuarry(19),
+    SugarWoods(20),
+
+    /* Relica */
+    PrehistoricGarden(21),
+    PrehistoricRaptor(22),
+    PrehistoricWetlands(23),
+
+    /* Most of the time right above the magma biome. */
+    OilField(6),
+
+    /* Usually at the bottom of the map, so also listed at the bottom */
+    MagmaCore(5)
+}

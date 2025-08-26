@@ -24,11 +24,12 @@ import model.Asteroid
 import model.BiomePaths
 import model.Cluster
 import model.Point
+import model.ZoneType
 import kotlin.math.roundToInt
 
 fun BiomePaths.optimize(): BiomePaths {
 
-    val mergedPolygonMap = mutableMapOf<String, List<List<Point>>>()
+    val mergedPolygonMap = mutableMapOf<ZoneType, List<List<Point>>>()
 
     for ((zoneType, regions) in polygonMap.entries) {
 
@@ -44,13 +45,9 @@ fun BiomePaths.optimize(): BiomePaths {
             regionPointsList.add(regionPoints)
         }
 
-        val polygon = Polygon(regionPointsList)
-
-        val epsilon = Epsilon()
-
         val mergedPolygon: Polygon = PolyBool.union(
-            epsilon,
-            polygon,
+            Epsilon(),
+            Polygon(regionPointsList),
             Polygon()
         )
 

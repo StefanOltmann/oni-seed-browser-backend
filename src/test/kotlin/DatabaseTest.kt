@@ -98,7 +98,9 @@ class DatabaseTest {
 
         val executionTime = measureTime {
 
-            val filterQuery = Json.decodeFromString<FilterQuery>(testFilter)
+            val filterQuery = Json {
+                ignoreUnknownKeys = true
+            }.decodeFromString<FilterQuery>(testFilter)
 
             val matchingCoordinates = Database.findMatchingCoordinates(filterQuery, driver)
 

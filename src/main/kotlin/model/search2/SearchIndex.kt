@@ -212,9 +212,9 @@ class SearchIndex(
                                 !hasTrait
                         }
 
-                        /* Unsupported or empty rule */
+                        /* Outdated rules result in mismatches. */
                         else ->
-                            error("Unsupported filter rule: $orRule")
+                            false
                     }
 
                     /* If we find just one matching rule, this group is satisfied (OR logic). */

@@ -450,7 +450,9 @@ private fun Application.configureRoutingInternal() {
 
                 val filterQueryJson = call.receive<String>()
 
-                val filterQuery = Json.decodeFromString<FilterQuery>(filterQueryJson)
+                val filterQuery = Json {
+                    ignoreUnknownKeys = true
+                }.decodeFromString<FilterQuery>(filterQueryJson)
 
                 val filter = generateFilter(filterQuery)
 

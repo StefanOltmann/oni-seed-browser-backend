@@ -34,7 +34,9 @@ fun main() {
 
     for (holder in holders) {
 
-        val query = Json.decodeFromString<FilterQuery>(holder.filterQueryJson)
+        val query = Json {
+            ignoreUnknownKeys = true
+        }.decodeFromString<FilterQuery>(holder.filterQueryJson)
 
         val clusterType = ClusterType.entries.find { it.prefix == query.cluster }
 
