@@ -60,7 +60,6 @@ import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
-import io.minio.GetObjectArgs
 import io.minio.ListObjectsArgs
 import io.minio.MinioClient
 import io.minio.PutObjectArgs
@@ -1659,7 +1658,7 @@ private suspend fun copyMapsToS3() {
     }
 }
 
-private fun createSearchIndexes() {
+private suspend fun createSearchIndexes() {
 
     log("[INDEX] Create search indexes from S3 ...")
 
@@ -1671,69 +1670,71 @@ private fun createSearchIndexes() {
 
             val time = measureTime {
 
-                val results = localMinioClient.listObjects(
-                    ListObjectsArgs.builder()
-                        .bucket("oni-worlds")
-                        .prefix(cluster.prefix)
-                        .build()
-                )
+//                val results = localMinioClient.listObjects(
+//                    ListObjectsArgs.builder()
+//                        .bucket("oni-worlds")
+//                        .prefix(cluster.prefix)
+//                        .build()
+//                )
 
-                println("Found ${results.count()} files for cluster $cluster")
-
-                if (results.count() == 0)
-                    return@measureTime
+                val clustersToIndex = clusterCollection.find(
+                    Filters.eq(Cluster::cluster.name, cluster)
+                ).batchSize(1000)
 
                 val searchIndex = SearchIndex(cluster)
 
-                for (result in results) {
+                clustersToIndex.collect { cluster ->
 
-                    val item = result.get()
+//                    val item = result.get()
+//
+//                    val compressedBytes: ByteArray = localMinioClient.getObject(
+//                        GetObjectArgs.builder()
+//                            .bucket("oni-worlds")
+//                            .`object`(item.objectName())
+//                            .build()
+//                    ).use { inputStream ->
+//                        inputStream.readAllBytes()
+//                    }
+//
+//                    val bytes = ZipUtil.unzipBytes(compressedBytes)
+//
+//                    val json = bytes.decodeToString()
+//
+//                    try {
+//
+//                        val cluster = Json.decodeFromString<Cluster>(json)
+//
+//                        searchIndex.add(cluster)
+//
+//                    } catch (ex: Exception) {
+//
+//                        println(json)
+//
+//                        throw ex
+//                    }
+//                }
 
-                    val compressedBytes: ByteArray = localMinioClient.getObject(
-                        GetObjectArgs.builder()
-                            .bucket("oni-worlds")
-                            .`object`(item.objectName())
-                            .build()
-                    ).use { inputStream ->
-                        inputStream.readAllBytes()
-                    }
+                    searchIndex.add(cluster)
 
-                    val bytes = ZipUtil.unzipBytes(compressedBytes)
+                    val protobufBytes = ProtoBuf.encodeToByteArray(searchIndex)
 
-                    val json = bytes.decodeToString()
+                    val zippedProtobufBytes = ZipUtil.zipBytes(protobufBytes)
 
-                    try {
-
-                        val cluster = Json.decodeFromString<Cluster>(json)
-
-                        searchIndex.add(cluster)
-
-                    } catch (ex: Exception) {
-
-                        println(json)
-
-                        throw ex
-                    }
-                }
-
-                val protobufBytes = ProtoBuf.encodeToByteArray(searchIndex)
-
-                val zippedProtobufBytes = ZipUtil.zipBytes(protobufBytes)
-
-                localMinioClient.putObject(
-                    PutObjectArgs
-                        .builder()
-                        .bucket("oni-search")
-                        .`object`(cluster.prefix)
-                        .headers(
-                            mapOf(
-                                "Content-Type" to "application/protobuf",
-                                "Content-Encoding" to "gzip"
+                    localMinioClient.putObject(
+                        PutObjectArgs
+                            .builder()
+                            .bucket("oni-search")
+                            .`object`(cluster.cluster.prefix)
+                            .headers(
+                                mapOf(
+                                    "Content-Type" to "application/protobuf",
+                                    "Content-Encoding" to "gzip"
+                                )
                             )
-                        )
-                        .stream(zippedProtobufBytes.inputStream(), zippedProtobufBytes.size.toLong(), -1)
-                        .build()
-                )
+                            .stream(zippedProtobufBytes.inputStream(), zippedProtobufBytes.size.toLong(), -1)
+                            .build()
+                    )
+                }
             }
 
             log("[INDEX] Processed $cluster in $time.")
@@ -1774,7 +1775,7 @@ private suspend fun findAllSearchIndexCoordinates(database: MongoDatabase): Set<
 }
 
 /*
- * Newer tokens have it as subject, older ones as claim.
+ * Newer tokens have it as a subject, older ones as claim.
  */
 private val DecodedJWT.steamId
     get() = this.subject ?: this.getClaim("steamId").asString()
