@@ -100,7 +100,7 @@ class SearchIndex(
     ): List<String> {
 
         /* Cluster type must match this index; otherwise nothing can match */
-        if (filterQuery.cluster != clusterType.prefix)
+        if (filterQuery.cluster != clusterType)
             return emptyList()
 
         /* If no rules are specified, all clusters match. */

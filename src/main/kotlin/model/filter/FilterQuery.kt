@@ -20,11 +20,14 @@
 package model.filter
 
 import kotlinx.serialization.Serializable
+import model.ClusterType
+import serializer.ClusterTypePrefixSerializer
 
 @Serializable
 data class FilterQuery(
 
-    val cluster: String,
+    @Serializable(with = ClusterTypePrefixSerializer::class)
+    val cluster: ClusterType?,
 
     /* Ignored field */
     val dlcs: List<String>? = null,
