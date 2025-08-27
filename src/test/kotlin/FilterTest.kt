@@ -38,7 +38,7 @@ fun main() {
             ignoreUnknownKeys = true
         }.decodeFromString<FilterQuery>(holder.filterQueryJson)
 
-        val clusterType = ClusterType.entries.find { it.prefix == query.cluster }
+        val clusterType = ClusterType.entries.find { it == query.cluster }
 
         val searchIndex = map[clusterType]!!
 
