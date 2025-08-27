@@ -27,14 +27,14 @@ import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import model.AsteroidType
 
-object AsteroidTypeOrdinalSerializer : KSerializer<AsteroidType> {
+object AsteroidTypeIdSerializer : KSerializer<AsteroidType> {
 
     override val descriptor: SerialDescriptor =
-        PrimitiveSerialDescriptor("AsteroidTypeOrdinalSerializer", PrimitiveKind.BYTE)
+        PrimitiveSerialDescriptor("AsteroidTypeIdSerializer", PrimitiveKind.BYTE)
 
     override fun serialize(encoder: Encoder, value: AsteroidType) =
-        encoder.encodeByte(value.ordinal.toByte())
+        encoder.encodeByte(value.id)
 
     override fun deserialize(decoder: Decoder): AsteroidType =
-        AsteroidType.entries[decoder.decodeInt()]
+        AsteroidType.entries.find { it.id == decoder.decodeByte() } ?: error("Unknown id ${decoder.decodeByte()}")
 }
