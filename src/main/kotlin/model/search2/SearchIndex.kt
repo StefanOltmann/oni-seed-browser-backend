@@ -24,9 +24,9 @@ class SearchIndex(
     val clusterType: ClusterType,
 
     @ProtoNumber(2)
-    val timestamp: Long = Clock.System.now().toEpochMilliseconds(),
+    val timestamp: Long = Clock.System.now().toEpochMilliseconds()
 
-    ) {
+) {
 
     @ProtoNumber(3)
     private val _summaries: MutableList<ClusterSummaryCompact> = mutableListOf()
