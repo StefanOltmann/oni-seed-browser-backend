@@ -1673,7 +1673,7 @@ private suspend fun createSearchIndexes() {
             val time = measureTime {
 
                 val clustersToIndex = clusterCollection.find(
-                    Filters.eq(Cluster::cluster.name, cluster.name)
+                    Filters.eq(Cluster::cluster.name, cluster.prefix)
                 ).batchSize(1000)
 
                 clustersToIndex.collect { cluster ->
