@@ -1701,7 +1701,7 @@ private suspend fun createSearchIndexes() {
                 )
             }
 
-            log("[INDEX] Processed $cluster with ${searchIndex.summaries} seeds in $time.")
+            log("[INDEX] Processed $cluster with ${searchIndex.summaries.size} seeds in $time.")
         }
 
         val duration = System.currentTimeMillis() - start

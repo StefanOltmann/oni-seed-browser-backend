@@ -39,7 +39,7 @@ data class FilterQuery(
      * Only match remix, if set.
      * Otherwise: ignore.
      */
-    val remix: String? = null,
+    val remix: String? = "0",
 
     /**
      * List of connected OR-rules.
