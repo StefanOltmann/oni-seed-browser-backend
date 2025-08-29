@@ -71,7 +71,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
-import kotlinx.coroutines.flow.toSet
 import kotlinx.coroutines.launch
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.encodeToByteArray
@@ -86,14 +85,11 @@ import model.Dlc
 import model.FailedGenReport
 import model.FailedGenReportDatabase
 import model.FavoredCoordinate
-import model.FilterPerformanceAnalytics
 import model.RateCoordinateRequest
 import model.RequestedCoordinate
 import model.RequestedCoordinateStatus
 import model.Upload
 import model.UploadDatabase
-import model.filter.FilterQuery
-import model.search.ClusterSummary
 import model.search2.SearchIndex
 import org.bson.Document
 import java.security.KeyFactory
@@ -104,17 +100,10 @@ import java.util.Base64
 import java.util.UUID
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
-import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTime
 
-/* Should not be necessary right now; was for migration. */
-val POPULATE_SUMMARIES_ON_START: Boolean =
-    (System.getenv("POPULATE_SUMMARIES_ON_START") ?: "false") == "true"
-
 const val TRANSFER_MAPS_TO_S3 = true
-
-const val RESULT_LIMIT_NEW = 500
 
 const val LATEST_MAPS_LIMIT = 50
 
@@ -143,9 +132,6 @@ private val localS3Password: String =
 
 private val externalS3Url: String =
     System.getenv("EXTERNAL_S3_URL") ?: error("Missing EXTERNAL_S3_URL environment variable")
-
-private val externalS3Bucket: String =
-    System.getenv("EXTERNAL_S3_BUCKET") ?: error("Missing EXTERNAL_S3_BUCKET environment variable")
 
 private val externalS3User: String =
     System.getenv("EXTERNAL_S3_USER") ?: error("Missing EXTERNAL_S3_USER environment variable")
@@ -264,14 +250,7 @@ private fun Application.configureRoutingInternal() {
 
     launch {
 
-        log("[SETTING] populating summaries on start: $POPULATE_SUMMARIES_ON_START")
-
         setMissingIndices()
-
-        if (POPULATE_SUMMARIES_ON_START)
-            populateSummaries()
-        else
-            log("[INIT] Skipping population of summaries on start.")
 
         createContributorTable()
 
@@ -438,58 +417,6 @@ private fun Application.configureRoutingInternal() {
                 log(ex)
 
                 call.respond(HttpStatusCode.InternalServerError, "Error on export")
-            }
-        }
-
-        post("/search/v2") {
-
-            try {
-
-                val start = System.currentTimeMillis()
-
-                val filterQueryJson = call.receive<String>()
-
-                val filterQuery = Json {
-                    ignoreUnknownKeys = true
-                }.decodeFromString<FilterQuery>(filterQueryJson)
-
-                val filter = generateFilter(filterQuery)
-
-                val matchingSummaries: List<ClusterSummary> = database
-                    .getCollection<ClusterSummary>("summaries")
-                    .find(filter)
-                    .limit(RESULT_LIMIT_NEW)
-                    .toList()
-
-                val matchingCoordinates: List<String> =
-                    matchingSummaries.map { it.coordinate }.toList()
-
-                call.respond(matchingCoordinates)
-
-                val duration = System.currentTimeMillis() - start
-
-                /*
-                 * Capture filter performance analytics for fine-tuning the system.
-                 */
-                database
-                    .getCollection<FilterPerformanceAnalytics>("filterPerformance")
-                    .insertOne(
-                        FilterPerformanceAnalytics(
-                            date = Clock.System.now().toEpochMilliseconds(),
-                            filterQueryJson = filterQueryJson,
-                            durationMillis = duration,
-                            resultCount = matchingCoordinates.size,
-                            resultCoordinates = matchingCoordinates,
-                        )
-                    )
-
-                log("[SEARCH] Returned ${matchingCoordinates.size} search results in $duration ms.")
-
-            } catch (ex: Exception) {
-
-                log(ex)
-
-                call.respond(HttpStatusCode.InternalServerError, "Error on search")
             }
         }
 
@@ -757,14 +684,9 @@ private fun Application.configureRoutingInternal() {
                         Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.COMPLETED)
                     )
 
-                /* Add to the search index */
-                database
-                    .getCollection<ClusterSummary>("summaries")
-                    .insertOne(ClusterSummary.create(cluster))
-
                 /* Update the contributor info */
 
-                val newMapCount = countMaps(database, uploaderSteamIdHash)
+                val newMapCount = countMapsForUploader(database, uploaderSteamIdHash)
 
                 val contributorsCollection =
                     database.getCollection<Contributor>("contributors")
@@ -1358,63 +1280,13 @@ private suspend fun handleGetRequestedCoordinate(
 }
 
 /**
- * If behind a Cloudflare proxy we need to check the X-Forwarded-For first.
+ * If behind a Cloudflare proxy, we need to check the X-Forwarded-For first.
  */
 private fun ApplicationCall.getIpAddress(): String =
     request.headers["X-Forwarded-For"]?.split(",")?.firstOrNull()?.trim()
         ?: request.origin.remoteAddress
 
-private suspend fun populateSummaries() {
-
-    try {
-
-        log("[INDEX] Starting populate summary entries...")
-
-        val start = System.currentTimeMillis()
-
-        val coordinates = findAllExistingCoordinates(database)
-
-        val searchIndexCoordinates = findAllSearchIndexCoordinates(database)
-
-        val missingCoordinates = coordinates.minus(searchIndexCoordinates)
-
-        if (missingCoordinates.isNotEmpty()) {
-
-            log("Adding ${missingCoordinates.size} to search index...")
-
-            val summariesCollection = database.getCollection<ClusterSummary>("summaries")
-
-            /*
-             * Go in chunks because the document size will be too high otherwise.
-             */
-            for (chunk in missingCoordinates.chunked(10000)) {
-
-                val clustersToIndex = clusterCollection.find(
-                    Filters.`in`("coordinate", chunk)
-                )
-
-                clustersToIndex.collect { world ->
-
-                    summariesCollection.insertOne(ClusterSummary.create(world))
-                }
-            }
-
-        } else {
-
-            log("[INDEX] Search index is up to date.")
-        }
-
-        val duration = System.currentTimeMillis() - start
-
-        log("[INDEX] Created search index in $duration ms.")
-
-    } catch (ex: Exception) {
-
-        log(ex)
-    }
-}
-
-private suspend fun countMaps(
+private suspend fun countMapsForUploader(
     database: MongoDatabase,
     uploaderSteamIdHash: String
 ): Int {
@@ -1559,7 +1431,7 @@ private fun uploadMapToS3(
                 if (minioClient == localMinioClient)
                     "oni-worlds"
                 else
-                    externalS3Bucket
+                    "oni-worlds.stefanoltmann.de"
             )
             .`object`(cluster.coordinate)
             .headers(
@@ -1574,7 +1446,7 @@ private fun uploadMapToS3(
     )
 }
 
-private fun deleteFromS3(
+private fun deleteMapFromS3(
     minioClient: MinioClient,
     coordinate: String
 ) {
@@ -1586,7 +1458,7 @@ private fun deleteFromS3(
                 if (minioClient == localMinioClient)
                     "oni-worlds"
                 else
-                    externalS3Bucket
+                    "oni-worlds.stefanoltmann.de"
             )
             .`object`(coordinate)
             .build()
@@ -1644,8 +1516,8 @@ private suspend fun copyMapsToS3() {
 
             println("Delete $map from S3...")
 
-            deleteFromS3(localMinioClient, map)
-            deleteFromS3(externalMinioClient, map)
+            deleteMapFromS3(localMinioClient, map)
+            deleteMapFromS3(externalMinioClient, map)
         }
 
         val duration = System.currentTimeMillis() - start
@@ -1658,6 +1530,7 @@ private suspend fun copyMapsToS3() {
     }
 }
 
+@OptIn(ExperimentalSerializationApi::class)
 private suspend fun createSearchIndexes() {
 
     log("[INDEX] Create search indexes from MongoDB ...")
@@ -1674,7 +1547,7 @@ private suspend fun createSearchIndexes() {
 
                 val clustersToIndex = clusterCollection.find(
                     Filters.eq(Cluster::cluster.name, cluster.prefix)
-                ).batchSize(1000)
+                ).batchSize(10000)
 
                 clustersToIndex.collect { cluster ->
 
@@ -1699,9 +1572,24 @@ private suspend fun createSearchIndexes() {
                         .stream(zippedProtobufBytes.inputStream(), zippedProtobufBytes.size.toLong(), -1)
                         .build()
                 )
+
+                externalMinioClient.putObject(
+                    PutObjectArgs
+                        .builder()
+                        .bucket("oni-search.stefanoltmann.de")
+                        .`object`(cluster.prefix)
+                        .headers(
+                            mapOf(
+                                "Content-Type" to "application/protobuf",
+                                "Content-Encoding" to "gzip"
+                            )
+                        )
+                        .stream(zippedProtobufBytes.inputStream(), zippedProtobufBytes.size.toLong(), -1)
+                        .build()
+                )
             }
 
-            log("[INDEX] Processed $cluster with ${searchIndex.summaries.size} seeds in $time.")
+            log("[INDEX] Processed ${cluster.prefix} with ${searchIndex.summaries.size} seeds in $time.")
         }
 
         val duration = System.currentTimeMillis() - start
@@ -1712,30 +1600,6 @@ private suspend fun createSearchIndexes() {
 
         log(ex)
     }
-}
-
-private suspend fun findAllExistingCoordinates(database: MongoDatabase): Set<String> {
-
-    val collection = database.getCollection<Document>("worlds")
-
-    val coordinates: Set<String> = collection.find()
-        .projection(Projections.fields(Projections.include("coordinate")))
-        .map { it["coordinate"] as String }
-        .toSet()
-
-    return coordinates
-}
-
-private suspend fun findAllSearchIndexCoordinates(database: MongoDatabase): Set<String> {
-
-    val collection = database.getCollection<Document>("summaries")
-
-    val coordinates: Set<String> = collection.find()
-        .projection(Projections.fields(Projections.include("coordinate")))
-        .map { it["coordinate"] as String }
-        .toSet()
-
-    return coordinates
 }
 
 /*
