@@ -125,10 +125,10 @@ private val publicKey: ECPublicKey = System.getenv("MNI_JWT_PUBLIC_KEY")?.let { 
     KeyFactory.getInstance("EC").generatePublic(keySpec) as ECPublicKey
 } ?: error("Missing MNI_JWT_PUBLIC_KEY environment variable")
 
-private val localS3User: String = System.getenv("LOCAL_S3_USER") ?: error("Missing LOCAL_S3_USER environment variable")
-
-private val localS3Password: String =
-    System.getenv("LOCAL_S3_PASSWORD") ?: error("Missing LOCAL_S3_PASSWORD environment variable")
+//private val localS3User: String = System.getenv("LOCAL_S3_USER") ?: error("Missing LOCAL_S3_USER environment variable")
+//
+//private val localS3Password: String =
+//    System.getenv("LOCAL_S3_PASSWORD") ?: error("Missing LOCAL_S3_PASSWORD environment variable")
 
 private val externalS3Url: String =
     System.getenv("EXTERNAL_S3_URL") ?: error("Missing EXTERNAL_S3_URL environment variable")
@@ -175,11 +175,11 @@ private val strictAllFieldsJson = Json {
     encodeDefaults = true
 }
 
-private val localMinioClient =
-    MinioClient.builder()
-        .endpoint("http://minio:9000")
-        .credentials(localS3User, localS3Password)
-        .build()
+//private val localMinioClient =
+//    MinioClient.builder()
+//        .endpoint("http://minio:9000")
+//        .credentials(localS3User, localS3Password)
+//        .build()
 
 private val externalMinioClient =
     MinioClient.builder()
@@ -708,14 +708,14 @@ private fun Application.configureRoutingInternal() {
                     )
                 }
 
-                uploadMapToS3(localMinioClient, optimizedClusterWithMetadata)
+                uploadMapToS3(externalMinioClient, optimizedClusterWithMetadata)
 
-                /* May fail during setup. */
-                try {
-                    uploadMapToS3(externalMinioClient, optimizedClusterWithMetadata)
-                } catch (ex: Exception) {
-                    log(ex)
-                }
+//                /* May fail during setup. */
+//                try {
+//                    uploadMapToS3(externalMinioClient, optimizedClusterWithMetadata)
+//                } catch (ex: Exception) {
+//                    log(ex)
+//                }
 
                 call.respond(HttpStatusCode.OK, "Data was saved.")
 
@@ -1429,9 +1429,9 @@ private fun uploadMapToS3(
         PutObjectArgs
             .builder()
             .bucket(
-                if (minioClient == localMinioClient)
-                    "oni-worlds"
-                else
+//                if (minioClient == localMinioClient)
+//                    "oni-worlds"
+//                else
                     "oni-worlds.stefanoltmann.de"
             )
             .`object`(cluster.coordinate)
@@ -1457,9 +1457,9 @@ private fun deleteMapFromS3(
         RemoveObjectArgs
             .builder()
             .bucket(
-                if (minioClient == localMinioClient)
-                    "oni-worlds"
-                else
+//                if (minioClient == localMinioClient)
+//                    "oni-worlds"
+//                else
                     "oni-worlds.stefanoltmann.de"
             )
             .`object`(coordinate)
@@ -1478,9 +1478,9 @@ private suspend fun copyMapsToS3() {
 
     try {
 
-        val objects = localMinioClient.listObjects(
+        val objects = externalMinioClient.listObjects(
             ListObjectsArgs.builder()
-                .bucket("oni-worlds")
+                .bucket("oni-worlds.stefanoltmann.de")
                 .recursive(true)
                 .build()
         )
@@ -1507,7 +1507,7 @@ private suspend fun copyMapsToS3() {
             if (existingNames.contains(cluster.coordinate))
                 return@collect
 
-            uploadMapToS3(localMinioClient, cluster)
+            uploadMapToS3(externalMinioClient, cluster)
 
             addedCount++
         }
@@ -1518,7 +1518,7 @@ private suspend fun copyMapsToS3() {
 
             println("Delete $map from S3...")
 
-            deleteMapFromS3(localMinioClient, map)
+            // deleteMapFromS3(localMinioClient, map)
             deleteMapFromS3(externalMinioClient, map)
         }
 
@@ -1560,22 +1560,22 @@ private suspend fun createSearchIndexes() {
 
                 val zippedProtobufBytes = ZipUtil.zipBytes(protobufBytes)
 
-                localMinioClient.putObject(
-                    PutObjectArgs
-                        .builder()
-                        .bucket("oni-search")
-                        .`object`(cluster.prefix)
-                        .headers(
-                            mapOf(
-                                "Content-Type" to "application/protobuf",
-                                "Content-Encoding" to "gzip",
-                                /* Cache for a day. */
-                                "Cache-Control" to "public, max-age=86400"
-                            )
-                        )
-                        .stream(zippedProtobufBytes.inputStream(), zippedProtobufBytes.size.toLong(), -1)
-                        .build()
-                )
+//                localMinioClient.putObject(
+//                    PutObjectArgs
+//                        .builder()
+//                        .bucket("oni-search")
+//                        .`object`(cluster.prefix)
+//                        .headers(
+//                            mapOf(
+//                                "Content-Type" to "application/protobuf",
+//                                "Content-Encoding" to "gzip",
+//                                /* Cache for a day. */
+//                                "Cache-Control" to "public, max-age=86400"
+//                            )
+//                        )
+//                        .stream(zippedProtobufBytes.inputStream(), zippedProtobufBytes.size.toLong(), -1)
+//                        .build()
+//                )
 
                 externalMinioClient.putObject(
                     PutObjectArgs
