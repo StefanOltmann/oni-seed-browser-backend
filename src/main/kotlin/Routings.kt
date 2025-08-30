@@ -1512,19 +1512,19 @@ private suspend fun copyMapsToS3() {
             addedCount++
         }
 
-        val coordinatesToDelete = existingNames.minus(existingClusterCoordinates)
-
-        for (map in coordinatesToDelete) {
-
-            println("Delete $map from S3...")
-
-            // deleteMapFromS3(localMinioClient, map)
-            deleteMapFromS3(externalMinioClient, map)
-        }
+//        val coordinatesToDelete = existingNames.minus(existingClusterCoordinates)
+//
+//        for (map in coordinatesToDelete) {
+//
+//            println("Delete $map from S3...")
+//
+//            // deleteMapFromS3(localMinioClient, map)
+//            deleteMapFromS3(externalMinioClient, map)
+//        }
 
         val duration = System.currentTimeMillis() - start
 
-        log("[S3] Completed in $duration ms. Added $addedCount. Deleted ${coordinatesToDelete.size}.")
+        log("[S3] Completed in $duration ms. Added $addedCount.")
 
     } catch (ex: Exception) {
 
