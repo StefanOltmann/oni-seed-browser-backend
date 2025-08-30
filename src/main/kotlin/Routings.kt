@@ -739,7 +739,8 @@ private fun Application.configureRoutingInternal() {
                                 mapOf(
                                     "Content-Type" to "application/json",
                                     "Content-Encoding" to "gzip",
-                                    "Cache-Control" to "public, max-age=31536000, immutable"
+                                    /* Cache for a year. */
+                                    "Cache-Control" to "public, max-age=31536000"
                                 )
                             )
                             .stream(gzippedJsonBytes.inputStream(), gzippedJsonBytes.size.toLong(), -1)
@@ -1438,7 +1439,8 @@ private fun uploadMapToS3(
                 mapOf(
                     "Content-Type" to "application/json",
                     "Content-Encoding" to "gzip",
-                    "Cache-Control" to "public, max-age=31536000, immutable"
+                    /* Cache for a year. */
+                    "Cache-Control" to "public, max-age=31536000"
                 )
             )
             .stream(gzippedJsonBytes.inputStream(), gzippedJsonBytes.size.toLong(), -1)
@@ -1566,7 +1568,9 @@ private suspend fun createSearchIndexes() {
                         .headers(
                             mapOf(
                                 "Content-Type" to "application/protobuf",
-                                "Content-Encoding" to "gzip"
+                                "Content-Encoding" to "gzip",
+                                /* Cache for a day. */
+                                "Cache-Control" to "public, max-age=86400"
                             )
                         )
                         .stream(zippedProtobufBytes.inputStream(), zippedProtobufBytes.size.toLong(), -1)
@@ -1581,7 +1585,9 @@ private suspend fun createSearchIndexes() {
                         .headers(
                             mapOf(
                                 "Content-Type" to "application/protobuf",
-                                "Content-Encoding" to "gzip"
+                                "Content-Encoding" to "gzip",
+                                /* Cache for a day. */
+                                "Cache-Control" to "public, max-age=86400"
                             )
                         )
                         .stream(zippedProtobufBytes.inputStream(), zippedProtobufBytes.size.toLong(), -1)
