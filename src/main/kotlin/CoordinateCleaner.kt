@@ -78,7 +78,7 @@ fun cleanCoordinate(coordinate: String): String {
     val seed = coordinatePartsWithoutCluster[0]
 
     /*
-     * The seed must be an integer and also in integer range.
+     * The seed must be an integer and also in the integer range.
      */
     val seedAsInteger = seed.toIntOrNull() ?: throw IllegalCoordinateException(coordinate)
 
