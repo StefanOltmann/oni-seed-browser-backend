@@ -84,8 +84,6 @@ import model.Contributor
 import model.Dlc
 import model.FailedGenReport
 import model.FailedGenReportDatabase
-import model.FavoredCoordinate
-import model.RateCoordinateRequest
 import model.RequestedCoordinate
 import model.RequestedCoordinateStatus
 import model.Upload
@@ -152,9 +150,6 @@ private val mongoClientSettings = MongoClientSettings.builder()
 private val mongoClient = MongoClient.create(mongoClientSettings)
 
 private val database = mongoClient.getDatabase("oni")
-
-private val likesCollection =
-    database.getCollection<FavoredCoordinate>("likes")
 
 private val clusterCollection =
     database.getCollection<Cluster>("worlds")
@@ -962,96 +957,6 @@ private fun Application.configureRoutingInternal() {
                 log(ex)
 
                 call.respond(HttpStatusCode.BadRequest, "Failed to get latest clusters.")
-            }
-        }
-
-        get("/favored") {
-
-            try {
-
-                val token: String? = this.call.request.headers[TOKEN_HEADER_WEBPAGE]
-
-                if (token.isNullOrBlank()) {
-                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER_WEBPAGE' header.")
-                    return@get
-                }
-
-                val jwt = jwtVerifier.verify(token)
-
-                val steamId: String = jwt.steamId
-
-                val favoredCoordinates: List<String> = likesCollection
-                    .find(Filters.eq("steamId", steamId))
-                    .map { it.coordinate }
-                    .toList()
-
-                call.respond(favoredCoordinates)
-
-            } catch (ex: JWTVerificationException) {
-
-                log("Invalid token used: ${ex.stackTraceToString()}")
-
-                call.respond(HttpStatusCode.BadRequest, "Token was invalid.")
-
-            } catch (ex: Exception) {
-
-                log(ex)
-
-                call.respond(HttpStatusCode.BadRequest, "Failed to get favored coordinates.")
-            }
-        }
-
-        post("/rate-coordinate") {
-
-            try {
-
-                val token: String? = this.call.request.headers[TOKEN_HEADER_WEBPAGE]
-
-                if (token.isNullOrBlank()) {
-                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER_WEBPAGE' header.")
-                    return@post
-                }
-
-                val jwt = jwtVerifier.verify(token)
-
-                val steamId: String = jwt.steamId
-
-                val rateCoordinateRequest = call.receive<RateCoordinateRequest>()
-
-                if (rateCoordinateRequest.like) {
-
-                    likesCollection.insertOne(
-                        FavoredCoordinate(
-                            steamId = steamId,
-                            date = System.currentTimeMillis(),
-                            coordinate = rateCoordinateRequest.coordinate
-                        )
-                    )
-
-                } else {
-
-                    likesCollection.deleteOne(
-                        Filters.and(
-                            Filters.eq("steamId", steamId),
-                            Filters.eq("coordinate", rateCoordinateRequest.coordinate)
-                        )
-                    )
-                }
-
-                /* Send OK status. */
-                call.respond(HttpStatusCode.OK, "Coordinate requested.")
-
-            } catch (ex: JWTVerificationException) {
-
-                log("Invalid token used: ${ex.stackTraceToString()}")
-
-                call.respond(HttpStatusCode.Unauthorized, "Token was invalid.")
-
-            } catch (ex: Exception) {
-
-                log(ex)
-
-                call.respond(HttpStatusCode.BadRequest, "Failed to rate.")
             }
         }
 
