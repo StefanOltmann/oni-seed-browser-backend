@@ -14,7 +14,7 @@
  * GNU Affero General Public License for more details.
  *
  * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 package model
 
@@ -42,94 +42,61 @@ data class BiomePathsCompact(
                 append(zoneType.id)
                 append(':')
 
-                var firstEntry = true
+                var firstPath = true
 
                 for (points in pointsLists) {
 
-                    if (!firstEntry)
+                    if (!firstPath)
                         append('|')
 
-                    firstEntry = false
+                    firstPath = false
 
-                    for ((pointIndex, point) in points.withIndex()) {
-
-                        if (pointIndex > 0)
-                            append(" ")
-
-                        append("${point.dx},${point.dy}")
-                    }
+                    append(points.joinToString(" ") { "${it.dx} ${it.dy}" })
                 }
             }
         }
 
-    /** Converts a regular BiomePaths into a delta-encoded version */
     companion object {
 
         fun parse(biomePaths: String): BiomePathsCompact {
 
             val polygonMap = mutableMapOf<ZoneType, List<List<DeltaPoint>>>()
 
-            val lines = biomePaths
-                .replace("\\n", "\n") // be robust for wrong newline
-                .split('\n')
+            val lines = biomePaths.replace("\\n", "\n").split('\n')
 
             for (line in lines) {
 
-                val splittedLine = line.split(':')
+                val (zoneId, rest) = line.split(':', limit = 2)
 
-                val zoneType = ZoneType.entries.find { it.id == splittedLine[0].toByte() }
-                    ?: error("Unknown zone type: ${splittedLine[0]}")
+                val zoneType = ZoneType.entries.find { it.id == zoneId.toByte() }
+                    ?: error("Unknown zone type: $zoneId")
 
-                val pointsLists = splittedLine[1].split('|')
+                val pathsStrings = rest.split('|')
 
-                val biomePointsLists = mutableListOf<List<DeltaPoint>>()
-
-                for (pointsString in pointsLists) {
-
-                    val points = mutableListOf<DeltaPoint>()
-
-                    for (pair in pointsString.split(' ')) {
-
-                        val pairSplit = pair.split(',')
-
-                        points.add(
-                            DeltaPoint(
-                                dx = pairSplit[0].toInt(),
-                                dy = pairSplit[1].toInt()
-                            )
-                        )
-                    }
-
-                    biomePointsLists.add(points)
+                val deltaPaths = pathsStrings.map { pathStr ->
+                    val numbers = pathStr.split(' ').filter { it.isNotEmpty() }.map { it.toInt() }
+                    numbers.chunked(2).map { (dx, dy) -> DeltaPoint(dx, dy) }
                 }
 
-                polygonMap[zoneType] = biomePointsLists
+                polygonMap[zoneType] = deltaPaths
             }
 
             return BiomePathsCompact(polygonMap)
         }
 
-        fun fromBiomePaths(biomePaths: BiomePaths): BiomePathsCompact {
-
-            val map = biomePaths.polygonMap.mapValues { (_, pathsLists) ->
-                pathsLists.map { points ->
-                    deltaEncode(points)
+        fun fromBiomePaths(biomePaths: BiomePaths): BiomePathsCompact =
+            BiomePathsCompact(
+                biomePaths.polygonMap.mapValues { (_, pathsLists) ->
+                    pathsLists.map { points -> deltaEncode(points) }
                 }
-            }
+            )
 
-            return BiomePathsCompact(map)
-        }
-
-        fun toBiomePaths(deltas: BiomePathsCompact): BiomePaths {
-
-            val map = deltas.polygonMap.mapValues { (_, deltaPathsLists) ->
-                deltaPathsLists.map { deltaPoints ->
-                    deltaDecode(deltaPoints)
+        fun toBiomePaths(deltas: BiomePathsCompact): BiomePaths =
+            BiomePaths(
+                deltas.polygonMap.mapValues { (_, deltaPathsLists) ->
+                    deltaPathsLists.map { deltaDecode(it) }
                 }
-            }
-
-            return BiomePaths(map)
-        }
+            )
 
         /** Delta-encode a single list of Points */
         private fun deltaEncode(points: List<Point>): List<DeltaPoint> {
