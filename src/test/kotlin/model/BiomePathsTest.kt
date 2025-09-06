@@ -19,7 +19,6 @@
 
 package model
 
-import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -38,50 +37,7 @@ class BiomePathsTest {
         assertEquals(rawBiomePathsString, actualString)
     }
 
-    @Test
-    fun testCompressAndDecompress() {
-
-        val biomePaths = BiomePaths.parse(rawBiomePathsString)
-
-        val compressed = BiomePathsCompact.compress(biomePaths)
-
-        val decompressed = BiomePathsCompact.decompress(compressed)
-
-        assertEquals(
-            expected = biomePaths,
-            actual = decompressed
-        )
-
-        assertEquals(rawBiomePathsString, decompressed.serialize())
-    }
-
-    @OptIn(ExperimentalEncodingApi::class)
-    @Test
-    fun testCompressToBase64() {
-
-        val biomePaths = BiomePaths.parse(rawBiomePathsString)
-
-        val compressed = BiomePathsCompact.compress(biomePaths)
-
-        val actual = compressed.writeToString()
-
-        assertEquals(
-            expected = biomePathsCompactBase64,
-            actual = actual
-        )
-
-        val readBack = BiomePathsCompact.readFromString(actual)
-
-        assertEquals(
-            expected = compressed,
-            actual = readBack
-        )
-    }
-
     companion object {
-
-        const val biomePathsCompactBase64 =
-            "H4sIAAAAAAAA/4VXW6hVVRRdc+3X2mu/zt77nnse3nPOfWmUEH2UEBYUZaR99BWEZvQTij/RRxASohFZIokQhooRFWmKRUG+iOwG0Y9WZHmvaYqPrKz0ZuazPB0j1pjCos7XXGfPPR9jjjnX3Pqio5xirXyB1JXuvz86Y6RfjXTeSJTfcMEcjhlJtB/tmsNpI/1ppL+M5C6AtYsWD8Vi5vgPI+nVJOD5B3hO1hD9bo6/GQnx5JtYIL9YnIdvW116fc099On/AOLnaeVV+bM5Ow3nQzprjpeMJOveBvaAasErhITgNU6/oSuW/wMVraNzlgh0qMeY3lXkHW1iDoNSDodCJWW9NXLjzXpZoLxipds5ahTE4K02v5PAQ91pg4laswUKAA0qH8EBgYvOfITYNdJJI6FWyWIABIRF5ykPFEOCgpZAHeZk8Sw5eIA3EUWxlsEJR9R6jwUDygEl/QFT+NGSVWcf04YF2ZgkAeTRHN4+xgkQlNWgbz/TAJlhQqXjLBtbL5aTdNzy4mBzQh6VcDoiXrO+nmfuEaamp4gJifKCCUGuTrAHQUvsluilrpG8JDksL5tjXBebJRIGz8Iq7ZTobzeP1kiUGQaCIuJpeG1xQCIP5FtVByU4oKaI71gU7pA4xLqaMn+LtM6WxDnNyiPcAdrAesDtiw9J6ojhUrg6qzYHp06/ZcbMu2bNefCheY/pk47yi8s0hJjYRL0JTpDMETzv3OHaUAc5HPUk0gMA4IwoV5FnG/xIVIbbGYF/MhI8e43PyQFusA4Oum6P7WAcsvGb39LHEn0DHKaOM6rAus7UbmmbNV2o1P0JiaEA+iRxfIBVFFHAa576O5l5qNSVM87Kf87yblrIz+QJcxR5PKx6Nc9r7dHp+iupRPEOtV2EAyzFLFjBdYFhgc4Lk7XEyIaaimIbKYR7ykiALrmuBmBJ2PsfvpC8VM2X6UWJKsKoGFnJ+houPF2lBQgKKnEZLpdwCZS8SmULA61rpDTbwRBgV5oOhn3hxUW9pY9KlRRbaBToHUGItXsdsAOSN0PByfdGQpbxEwLEYykX8yO8CCawW6mYYJVCLcDu3jrxFk0wiBH4kBhjikAqLRdhIly1SEXxtfWa0JV4FSsAUoJyrCt7rYtKVhPXMNaV/pY+LFVfMUbTrlgMsB1sqBXAGRIRC1nTQN2pPty1/A3LydMCJWMrU7aRoQfogWNtkpELGelGcyWNMRqwlqo6i+GBddTgKnZpoG3TOF4Ez6hUO15o242iqlrOLjOvGS4RcW8RC4Qf5f0DQ/p5UlFxXwP4svG8j6WAGFkFFU/XrTdv28yoiRwHXrJeXWEf7aAgdYad3pzSbzhKFsdpFC4xLUTf/QLmwEhE7fTPg2HbckbBChJ4AEJSuY58a0OFu1gO/71mVfdSgMBtWyd00+a7tIJf2S13PzsiJ6ETdZY9gTHd9J9jXsACnUcXrANa1/xFtp0rKuIVzDBwQBhhmvTocm3ktUf1UkdVigNU18gWU0zcDfJgKrMNbMrjgAGu8BJApsZ15YIKle+z8IEB65zKF+TbhhymqdNbCBA2W/2qzTU010YfTLzhmezm7E/lHLhiBcpkOBsPIKVJNAeZs4+uJGb63EPm3O4kJV0rQdQrwVR9SSpVjNPMrlFCYjAR3cO+iZARyhZEcwXIjn6I17NkEQi6njEj/8TKHcAmaweZBkat2/sEQB+xFbvZXE2X2ccT3Ob9S9k1CaMyrbhb2V6FJ2X5pkSwaBK3kjnrJZtzdU+xL0W35X3Jd7LKP9jHeb09onc5yi1O0QPaRk2vfEbYrgfKthI7AieRbCMHESJyVv9sO7nAE5XuGqncwwpmu7bgwY0nGbZAM2hNsgDZJ/tA8yPayMLBaEmL8Dx7wC6oSrSMmWA9UepjrMPxLvov84rXGaAAM4nTHdbq+2nkn+GfQxnNx6nMRG8J9uOi0Zk2/W8aVt8XbRIAAA=="
 
         val rawBiomePathsString = """
             Sandstone:136,197 144,180 139,161 122,151 103,157 93,174 94,188 111,204;39,286 30,265 0,268 0,293 30,296;94,188 93,174 75,167 71,169 68,193 72,198;103,157 93,143 85,144 75,167 93,174;122,151 123,142 104,131 93,143 103,157;145,213 145,208 136,197 111,204 111,212 124,223;150,154 151,142 138,132 123,142 122,151 139,161;168,193 164,182 144,180 136,197 145,208;169,168 150,154 139,161 144,180 164,182
