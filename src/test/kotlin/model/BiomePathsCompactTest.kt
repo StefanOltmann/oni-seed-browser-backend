@@ -56,9 +56,11 @@ class BiomePathsCompactTest {
             actual = ZipUtil.zipBytes(actualString.encodeToByteArray()).size
         )
 
-        val restored = BiomePathsCompact.toBiomePaths(deltas)
+        val parsed = BiomePathsCompact.parse(actualString)
 
-        assertEquals(biomePaths, restored)
+        val convertedBack = BiomePathsCompact.toBiomePaths(parsed)
+
+        assertEquals(biomePaths, convertedBack)
     }
 
     @Test
