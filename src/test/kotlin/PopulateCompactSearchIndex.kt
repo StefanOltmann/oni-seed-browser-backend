@@ -32,12 +32,13 @@ import model.Cluster
 import model.ClusterType
 import model.search.SearchIndex
 import java.io.File
+import kotlin.time.ExperimentalTime
 import kotlin.time.measureTime
 
 /*
  * Work on the data export
  */
-@OptIn(ExperimentalSerializationApi::class, ExperimentalStdlibApi::class)
+@OptIn(ExperimentalSerializationApi::class, ExperimentalStdlibApi::class, ExperimentalTime::class)
 fun main() = runBlocking {
 
     val exportDataFolder = Path("D:/onidata")
@@ -68,7 +69,7 @@ fun main() = runBlocking {
 
         for ((type, clusters) in clustersPerType) {
 
-            val searchIndex = SearchIndex(type)
+            val searchIndex = SearchIndex(type, System.currentTimeMillis())
 
             for (cluster in clusters)
                 searchIndex.add(cluster)
