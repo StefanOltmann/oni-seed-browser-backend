@@ -19,6 +19,7 @@
 
 package model
 
+import ZipUtil
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -32,6 +33,11 @@ class BiomePathsCompactTest {
             actual = rawBiomePathsString.length
         )
 
+        assertEquals(
+            expected = 1453,
+            actual = ZipUtil.zipBytes(rawBiomePathsString.encodeToByteArray()).size
+        )
+
         val biomePaths = BiomePaths.parse(rawBiomePathsString)
 
         val deltas = BiomePathsCompact.fromBiomePaths(biomePaths)
@@ -43,6 +49,11 @@ class BiomePathsCompactTest {
         assertEquals(
             expected = 3156,
             actual = actualString.length
+        )
+
+        assertEquals(
+            expected = 1303,
+            actual = ZipUtil.zipBytes(actualString.encodeToByteArray()).size
         )
 
         val restored = BiomePathsCompact.toBiomePaths(deltas)
