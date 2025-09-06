@@ -19,7 +19,6 @@
 
 package model
 
-@Suppress("UNUSED")
 enum class VanillaSpacePOI {
 
     CarbonaceousAsteroid,
@@ -48,3 +47,4 @@ enum class VanillaSpacePOI {
     VolcanoPlanet,
     Wormhole
 }
+

@@ -30,7 +30,7 @@ enum class ZoneType(
      * Ordered by how they should appear in the biome list.
      */
 
-    /** Default starting area, should always come first. */
+    /** Default starting area should always come first. */
     Sandstone(3),
     Barren(16),
 
@@ -38,18 +38,18 @@ enum class ZoneType(
 
     FrozenWastes(0),
 
-    // CrystalCaverns(1Res.string. zoneType//(0xFFAC72C1)),
+    // CrystalCaverns(1),
     BoggyMarsh(2),
     ToxicJungle(4),
 
     Ocean(8),
     Rust(9),
     Forest(10),
-    Radioactive(1),
+    Radioactive(11),
     Swamp(12),
     Wasteland(13),
 
-    // RocketInterior(1Res.string. zoneType//,Color(0xFF9E48DF)),
+    // RocketInterior(14),
     Metallic(15),
     Moo(17),
 
@@ -67,5 +67,7 @@ enum class ZoneType(
     OilField(6),
 
     /* Usually at the bottom of the map, so also listed at the bottom */
-    MagmaCore(5)
+    MagmaCore(5);
+
 }
+

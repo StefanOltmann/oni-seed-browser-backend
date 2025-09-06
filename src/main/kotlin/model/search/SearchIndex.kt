@@ -1,7 +1,5 @@
-package model.search2
+package model.search
 
-import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
@@ -12,6 +10,8 @@ import model.Geyser
 import model.GeyserType
 import model.WorldTraitMask
 import model.ZoneTypeMask
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 
 @OptIn(ExperimentalTime::class, ExperimentalSerializationApi::class)
 @Serializable

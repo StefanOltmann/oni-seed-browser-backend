@@ -20,7 +20,7 @@
 package model
 
 import kotlinx.serialization.Serializable
-import serializer.GeyserTypeStringSerializer
+import model.serializer.GeyserTypeStringSerializer
 
 @Serializable
 data class Geyser(

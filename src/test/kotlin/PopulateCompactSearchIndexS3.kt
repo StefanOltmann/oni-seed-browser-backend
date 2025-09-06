@@ -27,7 +27,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.protobuf.ProtoBuf
 import model.Cluster
 import model.ClusterType
-import model.search2.SearchIndex
+import model.search.SearchIndex
 import java.io.File
 
 /*

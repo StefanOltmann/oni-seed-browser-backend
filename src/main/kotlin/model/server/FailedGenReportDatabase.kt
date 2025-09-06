@@ -17,12 +17,27 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package model
+package model.server
 
 import kotlinx.serialization.Serializable
 
+/**
+ * This is the info we store into the database about the report
+ */
 @Serializable
-data class RatedCluster(
-    val cluster: Cluster,
-    val likeCount: Int
+data class FailedGenReportDatabase(
+
+    val userId: String,
+
+    val installationId: String,
+
+    val reportDate: Long,
+
+    val ipAddress: String,
+
+    val gameVersion: String,
+
+    val fileHashes: Map<String, String>,
+
+    val coordinate: String
 )

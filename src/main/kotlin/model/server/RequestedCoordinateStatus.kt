@@ -17,18 +17,15 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package model
+package model.server
 
-import kotlinx.serialization.Serializable
+enum class RequestedCoordinateStatus {
 
-@Serializable
-data class RequestedCoordinate(
-
-    val steamId: String,
-
-    val date: Long,
-
-    val coordinate: String,
-
-    val status: RequestedCoordinateStatus
-)
+    REQUESTED,
+    PROCESSING,
+    ILLEGAL,
+    DELIVERED,
+    COMPLETED,
+    FAILED,
+    DUPLICATED
+}

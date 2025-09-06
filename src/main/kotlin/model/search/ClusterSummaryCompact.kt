@@ -17,27 +17,23 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package model
+package model.search
 
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.protobuf.ProtoNumber
 
-/**
- * This is the info we store into the database about the report
- */
 @Serializable
-data class FailedGenReportDatabase(
+@OptIn(ExperimentalSerializationApi::class)
+class ClusterSummaryCompact(
 
-    val userId: String,
+    @ProtoNumber(1)
+    val seed: Int,
 
-    val installationId: String,
+    @ProtoNumber(2)
+    val remix: String? = null,
 
-    val reportDate: Long,
+    @ProtoNumber(3)
+    val asteroidSummaries: Array<AsteroidSummaryCompact>
 
-    val ipAddress: String,
-
-    val gameVersion: String,
-
-    val fileHashes: Map<String, String>,
-
-    val coordinate: String
 )

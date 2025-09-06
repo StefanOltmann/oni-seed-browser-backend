@@ -17,15 +17,24 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package model
+package model.server
 
-enum class RequestedCoordinateStatus {
+import kotlinx.serialization.Serializable
 
-    REQUESTED,
-    PROCESSING,
-    ILLEGAL,
-    DELIVERED,
-    COMPLETED,
-    FAILED,
-    DUPLICATED
-}
+/**
+ * This is the format expected to be sent from the mod
+ */
+@Serializable
+data class FailedGenReport(
+
+    val userId: String,
+
+    val installationId: String,
+
+    val gameVersion: String,
+
+    val fileHashes: Map<String, String>,
+
+    val coordinate: String
+
+)

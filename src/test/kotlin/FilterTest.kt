@@ -4,7 +4,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.protobuf.ProtoBuf
 import model.ClusterType
 import model.filter.FilterQuery
-import model.search2.SearchIndex
+import model.search.SearchIndex
 import java.io.File
 
 fun main() {

@@ -21,12 +21,19 @@ package model
 
 import kotlinx.serialization.Serializable
 
+@Suppress("UNUSED")
 @Serializable
-enum class Dlc {
+enum class Dlc(
+    val isMainVersion: Boolean
+) {
+    BaseGame(true),
+    SpacedOut(true),
+    FrostyPlanet(false),
+    BionicBooster(false),
+    PrehistoricPlanet(false);
 
-    BaseGame,
-    SpacedOut,
-    FrostyPlanet,
-    BionicBooster,
-    PrehistoricPlanet;
+    companion object {
+
+        val selectableDlcs = listOf(FrostyPlanet, PrehistoricPlanet)
+    }
 }

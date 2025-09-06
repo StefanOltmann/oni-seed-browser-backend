@@ -30,7 +30,7 @@ import kotlinx.serialization.json.io.decodeFromSource
 import kotlinx.serialization.protobuf.ProtoBuf
 import model.Cluster
 import model.ClusterType
-import model.search2.SearchIndex
+import model.search.SearchIndex
 import java.io.File
 import kotlin.time.measureTime
 

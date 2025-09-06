@@ -16,24 +16,19 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package model
+
+package model.server
 
 import kotlinx.serialization.Serializable
 
-/**
- * Analytics data about a filter queries.
- */
 @Serializable
-data class FilterPerformanceAnalytics(
+data class RequestedCoordinate(
+
+    val steamId: String,
 
     val date: Long,
 
-    val filterQueryJson: String,
+    val coordinate: String,
 
-    val durationMillis: Long,
-
-    val resultCount: Int,
-
-    val resultCoordinates: List<String>
-
+    val status: RequestedCoordinateStatus
 )
