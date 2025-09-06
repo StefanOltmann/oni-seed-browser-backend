@@ -123,98 +123,98 @@ enum class ClusterType(
     DLC_TERRA(
         prefix = "V-SNDST-C",
         requiredDlcs = listOf(Dlc.SpacedOut),
-        exportCollection = ClusterExportCollection.CLASSIC
+        exportCollection = ClusterExportCollection.CLASSIC_1
     ),
 
     /** Ceres */
     DLC_CERES(
         prefix = "V-CER-C",
         requiredDlcs = listOf(Dlc.SpacedOut, Dlc.FrostyPlanet),
-        exportCollection = ClusterExportCollection.CLASSIC
+        exportCollection = ClusterExportCollection.CLASSIC_2
     ),
 
     /** Ceres (lab) */
     DLC_BLASTED_CERES(
         prefix = "V-CERS-C",
         requiredDlcs = listOf(Dlc.SpacedOut, Dlc.FrostyPlanet),
-        exportCollection = ClusterExportCollection.CLASSIC
+        exportCollection = ClusterExportCollection.CLASSIC_2
     ),
 
     /** Relica */
     DLC_RELICA(
         prefix = "V-PRE-C",
         requiredDlcs = listOf(Dlc.BaseGame, Dlc.PrehistoricPlanet),
-        exportCollection = ClusterExportCollection.CLASSIC
+        exportCollection = ClusterExportCollection.CLASSIC_2
     ),
 
     /** RelicAAAAAAAGHH */
     DLC_RELICA_LAB(
         prefix = "V-PRES-C",
         requiredDlcs = listOf(Dlc.BaseGame, Dlc.PrehistoricPlanet),
-        exportCollection = ClusterExportCollection.CLASSIC
+        exportCollection = ClusterExportCollection.CLASSIC_2
     ),
 
     /** Oceania */
     DLC_OCEANIA(
         prefix = "V-OCAN-C",
         requiredDlcs = listOf(Dlc.SpacedOut),
-        exportCollection = ClusterExportCollection.CLASSIC
+        exportCollection = ClusterExportCollection.CLASSIC_1
     ),
 
     /** Squelchy */
     DLC_SQUELCHY(
         prefix = "V-SWMP-C",
         requiredDlcs = listOf(Dlc.SpacedOut),
-        exportCollection = ClusterExportCollection.CLASSIC
+        exportCollection = ClusterExportCollection.CLASSIC_1
     ),
 
     /** Rime */
     DLC_RIME(
         prefix = "V-SFRZ-C",
         requiredDlcs = listOf(Dlc.SpacedOut),
-        exportCollection = ClusterExportCollection.CLASSIC
+        exportCollection = ClusterExportCollection.CLASSIC_1
     ),
 
     /** Verdante */
     DLC_VERDANTE(
         prefix = "V-LUSH-C",
         requiredDlcs = listOf(Dlc.SpacedOut),
-        exportCollection = ClusterExportCollection.CLASSIC
+        exportCollection = ClusterExportCollection.CLASSIC_1
     ),
 
     /** Arboria */
     DLC_ARBORIA(
         prefix = "V-FRST-C",
         requiredDlcs = listOf(Dlc.SpacedOut),
-        exportCollection = ClusterExportCollection.CLASSIC
+        exportCollection = ClusterExportCollection.CLASSIC_1
     ),
 
     /** Volcanea */
     DLC_VOLCANEA(
         prefix = "V-VOLCA-C",
         requiredDlcs = listOf(Dlc.SpacedOut),
-        exportCollection = ClusterExportCollection.CLASSIC
+        exportCollection = ClusterExportCollection.CLASSIC_1
     ),
 
     /** The Badlands */
     DLC_THE_BADLANDS(
         prefix = "V-BAD-C",
         requiredDlcs = listOf(Dlc.SpacedOut),
-        exportCollection = ClusterExportCollection.CLASSIC
+        exportCollection = ClusterExportCollection.CLASSIC_1
     ),
 
     /** Aridio */
     DLC_ARIDIO(
         prefix = "V-HTFST-C",
         requiredDlcs = listOf(Dlc.SpacedOut),
-        exportCollection = ClusterExportCollection.CLASSIC
+        exportCollection = ClusterExportCollection.CLASSIC_1
     ),
 
     /** Oasisse */
     DLC_OASISSE(
         prefix = "V-OASIS-C",
         requiredDlcs = listOf(Dlc.SpacedOut),
-        exportCollection = ClusterExportCollection.CLASSIC
+        exportCollection = ClusterExportCollection.CLASSIC_1
     ),
 
     /** Terrania */

@@ -24,6 +24,7 @@ enum class ClusterExportCollection(
 ) {
 
     BASEGAME("basegame"),
-    CLASSIC("classic"),
+    CLASSIC_1("classic_1"),
+    CLASSIC_2("classic_2"),
     SPACEDOUT("spacedout")
 }
