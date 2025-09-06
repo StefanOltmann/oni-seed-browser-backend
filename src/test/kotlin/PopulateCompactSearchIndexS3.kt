@@ -62,7 +62,7 @@ fun main() = runBlocking {
         if (results.count() == 0)
             continue
 
-        val searchIndex = SearchIndex(cluster)
+        val searchIndex = SearchIndex(cluster, System.currentTimeMillis())
 
         var counter = 0
 

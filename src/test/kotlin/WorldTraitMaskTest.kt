@@ -18,7 +18,6 @@
  */
 
 import model.WorldTrait
-import model.WorldTraitMask
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -28,11 +27,11 @@ class WorldTraitMaskTest {
     @Test
     fun emptyList_toMask_isZero_and_fromMask_isEmpty() {
 
-        val mask = WorldTraitMask.toMask(emptyList())
+        val mask = WorldTrait.toMask(emptyList())
 
         assertEquals(0, mask, "Mask for empty list should be 0")
 
-        val list = WorldTraitMask.fromMask(mask)
+        val list = WorldTrait.fromMask(mask)
 
         assertTrue(list.isEmpty(), "fromMask(0) should be empty")
     }
@@ -41,13 +40,13 @@ class WorldTraitMaskTest {
     fun singleTrait_roundtrip() {
 
         val trait = WorldTrait.GeoActive
-        val mask = WorldTraitMask.toMask(listOf(trait))
+        val mask = WorldTrait.toMask(listOf(trait))
 
         val expectedMask = 1 shl trait.ordinal
 
         assertEquals(expectedMask, mask, "Mask bit should match trait ordinal")
 
-        val list = WorldTraitMask.fromMask(mask)
+        val list = WorldTrait.fromMask(mask)
 
         assertEquals(listOf(trait), list, "Roundtrip should preserve the single trait")
     }
@@ -57,7 +56,7 @@ class WorldTraitMaskTest {
 
         val traits = listOf(WorldTrait.GeoActive, WorldTrait.MetalRich, WorldTrait.GlaciersLarge)
 
-        val mask = WorldTraitMask.toMask(traits)
+        val mask = WorldTrait.toMask(traits)
 
         val expectedMask = (1 shl WorldTrait.GeoActive.ordinal) or
             (1 shl WorldTrait.MetalRich.ordinal) or
@@ -65,7 +64,7 @@ class WorldTraitMaskTest {
 
         assertEquals(expectedMask, mask, "Mask should combine bits for all traits")
 
-        val list = WorldTraitMask.fromMask(mask)
+        val list = WorldTrait.fromMask(mask)
 
         assertEquals(
             traits.sortedBy { it.ordinal },
@@ -79,7 +78,7 @@ class WorldTraitMaskTest {
 
         val traits = WorldTrait.entries
 
-        val mask = WorldTraitMask.toMask(traits)
+        val mask = WorldTrait.toMask(traits)
 
         /* Verify every trait bit is set */
         for (trait in traits) {
@@ -89,7 +88,7 @@ class WorldTraitMaskTest {
             assertTrue((mask and bit) != 0, "Bit for $trait should be set")
         }
 
-        val list = WorldTraitMask.fromMask(mask)
+        val list = WorldTrait.fromMask(mask)
 
         assertEquals(traits.size, list.size, "fromMask should return all traits")
         assertEquals(traits.toSet(), list.toSet(), "fromMask should contain exactly all traits")
