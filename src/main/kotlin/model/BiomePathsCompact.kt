@@ -96,18 +96,18 @@ data class BiomePathsCompact(
         /**
          * Simple delta encoding for Shorts
          */
-        private fun deltaEncode(values: List<Short>): List<Short> {
+        private fun deltaEncode(values: List<Int>): List<Int> {
 
             if (values.isEmpty())
                 return emptyList()
 
-            val deltas = mutableListOf<Short>()
+            val deltas = mutableListOf<Int>()
 
-            var previous: Short = 0
+            var previous = 0
 
             for (value in values) {
 
-                val delta = (value - previous).toShort()
+                val delta = value - previous
 
                 deltas.add(delta)
 
@@ -120,18 +120,18 @@ data class BiomePathsCompact(
         /**
          * Reconstruct absolute Short values from deltas
          */
-        private fun deltaDecode(deltas: List<Short>): List<Short> {
+        private fun deltaDecode(deltas: List<Int>): List<Int> {
 
             if (deltas.isEmpty())
                 return emptyList()
 
-            val values = mutableListOf<Short>()
+            val values = mutableListOf<Int>()
 
-            var previous: Short = 0
+            var previous = 0
 
             for (d in deltas) {
 
-                val value = (previous + d).toShort()
+                val value = previous + d
 
                 values.add(value)
 
@@ -160,10 +160,10 @@ data class BiomePathsCompact(
 
         @ProtoNumber(1)
         @ProtoPacked
-        val x: List<Short>,
+        val x: List<Int>,
 
         @ProtoNumber(2)
         @ProtoPacked
-        val y: List<Short>
+        val y: List<Int>
     )
 }

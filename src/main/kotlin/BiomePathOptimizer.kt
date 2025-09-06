@@ -61,8 +61,8 @@ fun BiomePaths.optimize(): BiomePaths {
 
                 mergedPoints.add(
                     Point(
-                        x = point[0].roundToInt().toShort(),
-                        y = point[1].roundToInt().toShort()
+                        x = point[0].roundToInt(),
+                        y = point[1].roundToInt()
                     )
                 )
             }
