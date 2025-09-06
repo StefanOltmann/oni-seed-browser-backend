@@ -38,8 +38,7 @@ import kotlin.io.encoding.ExperimentalEncodingApi
 data class BiomePathsCompact(
 
     @ProtoNumber(1)
-    val biomePaths: List<ZonePathsCompact>
-
+    val biomePaths: List<ZonePathsFlattened> // flattened
 ) {
 
     @OptIn(ExperimentalEncodingApi::class)
@@ -64,14 +63,30 @@ data class BiomePathsCompact(
 
             val compactZones = biomePaths.polygonMap.map { (zoneType, polygons) ->
 
-                val compactPaths = polygons.map { points ->
-                    PathCompact(
-                        x = deltaEncode(points.map { it.x }),
-                        y = deltaEncode(points.map { it.y })
-                    )
+                val allX = mutableListOf<Int>()
+                val allY = mutableListOf<Int>()
+
+                val pathOffsets = mutableListOf<Int>()
+
+                var offset = 0
+
+                for (points in polygons) {
+
+                    allX.addAll(deltaEncode(points.map { it.x }))
+
+                    allY.addAll(deltaEncode(points.map { it.y }))
+
+                    pathOffsets.add(offset)
+
+                    offset += points.size
                 }
 
-                ZonePathsCompact(zoneType, compactPaths)
+                ZonePathsFlattened(
+                    zoneType = zoneType,
+                    allX = allX,
+                    allY = allY,
+                    pathOffsets = pathOffsets
+                )
             }
 
             return BiomePathsCompact(compactZones)
@@ -79,23 +94,29 @@ data class BiomePathsCompact(
 
         fun decompress(biomePathsCompact: BiomePathsCompact): BiomePaths {
 
-            val map = biomePathsCompact.biomePaths.associate { zoneCompact ->
+            val map = biomePathsCompact.biomePaths.associate { zoneFlattened ->
 
-                val polygons = zoneCompact.paths.map { path ->
-                    val xs = deltaDecode(path.x)
-                    val ys = deltaDecode(path.y)
-                    xs.zip(ys) { x, y -> Point(x, y) }
+                val polygons = mutableListOf<List<Point>>()
+
+                val offsets = zoneFlattened.pathOffsets + zoneFlattened.allX.size
+
+                for (i in 0 until zoneFlattened.pathOffsets.size) {
+
+                    val start = offsets[i]
+                    val end = offsets[i + 1]
+
+                    val xs = deltaDecode(zoneFlattened.allX.subList(start, end))
+                    val ys = deltaDecode(zoneFlattened.allY.subList(start, end))
+
+                    polygons.add(xs.zip(ys) { x, y -> Point(x, y) })
                 }
 
-                zoneCompact.zoneType to polygons
+                zoneFlattened.zoneType to polygons
             }
 
             return BiomePaths(map)
         }
 
-        /**
-         * Simple delta encoding for Shorts
-         */
         private fun deltaEncode(values: List<Int>): List<Int> {
 
             if (values.isEmpty())
@@ -107,9 +128,7 @@ data class BiomePathsCompact(
 
             for (value in values) {
 
-                val delta = value - previous
-
-                deltas.add(delta)
+                deltas.add(value - previous)
 
                 previous = value
             }
@@ -117,9 +136,6 @@ data class BiomePathsCompact(
             return deltas
         }
 
-        /**
-         * Reconstruct absolute Short values from deltas
-         */
         private fun deltaDecode(deltas: List<Int>): List<Int> {
 
             if (deltas.isEmpty())
@@ -129,9 +145,9 @@ data class BiomePathsCompact(
 
             var previous = 0
 
-            for (d in deltas) {
+            for (delta in deltas) {
 
-                val value = previous + d
+                val value = previous + delta
 
                 values.add(value)
 
@@ -144,26 +160,23 @@ data class BiomePathsCompact(
 
     @Serializable
     @OptIn(ExperimentalSerializationApi::class)
-    data class ZonePathsCompact(
+    data class ZonePathsFlattened(
 
         @ProtoNumber(1)
         @Serializable(with = ZoneTypeIdSerializer::class)
         val zoneType: ZoneType,
 
         @ProtoNumber(2)
-        val paths: List<PathCompact>
-    )
-
-    @Serializable
-    @OptIn(ExperimentalSerializationApi::class)
-    data class PathCompact(
-
-        @ProtoNumber(1)
         @ProtoPacked
-        val x: List<Int>,
+        val allX: List<Int>, // concatenated X coordinates
 
-        @ProtoNumber(2)
+        @ProtoNumber(3)
         @ProtoPacked
-        val y: List<Int>
+        val allY: List<Int>, // concatenated Y coordinates
+
+        @ProtoNumber(4)
+        @ProtoPacked
+        val pathOffsets: List<Int> // start index of each path in allX/allY
     )
 }
+
