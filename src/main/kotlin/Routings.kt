@@ -82,13 +82,13 @@ import model.ClusterExportCollection
 import model.ClusterType
 import model.Contributor
 import model.Dlc
-import model.UploadDatabase
 import model.search.SearchIndex
 import model.server.FailedGenReport
 import model.server.FailedGenReportDatabase
 import model.server.RequestedCoordinate
 import model.server.RequestedCoordinateStatus
 import model.server.Upload
+import model.server.UploadDatabase
 import org.bson.Document
 import java.security.KeyFactory
 import java.security.MessageDigest
