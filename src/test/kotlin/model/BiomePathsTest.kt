@@ -19,6 +19,7 @@
 
 package model
 
+import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -32,12 +33,55 @@ class BiomePathsTest {
 
         val biomePaths = BiomePaths.parse(rawBiomePathsString)
 
-        val actual = biomePaths.serialize()
+        val actualString = biomePaths.serialize()
 
-        assertEquals(rawBiomePathsString, actual)
+        assertEquals(rawBiomePathsString, actualString)
+    }
+
+    @Test
+    fun testCompressAndDecompress() {
+
+        val biomePaths = BiomePaths.parse(rawBiomePathsString)
+
+        val compressed = BiomePathsCompact.compress(biomePaths)
+
+        val decompressed = BiomePathsCompact.decompress(compressed)
+
+        assertEquals(
+            expected = biomePaths,
+            actual = decompressed
+        )
+
+        assertEquals(rawBiomePathsString, decompressed.serialize())
+    }
+
+    @OptIn(ExperimentalEncodingApi::class)
+    @Test
+    fun testCompressToBase64() {
+
+        val biomePaths = BiomePaths.parse(rawBiomePathsString)
+
+        val compressed = BiomePathsCompact.compress(biomePaths)
+
+        val actual = compressed.writeToString()
+
+        assertEquals(
+            expected = biomePathsCompactBase64,
+            actual = actual
+        )
+
+        val readBack = BiomePathsCompact.readFromString(actual)
+
+        assertEquals(
+            expected = compressed,
+            actual = readBack
+        )
     }
 
     companion object {
+
+        const val biomePathsCompactBase64 =
+            "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"
 
         val rawBiomePathsString = """
             Sandstone:136,197 144,180 139,161 122,151 103,157 93,174 94,188 111,204;39,286 30,265 0,268 0,293 30,296;94,188 93,174 75,167 71,169 68,193 72,198;103,157 93,143 85,144 75,167 93,174;122,151 123,142 104,131 93,143 103,157;145,213 145,208 136,197 111,204 111,212 124,223;150,154 151,142 138,132 123,142 122,151 139,161;168,193 164,182 144,180 136,197 145,208;169,168 150,154 139,161 144,180 164,182

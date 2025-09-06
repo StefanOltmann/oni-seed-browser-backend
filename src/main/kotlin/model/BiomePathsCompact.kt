@@ -18,38 +18,127 @@
  */
 package model
 
+import ZipUtil
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromByteArray
+import kotlinx.serialization.encodeToByteArray
+import kotlinx.serialization.protobuf.ProtoBuf
 import kotlinx.serialization.protobuf.ProtoNumber
 import kotlinx.serialization.protobuf.ProtoPacked
 import model.serializer.ZoneTypeIdSerializer
+import kotlin.io.encoding.Base64
+import kotlin.io.encoding.ExperimentalEncodingApi
 
 /*
  * Protobuf-optimized structure of the zone paths.
  */
 @Serializable
 @OptIn(ExperimentalSerializationApi::class)
-class BiomePathsCompact(
+data class BiomePathsCompact(
 
     @ProtoNumber(1)
     val biomePaths: List<ZonePathsCompact>
 
 ) {
 
+    @OptIn(ExperimentalEncodingApi::class)
+    fun writeToString(): String =
+        Base64.encode(
+            source = ZipUtil.zipBytes(
+                originalBytes = ProtoBuf.encodeToByteArray(this)
+            )
+        )
+
     companion object {
+
+        @OptIn(ExperimentalEncodingApi::class)
+        fun readFromString(string: String): BiomePathsCompact =
+            ProtoBuf.decodeFromByteArray(
+                bytes = ZipUtil.unzipBytes(
+                    compressedBytes = Base64.decode(string)
+                )
+            )
 
         fun compress(biomePaths: BiomePaths): BiomePathsCompact {
 
-            // TODO
+            val compactZones = biomePaths.polygonMap.map { (zoneType, polygons) ->
 
-            return BiomePathsCompact(emptyList())
+                val compactPaths = polygons.map { points ->
+                    PathCompact(
+                        x = deltaEncode(points.map { it.x }),
+                        y = deltaEncode(points.map { it.y })
+                    )
+                }
+
+                ZonePathsCompact(zoneType, compactPaths)
+            }
+
+            return BiomePathsCompact(compactZones)
         }
 
         fun decompress(biomePathsCompact: BiomePathsCompact): BiomePaths {
 
-            // TODO
+            val map = biomePathsCompact.biomePaths.associate { zoneCompact ->
 
-            return BiomePaths(emptyMap())
+                val polygons = zoneCompact.paths.map { path ->
+                    val xs = deltaDecode(path.x)
+                    val ys = deltaDecode(path.y)
+                    xs.zip(ys) { x, y -> Point(x, y) }
+                }
+
+                zoneCompact.zoneType to polygons
+            }
+
+            return BiomePaths(map)
+        }
+
+        /**
+         * Simple delta encoding for Shorts
+         */
+        private fun deltaEncode(values: List<Short>): List<Short> {
+
+            if (values.isEmpty())
+                return emptyList()
+
+            val deltas = mutableListOf<Short>()
+
+            var previous: Short = 0
+
+            for (value in values) {
+
+                val delta = (value - previous).toShort()
+
+                deltas.add(delta)
+
+                previous = value
+            }
+
+            return deltas
+        }
+
+        /**
+         * Reconstruct absolute Short values from deltas
+         */
+        private fun deltaDecode(deltas: List<Short>): List<Short> {
+
+            if (deltas.isEmpty())
+                return emptyList()
+
+            val values = mutableListOf<Short>()
+
+            var previous: Short = 0
+
+            for (d in deltas) {
+
+                val value = (previous + d).toShort()
+
+                values.add(value)
+
+                previous = value
+            }
+
+            return values
         }
     }
 
