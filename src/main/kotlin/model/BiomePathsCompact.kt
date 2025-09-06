@@ -71,10 +71,10 @@ class BiomePathsCompact(
 
         @ProtoNumber(1)
         @ProtoPacked
-        val x: List<Int>,
+        val x: List<Short>,
 
         @ProtoNumber(2)
         @ProtoPacked
-        val y: List<Int>
+        val y: List<Short>
     )
 }
