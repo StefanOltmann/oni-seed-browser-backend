@@ -34,7 +34,12 @@ class SearchIndex(
     @Transient
     val summaries: List<ClusterSummaryCompact> = _summaries
 
-    /*
+    /**
+     * Sorts the search index for consistent query results.
+     */
+    fun sort() = summaries.sortedBy { it.seed }
+
+    /**
      * Adds a cluster to the search index.
      */
     fun add(cluster: Cluster) {

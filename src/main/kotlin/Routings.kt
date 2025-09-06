@@ -1443,6 +1443,8 @@ private suspend fun createSearchIndexes() {
                     searchIndex.add(cluster)
                 }
 
+                searchIndex.sort()
+
                 val protobufBytes = ProtoBuf.encodeToByteArray(searchIndex)
 
                 val zippedProtobufBytes = ZipUtil.zipBytes(protobufBytes)
