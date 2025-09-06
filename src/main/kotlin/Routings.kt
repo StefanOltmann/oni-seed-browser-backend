@@ -1449,23 +1449,6 @@ private suspend fun createSearchIndexes() {
 
                 val zippedProtobufBytes = ZipUtil.zipBytes(protobufBytes)
 
-//                localMinioClient.putObject(
-//                    PutObjectArgs
-//                        .builder()
-//                        .bucket("oni-search")
-//                        .`object`(cluster.prefix)
-//                        .headers(
-//                            mapOf(
-//                                "Content-Type" to "application/protobuf",
-//                                "Content-Encoding" to "gzip",
-//                                /* Cache for a day. */
-//                                "Cache-Control" to "public, max-age=86400"
-//                            )
-//                        )
-//                        .stream(zippedProtobufBytes.inputStream(), zippedProtobufBytes.size.toLong(), -1)
-//                        .build()
-//                )
-
                 minioClient.putObject(
                     PutObjectArgs
                         .builder()
