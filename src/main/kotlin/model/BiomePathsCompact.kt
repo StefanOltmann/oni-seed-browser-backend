@@ -38,7 +38,8 @@ import kotlin.io.encoding.ExperimentalEncodingApi
 data class BiomePathsCompact(
 
     @ProtoNumber(1)
-    val biomePaths: List<ZonePathsFlattened> // flattened
+    val biomePaths: List<ZonePathsFlattened>
+
 ) {
 
     @OptIn(ExperimentalEncodingApi::class)
@@ -168,15 +169,15 @@ data class BiomePathsCompact(
 
         @ProtoNumber(2)
         @ProtoPacked
-        val allX: List<Int>, // concatenated X coordinates
+        val allX: List<Int>,
 
         @ProtoNumber(3)
         @ProtoPacked
-        val allY: List<Int>, // concatenated Y coordinates
+        val allY: List<Int>,
 
         @ProtoNumber(4)
         @ProtoPacked
-        val pathOffsets: List<Int> // start index of each path in allX/allY
+        val pathOffsets: List<Int>
     )
 }
 
