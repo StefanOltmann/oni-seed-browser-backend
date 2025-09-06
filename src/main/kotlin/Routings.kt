@@ -98,6 +98,7 @@ import java.util.Base64
 import java.util.UUID
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
+import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTime
 
@@ -1419,7 +1420,7 @@ private suspend fun copyMapsToS3() {
     }
 }
 
-@OptIn(ExperimentalSerializationApi::class)
+@OptIn(ExperimentalSerializationApi::class, ExperimentalTime::class)
 private suspend fun createSearchIndexes() {
 
     log("[INDEX] Create search indexes from MongoDB ...")
@@ -1430,7 +1431,10 @@ private suspend fun createSearchIndexes() {
 
         for (cluster in ClusterType.entries) {
 
-            val searchIndex = SearchIndex(cluster)
+            val searchIndex = SearchIndex(
+                clusterType = cluster,
+                timestamp = Clock.System.now().toEpochMilliseconds()
+            )
 
             val time = measureTime {
 

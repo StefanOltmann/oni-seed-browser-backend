@@ -239,4 +239,12 @@ enum class GeyserType(
         meanAvgEmitRate = 3333,
         avgEmitRateStdDev = 0
     );
+
+    val lowAvgEmitRate = meanAvgEmitRate - avgEmitRateStdDev
+
+    val highAvgEmitRate = meanAvgEmitRate + avgEmitRateStdDev
+
+    fun getAvgEmitRateRating(avgEmitRate: Int): Float =
+        ((avgEmitRate - lowAvgEmitRate).toFloat() / (highAvgEmitRate - lowAvgEmitRate))
+            .coerceIn(minimumValue = 0.01F, maximumValue = 1.0F)
 }
