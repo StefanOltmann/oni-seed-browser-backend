@@ -161,7 +161,14 @@ private val requestedCoordinatesCollection =
 private val failedWorldGenReportsCollection =
     database.getCollection<FailedGenReportDatabase>("failedWorldGenReports")
 
-private val jsonEncoder = Json {
+private val strictJson = Json {
+
+    ignoreUnknownKeys = false
+
+    encodeDefaults = true
+}
+
+private val lenientJson = Json {
 
     // We drop some fields
     // FIXME should not happen long-term
@@ -204,7 +211,7 @@ private fun Application.configureRoutingInternal() {
     log.info("Starting Server at version $VERSION")
 
     install(ContentNegotiation) {
-        json(jsonEncoder)
+        json(lenientJson)
     }
 
     install(Compression) {
@@ -356,7 +363,7 @@ private fun Application.configureRoutingInternal() {
                                  * Encode directly to the stream. This avoids creating a new
                                  * ByteArray on the heap which might let the server go out of memory.
                                  */
-                                jsonEncoder.encodeToStream(batchMaps, zipOutputStream)
+                                lenientJson.encodeToStream(batchMaps, zipOutputStream)
 
                                 zipOutputStream.closeEntry()
 
@@ -382,7 +389,7 @@ private fun Application.configureRoutingInternal() {
                              * Encode directly to the stream. This avoids creating a new
                              * ByteArray on the heap which might let the server go out of memory.
                              */
-                            jsonEncoder.encodeToStream(batchMaps, zipOutputStream)
+                            lenientJson.encodeToStream(batchMaps, zipOutputStream)
 
                             zipOutputStream.closeEntry()
 
@@ -501,7 +508,10 @@ private fun Application.configureRoutingInternal() {
 
                 val originalData = call.receiveText()
 
-                val upload = jsonEncoder.decodeFromString<Upload>(originalData)
+                /*
+                 * Be strict on what the mod can send in.
+                 */
+                val upload = strictJson.decodeFromString<Upload>(originalData)
 
                 if (upload.userId.isBlank()) {
 
@@ -1312,7 +1322,7 @@ private fun uploadMapToS3(
     if (!TRANSFER_MAPS_TO_S3)
         return
 
-    val json = jsonEncoder.encodeToString(cluster)
+    val json = lenientJson.encodeToString(cluster)
 
     val gzippedJsonBytes = ZipUtil.zipBytes(
         json.encodeToByteArray()
