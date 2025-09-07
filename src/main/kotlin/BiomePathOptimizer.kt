@@ -22,6 +22,7 @@ import de.stefan_oltmann.polybool.PolyBool
 import de.stefan_oltmann.polybool.models.Polygon
 import model.Asteroid
 import model.BiomePaths
+import model.BiomePathsCompact
 import model.Cluster
 import model.Point
 import model.ZoneType
@@ -85,11 +86,14 @@ fun Cluster.optimizeBiomePaths(): Cluster {
         val optimizedBiomePaths = BiomePaths
             .parse(asteroid.biomePaths)
             .optimize()
-            .serialize()
+
+        val compactBiomePaths = BiomePathsCompact.fromBiomePaths(optimizedBiomePaths)
+
+        val compactOptimizedBiomePaths = compactBiomePaths.serialize()
 
         optimizedAsteroids.add(
             asteroid.copy(
-                biomePaths = optimizedBiomePaths
+                biomePaths = compactOptimizedBiomePaths
             )
         )
     }
