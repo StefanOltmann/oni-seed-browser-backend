@@ -161,8 +161,12 @@ private val requestedCoordinatesCollection =
 private val failedWorldGenReportsCollection =
     database.getCollection<FailedGenReportDatabase>("failedWorldGenReports")
 
-private val strictAllFieldsJson = Json {
-    ignoreUnknownKeys = false
+private val defaultJson = Json {
+
+    // We drop some fields
+    // FIXME should not happen long-term
+    ignoreUnknownKeys = true
+
     encodeDefaults = true
 }
 
@@ -200,7 +204,7 @@ private fun Application.configureRoutingInternal() {
     log.info("Starting Server at version $VERSION")
 
     install(ContentNegotiation) {
-        json(strictAllFieldsJson)
+        json(defaultJson)
     }
 
     install(Compression) {
@@ -352,7 +356,7 @@ private fun Application.configureRoutingInternal() {
                                  * Encode directly to the stream. This avoids creating a new
                                  * ByteArray on the heap which might let the server go out of memory.
                                  */
-                                strictAllFieldsJson.encodeToStream(batchMaps, zipOutputStream)
+                                defaultJson.encodeToStream(batchMaps, zipOutputStream)
 
                                 zipOutputStream.closeEntry()
 
@@ -378,7 +382,7 @@ private fun Application.configureRoutingInternal() {
                              * Encode directly to the stream. This avoids creating a new
                              * ByteArray on the heap which might let the server go out of memory.
                              */
-                            strictAllFieldsJson.encodeToStream(batchMaps, zipOutputStream)
+                            defaultJson.encodeToStream(batchMaps, zipOutputStream)
 
                             zipOutputStream.closeEntry()
 
