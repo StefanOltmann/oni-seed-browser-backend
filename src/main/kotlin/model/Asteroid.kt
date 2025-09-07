@@ -34,7 +34,8 @@ data class Asteroid(
     val sizeX: Short,
     val sizeY: Short,
 
-    val worldTraits: List<WorldTrait>,
+    /* As part of the upload this will be set but set to NULL when converted. */
+    val worldTraits: List<WorldTrait>? = null,
 
     /* As part of the upload this will be NULL but be set when stored. */
     val worldTraitsBitmask: Int? = null,

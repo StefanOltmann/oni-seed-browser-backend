@@ -77,7 +77,7 @@ fun BiomePaths.optimize(): BiomePaths {
     return BiomePaths(mergedPolygonMap)
 }
 
-fun Cluster.optimizeBiomePaths(): Cluster {
+fun Cluster.withOptimizeBiomePaths(): Cluster {
 
     val optimizedAsteroids = mutableListOf<Asteroid>()
 

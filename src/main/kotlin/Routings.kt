@@ -652,19 +652,20 @@ private fun Application.configureRoutingInternal() {
 
                 val uploaderSteamIdHash = saltedSha256(steamId)
 
-                val optimizedCluster = cluster.optimizeBiomePaths()
-
-                val optimizedClusterWithMetadata = optimizedCluster.copy(
-                    uploaderSteamIdHash = uploaderSteamIdHash,
-                    uploaderAuthenticated = uploaderAuthenticated,
-                    uploadDate = uploadDate
-                )
+                val optimizedCluster = cluster
+                    .withOptimizeBiomePaths()
+                    .withWorldTraitMask()
+                    .copy(
+                        uploaderSteamIdHash = uploaderSteamIdHash,
+                        uploaderAuthenticated = uploaderAuthenticated,
+                        uploadDate = uploadDate
+                    )
 
                 val uploadCollection = database.getCollection<UploadDatabase>("uploads")
 
                 uploadCollection.insertOne(uploadDatabase)
 
-                clusterCollection.insertOne(optimizedClusterWithMetadata)
+                clusterCollection.insertOne(optimizedCluster)
 
                 /* Mark any requested coordinates as completed */
                 requestedCoordinatesCollection
@@ -697,7 +698,7 @@ private fun Application.configureRoutingInternal() {
                     )
                 }
 
-                uploadMapToS3(minioClient, optimizedClusterWithMetadata)
+                uploadMapToS3(minioClient, optimizedCluster)
 
                 call.respond(HttpStatusCode.OK, "Data was saved.")
 
@@ -744,7 +745,7 @@ private fun Application.configureRoutingInternal() {
                     /*
                      * Add it to the top of the list.
                      */
-                    latestCoordinates.add(0, optimizedClusterWithMetadata.coordinate)
+                    latestCoordinates.add(0, optimizedCluster.coordinate)
 
                     /*
                      * Remove the last entry
