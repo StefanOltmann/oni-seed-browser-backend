@@ -88,7 +88,7 @@ import model.server.FailedGenReportDatabase
 import model.server.RequestedCoordinate
 import model.server.RequestedCoordinateStatus
 import model.server.Upload
-import model.server.UploadDatabase
+import model.server.UploadMetadata
 import org.bson.Document
 import java.security.KeyFactory
 import java.security.MessageDigest
@@ -605,7 +605,7 @@ private fun Application.configureRoutingInternal() {
 
                 val uploadDate: Long = System.currentTimeMillis()
 
-                val uploadDatabase = UploadDatabase(
+                val uploadMetadata = UploadMetadata(
                     userId = upload.userId,
                     installationId = upload.installationId,
                     gameVersion = upload.gameVersion,
@@ -671,9 +671,9 @@ private fun Application.configureRoutingInternal() {
                         uploadDate = uploadDate
                     )
 
-                val uploadCollection = database.getCollection<UploadDatabase>("uploads")
+                val uploadCollection = database.getCollection<UploadMetadata>("uploads")
 
-                uploadCollection.insertOne(uploadDatabase)
+                uploadCollection.insertOne(uploadMetadata)
 
                 clusterCollection.insertOne(optimizedCluster)
 

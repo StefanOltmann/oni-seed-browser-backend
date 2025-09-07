@@ -23,7 +23,7 @@ import com.mongodb.ServerApi
 import com.mongodb.ServerApiVersion
 import com.mongodb.kotlin.client.coroutine.MongoClient
 import kotlinx.coroutines.runBlocking
-import model.server.UploadDatabase
+import model.server.UploadMetadata
 import java.io.PrintWriter
 
 private val connectionString: String = System.getenv("MONGO_DB_CONNECTION_STRING") ?: ""
@@ -43,7 +43,7 @@ fun main() = runBlocking {
 
         val database = mongoClient.getDatabase("oni")
 
-        val uploadsCollection = database.getCollection<UploadDatabase>("uploads")
+        val uploadsCollection = database.getCollection<UploadMetadata>("uploads")
 
         val cursor = uploadsCollection.find().batchSize(100)
 
