@@ -161,7 +161,7 @@ private val requestedCoordinatesCollection =
 private val failedWorldGenReportsCollection =
     database.getCollection<FailedGenReportDatabase>("failedWorldGenReports")
 
-private val defaultJson = Json {
+private val jsonEncoder = Json {
 
     // We drop some fields
     // FIXME should not happen long-term
@@ -204,7 +204,7 @@ private fun Application.configureRoutingInternal() {
     log.info("Starting Server at version $VERSION")
 
     install(ContentNegotiation) {
-        json(defaultJson)
+        json(jsonEncoder)
     }
 
     install(Compression) {
@@ -356,7 +356,7 @@ private fun Application.configureRoutingInternal() {
                                  * Encode directly to the stream. This avoids creating a new
                                  * ByteArray on the heap which might let the server go out of memory.
                                  */
-                                defaultJson.encodeToStream(batchMaps, zipOutputStream)
+                                jsonEncoder.encodeToStream(batchMaps, zipOutputStream)
 
                                 zipOutputStream.closeEntry()
 
@@ -382,7 +382,7 @@ private fun Application.configureRoutingInternal() {
                              * Encode directly to the stream. This avoids creating a new
                              * ByteArray on the heap which might let the server go out of memory.
                              */
-                            defaultJson.encodeToStream(batchMaps, zipOutputStream)
+                            jsonEncoder.encodeToStream(batchMaps, zipOutputStream)
 
                             zipOutputStream.closeEntry()
 
@@ -501,7 +501,7 @@ private fun Application.configureRoutingInternal() {
 
                 val originalData = call.receiveText()
 
-                val upload = Json.decodeFromString<Upload>(originalData)
+                val upload = jsonEncoder.decodeFromString<Upload>(originalData)
 
                 if (upload.userId.isBlank()) {
 
@@ -1311,7 +1311,7 @@ private fun uploadMapToS3(
     if (!TRANSFER_MAPS_TO_S3)
         return
 
-    val json = Json.encodeToString(cluster)
+    val json = jsonEncoder.encodeToString(cluster)
 
     val gzippedJsonBytes = ZipUtil.zipBytes(
         json.encodeToByteArray()
