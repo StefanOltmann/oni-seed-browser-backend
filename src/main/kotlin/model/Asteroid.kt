@@ -47,6 +47,17 @@ data class Asteroid(
 
 ) {
 
+    fun getEffectiveWorldTraits(): List<WorldTrait> {
+
+        if (worldTraits != null)
+            return worldTraits
+
+        if (worldTraitsBitmask == null)
+            return emptyList()
+
+        return WorldTrait.fromMask(worldTraitsBitmask)
+    }
+
     fun getBiomePaths(): BiomePaths {
 
         try {
