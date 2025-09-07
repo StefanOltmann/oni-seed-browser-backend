@@ -545,13 +545,7 @@ private fun Application.configureRoutingInternal() {
                     return@post
                 }
 
-                val cluster = upload.cluster ?: upload.world
-
-                if (cluster == null) {
-                    call.respond(HttpStatusCode.NotAcceptable, "Illegal data: cluster was empty.")
-                    log("[UPLOAD] Rejected illegal data (no cluster): $upload")
-                    return@post
-                }
+                val cluster = upload.cluster
 
                 /* Cluster must have a coordinate set */
                 if (cluster.coordinate.isBlank()) {
