@@ -36,8 +36,13 @@ data class UploadGeyser(
     val x: Short,
     val y: Short,
 
-    /** Emit rate in gram per second when active. */
-    val emitRate: Short,
+    /**
+     * Emit rate in gram per second when active.
+     *
+     * Can be quite high for some geysers.
+     * Like 221888
+     */
+    val emitRate: Int,
 
     /** Average emit rate in gram per second. */
     val avgEmitRate: Short,
