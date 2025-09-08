@@ -1494,7 +1494,9 @@ private suspend fun cleanMaps() {
 
             clusters.collect { cluster ->
 
-                val modifiedCluster = cluster.withWorldTraitMask()
+                val modifiedCluster = cluster
+                    .withWorldTraitMask()
+                    .withOptimizeBiomePaths()
 
                 clusterCollection.replaceOne(
                     Filters.eq("coordinate", cluster.coordinate),

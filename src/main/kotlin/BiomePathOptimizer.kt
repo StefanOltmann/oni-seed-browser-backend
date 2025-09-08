@@ -20,7 +20,10 @@
 import de.stefan_oltmann.polybool.Epsilon
 import de.stefan_oltmann.polybool.PolyBool
 import de.stefan_oltmann.polybool.models.Polygon
+import model.Asteroid
 import model.BiomePaths
+import model.BiomePathsCompact
+import model.Cluster
 import model.Point
 import model.ZoneType
 import kotlin.math.roundToInt
@@ -72,4 +75,28 @@ fun BiomePaths.optimize(): BiomePaths {
     }
 
     return BiomePaths(mergedPolygonMap)
+}
+
+fun Cluster.withOptimizeBiomePaths(): Cluster {
+
+    val optimizedAsteroids = mutableListOf<Asteroid>()
+
+    for (asteroid in asteroids) {
+
+        val biomePaths = asteroid.getBiomePaths()
+
+        val compactBiomePaths = BiomePathsCompact.fromBiomePaths(biomePaths)
+
+        val compactOptimizedBiomePaths = compactBiomePaths.serialize()
+
+        optimizedAsteroids.add(
+            asteroid.copy(
+                biomePaths = compactOptimizedBiomePaths
+            )
+        )
+    }
+
+    return copy(
+        asteroids = optimizedAsteroids
+    )
 }
