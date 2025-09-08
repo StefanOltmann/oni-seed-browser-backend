@@ -20,13 +20,13 @@
 package model
 
 import kotlinx.serialization.Serializable
-import model.serializer.GeyserTypeStringSerializer
+import model.serializer.GeyserTypeSerializer
 
 @Suppress("UNUSED")
 @Serializable
 data class Geyser(
 
-    @Serializable(with = GeyserTypeStringSerializer::class)
+    @Serializable(with = GeyserTypeSerializer::class)
     val id: GeyserType,
 
     val x: Short,
