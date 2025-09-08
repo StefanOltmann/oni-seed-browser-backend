@@ -1381,10 +1381,11 @@ private suspend fun copyMapsToS3() {
 
         cursor.collect { cluster ->
 
-            existingClusterCoordinates.add(cluster.coordinate)
-
-            if (existingNames.contains(cluster.coordinate))
-                return@collect
+            // Re-upload everything
+//            existingClusterCoordinates.add(cluster.coordinate)
+//
+//            if (existingNames.contains(cluster.coordinate))
+//                return@collect
 
             uploadMapToS3(minioClient, cluster)
 
