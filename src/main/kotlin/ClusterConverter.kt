@@ -52,7 +52,7 @@ object UploadClusterConverter {
             cluster = uploadCluster.cluster,
             asteroids = uploadCluster.asteroids.map { asteroid ->
 
-                val optimizedBiomePaths = BiomePaths.Companion
+                val optimizedBiomePaths = BiomePaths
                     .parse(asteroid.biomePaths)
                     .optimize()
 
@@ -90,10 +90,10 @@ object UploadClusterConverter {
             },
             starMapEntriesVanilla = uploadCluster.starMapEntriesVanilla?.map {
                 StarMapEntryVanilla(it.id, it.distance)
-            },
+            } ?: emptyList(),
             starMapEntriesSpacedOut = uploadCluster.starMapEntriesSpacedOut?.map {
                 StarMapEntrySpacedOut(it.id, it.q, it.r)
-            }
+            } ?: emptyList()
         )
     }
 }

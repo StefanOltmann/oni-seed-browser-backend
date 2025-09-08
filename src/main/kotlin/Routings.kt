@@ -244,6 +244,8 @@ private fun Application.configureRoutingInternal() {
 
         setMissingIndices()
 
+        cleanMaps()
+
         createContributorTable()
 
         copyMapsToS3()
@@ -703,34 +705,6 @@ private fun Application.configureRoutingInternal() {
                 val duration = System.currentTimeMillis() - start
 
                 log("[UPLOAD] ${uploadCluster.coordinate} in $duration ms by $steamId (auth = $uploaderAuthenticated)")
-
-                /* Collect some original uploads, may fail */
-                try {
-
-                    val gzippedJsonBytes = ZipUtil.zipBytes(
-                        originalData.encodeToByteArray()
-                    )
-
-                    minioClient.putObject(
-                        PutObjectArgs
-                            .builder()
-                            .bucket("oni-original-uploads")
-                            .`object`(uploadCluster.coordinate)
-                            .headers(
-                                mapOf(
-                                    "Content-Type" to "application/json",
-                                    "Content-Encoding" to "gzip",
-                                    /* Cache for a year. */
-                                    "Cache-Control" to "public, max-age=31536000"
-                                )
-                            )
-                            .stream(gzippedJsonBytes.inputStream(), gzippedJsonBytes.size.toLong(), -1)
-                            .build()
-                    )
-
-                } catch (ex: Exception) {
-                    log(ex)
-                }
 
                 /*
                  * Add coordinate to the latest list.
@@ -1252,6 +1226,39 @@ private suspend fun setMissingIndices() {
     }
 }
 
+@OptIn(ExperimentalSerializationApi::class, ExperimentalTime::class)
+private suspend fun cleanMaps() {
+
+    log("[CLEAN] Re-save maps...")
+
+    try {
+
+        val time = measureTime {
+
+            val clusters = clusterCollection.find().batchSize(10000)
+
+            clusters.collect { cluster ->
+
+                val modifiedCluster = cluster.copy(
+                    starMapEntriesVanilla = cluster.starMapEntriesVanilla ?: emptyList(),
+                    starMapEntriesSpacedOut = cluster.starMapEntriesSpacedOut ?: emptyList()
+                )
+
+                clusterCollection.replaceOne(
+                    Filters.eq("coordinate", cluster.coordinate),
+                    modifiedCluster
+                )
+            }
+        }
+
+        log("[CLEAN] Re-saved maps in $time")
+
+    } catch (ex: Exception) {
+
+        log(ex)
+    }
+}
+
 private suspend fun createContributorTable() {
 
     log("Creating contributor table...")
@@ -1379,12 +1386,10 @@ private suspend fun copyMapsToS3() {
 
         cursor.collect { cluster ->
 
-            // FIXME Re-upload everything today
+            existingClusterCoordinates.add(cluster.coordinate)
 
-//            existingClusterCoordinates.add(cluster.coordinate)
-//
-//            if (existingNames.contains(cluster.coordinate))
-//                return@collect
+            if (existingNames.contains(cluster.coordinate))
+                return@collect
 
             uploadMapToS3(minioClient, cluster)
 
