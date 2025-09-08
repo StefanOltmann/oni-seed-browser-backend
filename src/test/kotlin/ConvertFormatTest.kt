@@ -60,9 +60,13 @@ fun main() = runBlocking {
 
             val jsonBytes = Json.encodeToString(cluster).encodeToByteArray()
 
+            File("build/${cluster.coordinate}.json").writeBytes(jsonBytes)
+
             val compressedJsonBytes = ZipUtil.zipBytes(jsonBytes)
 
             val protobufBytes = ProtoBuf.encodeToByteArray(cluster)
+
+            File("build/${cluster.coordinate}.protobuf").writeBytes(protobufBytes)
 
             val compressedProtobufBytes = ZipUtil.zipBytes(protobufBytes)
 

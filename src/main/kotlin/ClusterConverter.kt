@@ -9,6 +9,7 @@ import model.StarMapEntryVanilla
 import model.WorldTrait
 import model.server.upload.UploadAsteroid
 import model.server.upload.UploadCluster
+import kotlin.math.roundToInt
 
 object UploadClusterConverter {
 
@@ -83,7 +84,9 @@ object UploadClusterConverter {
                             idleTime = it.idleTime,
                             eruptionTime = it.eruptionTime,
                             dormancyCycles = it.dormancyCycles,
-                            activeCycles = it.activeCycles
+                            dormancyCyclesRounded = it.dormancyCycles.roundToInt().toShort(),
+                            activeCycles = it.activeCycles,
+                            activeCyclesRounded = it.activeCycles.roundToInt().toShort()
                         )
                     }
                 )

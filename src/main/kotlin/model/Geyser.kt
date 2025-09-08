@@ -53,11 +53,23 @@ data class Geyser(
      */
     val eruptionTime: Short,
 
-    /** Count of dormancy cycles. */
+    /**
+     * Count of dormancy cycles.
+     * In our data values range from 0 to 135.
+     */
     val dormancyCycles: Float,
 
-    /** Count of active cycles. */
-    val activeCycles: Float
+    /** Count of dormancy cycles. */
+    val dormancyCyclesRounded: Short? = null,
+
+    /**
+     * Count of active cycles.
+     * In our data values range from 0 to 180.
+     */
+    val activeCycles: Float,
+
+    /** Count of dormancy cycles. */
+    val activeCyclesRounded: Short? = null
 
 ) {
 
