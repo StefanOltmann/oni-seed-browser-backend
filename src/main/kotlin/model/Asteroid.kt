@@ -68,7 +68,7 @@ data class Asteroid(
 
         } catch (ex: Exception) {
 
-            println("Failed to parse biome paths in compact format. Falling back to old format.")
+            // println("Failed to parse biome paths in compact format. Falling back to old format.")
         }
 
         return BiomePaths.parse(biomePaths)
