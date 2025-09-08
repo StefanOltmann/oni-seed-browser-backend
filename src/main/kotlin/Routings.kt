@@ -244,8 +244,6 @@ private fun Application.configureRoutingInternal() {
 
         setMissingIndices()
 
-        cleanMaps()
-
         createContributorTable()
 
         copyMapsToS3()
@@ -1315,19 +1313,14 @@ private fun uploadMapToS3(
     minioClient.putObject(
         PutObjectArgs
             .builder()
-            .bucket(
-//                if (minioClient == localMinioClient)
-//                    "oni-worlds"
-//                else
-                "oni-worlds.stefanoltmann.de"
-            )
+            .bucket("oni-worlds.stefanoltmann.de")
             .`object`(cluster.coordinate)
             .headers(
                 mapOf(
                     "Content-Type" to "application/json",
                     "Content-Encoding" to "gzip",
-                    /* Cache for a year. */
-                    "Cache-Control" to "public, max-age=31536000"
+                    /* Cache for 10 years; we manually purge caches. */
+                    "Cache-Control" to "public, max-age=315360000, immutable"
                 )
             )
             .stream(gzippedJsonBytes.inputStream(), gzippedJsonBytes.size.toLong(), -1)
@@ -1386,10 +1379,12 @@ private suspend fun copyMapsToS3() {
 
         cursor.collect { cluster ->
 
-            existingClusterCoordinates.add(cluster.coordinate)
+            // FIXME Re-upload everything today
 
-            if (existingNames.contains(cluster.coordinate))
-                return@collect
+//            existingClusterCoordinates.add(cluster.coordinate)
+//
+//            if (existingNames.contains(cluster.coordinate))
+//                return@collect
 
             uploadMapToS3(minioClient, cluster)
 
@@ -1480,38 +1475,37 @@ private suspend fun createSearchIndexes() {
     }
 }
 
-
-@OptIn(ExperimentalSerializationApi::class, ExperimentalTime::class)
-private suspend fun cleanMaps() {
-
-    log("[CLEAN] Re-save maps...")
-
-    try {
-
-        val time = measureTime {
-
-            val clusters = clusterCollection.find().batchSize(10000)
-
-            clusters.collect { cluster ->
-
-                val modifiedCluster = cluster
-                    .withWorldTraitMask()
-                    .withOptimizeBiomePaths()
-
-                clusterCollection.replaceOne(
-                    Filters.eq("coordinate", cluster.coordinate),
-                    modifiedCluster
-                )
-            }
-        }
-
-        log("[CLEAN] Re-saved maps in $time")
-
-    } catch (ex: Exception) {
-
-        log(ex)
-    }
-}
+//@OptIn(ExperimentalSerializationApi::class, ExperimentalTime::class)
+//private suspend fun cleanMaps() {
+//
+//    log("[CLEAN] Re-save maps...")
+//
+//    try {
+//
+//        val time = measureTime {
+//
+//            val clusters = clusterCollection.find().batchSize(10000)
+//
+//            clusters.collect { cluster ->
+//
+//                val modifiedCluster = cluster
+//                    .withWorldTraitMask()
+//                    .withOptimizeBiomePaths()
+//
+//                clusterCollection.replaceOne(
+//                    Filters.eq("coordinate", cluster.coordinate),
+//                    modifiedCluster
+//                )
+//            }
+//        }
+//
+//        log("[CLEAN] Re-saved maps in $time")
+//
+//    } catch (ex: Exception) {
+//
+//        log(ex)
+//    }
+//}
 
 /*
  * Newer tokens have it as a subject, older ones as claim.

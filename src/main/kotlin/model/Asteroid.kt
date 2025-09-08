@@ -34,11 +34,7 @@ data class Asteroid(
     val sizeX: Short,
     val sizeY: Short,
 
-    /* As part of the upload this will be set but set to NULL when converted. */
-    val worldTraits: List<WorldTrait>? = null,
-
-    /* As part of the upload this will be NULL but be set when stored. */
-    val worldTraitsBitmask: Int? = null,
+    val worldTraitsBitmask: Int,
 
     val biomePaths: String,
 
@@ -47,16 +43,8 @@ data class Asteroid(
 
 ) {
 
-    fun getEffectiveWorldTraits(): List<WorldTrait> {
-
-        if (worldTraits != null)
-            return worldTraits
-
-        if (worldTraitsBitmask == null)
-            return emptyList()
-
-        return WorldTrait.fromMask(worldTraitsBitmask)
-    }
+    fun getEffectiveWorldTraits(): List<WorldTrait> =
+        WorldTrait.fromMask(worldTraitsBitmask)
 
     fun getBiomePaths(): BiomePaths {
 
@@ -68,7 +56,7 @@ data class Asteroid(
 
         } catch (ex: Exception) {
 
-            // println("Failed to parse biome paths in compact format. Falling back to old format.")
+            println("Failed to parse biome paths in compact format. Falling back to old format.")
         }
 
         return BiomePaths.parse(biomePaths)
