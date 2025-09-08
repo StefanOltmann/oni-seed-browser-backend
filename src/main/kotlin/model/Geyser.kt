@@ -29,20 +29,20 @@ data class Geyser(
     @Serializable(with = GeyserTypeStringSerializer::class)
     val id: GeyserType,
 
-    val x: Int,
-    val y: Int,
+    val x: Short,
+    val y: Short,
 
     /** Emit rate in gram per second when active. */
-    val emitRate: Int,
+    val emitRate: Short,
 
     /** Average emit rate in gram per second. */
-    val avgEmitRate: Int,
+    val avgEmitRate: Short,
 
     /** Idle time after eruption in seconds. */
-    val idleTime: Int,
+    val idleTime: Short,
 
     /** Duration of eruption in seconds. */
-    val eruptionTime: Int,
+    val eruptionTime: Short,
 
     /** Count of dormancy cycles. */
     val dormancyCycles: Float,

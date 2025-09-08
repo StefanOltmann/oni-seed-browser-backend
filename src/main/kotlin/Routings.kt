@@ -545,29 +545,29 @@ private fun Application.configureRoutingInternal() {
                     return@post
                 }
 
-                val cluster = upload.cluster
+                val uploadCluster = upload.cluster
 
                 /* Cluster must have a coordinate set */
-                if (cluster.coordinate.isBlank()) {
+                if (uploadCluster.coordinate.isBlank()) {
                     call.respond(HttpStatusCode.NotAcceptable, "Illegal data: No coordinates.")
                     log("[UPLOAD] Rejected illegal data (no coordinates): $upload")
                     return@post
                 }
 
                 /* Coordinate must be clean */
-                val cleanCoordinate = cleanCoordinate(cluster.coordinate)
+                val cleanCoordinate = cleanCoordinate(uploadCluster.coordinate)
 
-                if (!cluster.coordinate.equals(cleanCoordinate, ignoreCase = true)) {
+                if (!uploadCluster.coordinate.equals(cleanCoordinate, ignoreCase = true)) {
                     call.respond(
                         HttpStatusCode.NotAcceptable,
-                        "Illegal coordinate: ${cluster.coordinate} != $cleanCoordinate"
+                        "Illegal coordinate: ${uploadCluster.coordinate} != $cleanCoordinate"
                     )
-                    log("[UPLOAD] Rejected illegal data (coordinate): ${cluster.coordinate} != $cleanCoordinate")
+                    log("[UPLOAD] Rejected illegal data (coordinate): ${uploadCluster.coordinate} != $cleanCoordinate")
                     return@post
                 }
 
                 /* Cluster must have asteroids */
-                if (cluster.asteroids.isEmpty()) {
+                if (uploadCluster.asteroids.isEmpty()) {
                     call.respond(HttpStatusCode.NotAcceptable, "Illegal data: No asteroids")
                     log("[UPLOAD] Rejected illegal data (no asteroids): $upload")
                     return@post
@@ -576,12 +576,12 @@ private fun Application.configureRoutingInternal() {
                 val currentGameVersion = findCurrentGameVersion()
 
                 /* Must use the current version of the game */
-                if (cluster.gameVersion < currentGameVersion) {
+                if (uploadCluster.gameVersion < currentGameVersion) {
 
                     call.respond(HttpStatusCode.NotAcceptable, "Please use a current version of the game.")
 
                     log(
-                        "[UPLOAD] Rejected old game version ${cluster.gameVersion} from ${upload.userId}. " +
+                        "[UPLOAD] Rejected old game version ${uploadCluster.gameVersion} from ${upload.userId}. " +
                             "Current: $currentGameVersion"
                     )
 
@@ -606,7 +606,7 @@ private fun Application.configureRoutingInternal() {
                     fileHashes = upload.fileHashes,
                     uploadDate = uploadDate,
                     ipAddress = ipAddress,
-                    coordinate = cluster.coordinate
+                    coordinate = uploadCluster.coordinate
                 )
 
                 val steamId = if (upload.userId.startsWith("Steam-"))
@@ -656,14 +656,12 @@ private fun Application.configureRoutingInternal() {
 
                 val uploaderSteamIdHash = saltedSha256(steamId)
 
-                val optimizedCluster = cluster
-                    .withOptimizeBiomePaths()
-                    .withWorldTraitMask()
-                    .copy(
-                        uploaderSteamIdHash = uploaderSteamIdHash,
-                        uploaderAuthenticated = uploaderAuthenticated,
-                        uploadDate = uploadDate
-                    )
+                val optimizedCluster = UploadClusterConverter.convert(
+                    uploadCluster = uploadCluster,
+                    uploaderSteamIdHash = uploaderSteamIdHash,
+                    uploaderAuthenticated = uploaderAuthenticated,
+                    uploadDate = uploadDate
+                )
 
                 val uploadCollection = database.getCollection<UploadMetadata>("uploads")
 
@@ -674,7 +672,7 @@ private fun Application.configureRoutingInternal() {
                 /* Mark any requested coordinates as completed */
                 requestedCoordinatesCollection
                     .updateOne(
-                        Filters.eq(RequestedCoordinate::coordinate.name, cluster.coordinate),
+                        Filters.eq(RequestedCoordinate::coordinate.name, uploadCluster.coordinate),
                         Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.COMPLETED)
                     )
 
@@ -708,7 +706,7 @@ private fun Application.configureRoutingInternal() {
 
                 val duration = System.currentTimeMillis() - start
 
-                log("[UPLOAD] ${cluster.coordinate} in $duration ms by $steamId (auth = $uploaderAuthenticated)")
+                log("[UPLOAD] ${uploadCluster.coordinate} in $duration ms by $steamId (auth = $uploaderAuthenticated)")
 
                 /* Collect some original uploads, may fail */
                 try {
@@ -721,7 +719,7 @@ private fun Application.configureRoutingInternal() {
                         PutObjectArgs
                             .builder()
                             .bucket("oni-original-uploads")
-                            .`object`(cluster.coordinate)
+                            .`object`(uploadCluster.coordinate)
                             .headers(
                                 mapOf(
                                     "Content-Type" to "application/json",
