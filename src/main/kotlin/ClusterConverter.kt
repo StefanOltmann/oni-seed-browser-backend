@@ -68,7 +68,6 @@ object UploadClusterConverter {
                     offsetY = asteroid.offsetY,
                     sizeX = asteroid.sizeX,
                     sizeY = asteroid.sizeY,
-                    worldTraits = null, // FIXME Remove
                     worldTraitsBitmask = worldTraitsBitMask,
                     biomePaths = compactOptimizedBiomePaths,
                     pointsOfInterest = asteroid.pointsOfInterest.map {
