@@ -244,7 +244,7 @@ private fun Application.configureRoutingInternal() {
 
         setMissingIndices()
 
-        cleanMaps()
+        // cleanMaps()
 
         createContributorTable()
 
