@@ -102,8 +102,6 @@ import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTime
 
-const val TRANSFER_MAPS_TO_S3 = true
-
 const val LATEST_MAPS_LIMIT = 50
 
 const val EXPORT_BATCH_SIZE = 10000
@@ -170,8 +168,6 @@ private val strictJson = Json {
 
 private val lenientJson = Json {
 
-    // We drop some fields
-    // FIXME should not happen long-term
     ignoreUnknownKeys = true
 
     encodeDefaults = true
@@ -1311,9 +1307,6 @@ private fun uploadMapToS3(
     cluster: Cluster
 ) {
 
-    if (!TRANSFER_MAPS_TO_S3)
-        return
-
     val json = lenientJson.encodeToString(cluster)
 
     val gzippedJsonBytes = ZipUtil.zipBytes(
@@ -1363,9 +1356,6 @@ private fun deleteMapFromS3(
 }
 
 private suspend fun copyMapsToS3() {
-
-    if (!TRANSFER_MAPS_TO_S3)
-        return
 
     log("[S3] Transfer maps to S3...")
 
