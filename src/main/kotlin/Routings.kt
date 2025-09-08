@@ -244,6 +244,8 @@ private fun Application.configureRoutingInternal() {
 
         setMissingIndices()
 
+        cleanMaps()
+
         createContributorTable()
 
         copyMapsToS3()
@@ -1317,7 +1319,7 @@ private fun uploadMapToS3(
 //                if (minioClient == localMinioClient)
 //                    "oni-worlds"
 //                else
-                    "oni-worlds.stefanoltmann.de"
+                "oni-worlds.stefanoltmann.de"
             )
             .`object`(cluster.coordinate)
             .headers(
@@ -1345,7 +1347,7 @@ private fun deleteMapFromS3(
 //                if (minioClient == localMinioClient)
 //                    "oni-worlds"
 //                else
-                    "oni-worlds.stefanoltmann.de"
+                "oni-worlds.stefanoltmann.de"
             )
             .`object`(coordinate)
             .build()
@@ -1471,6 +1473,37 @@ private suspend fun createSearchIndexes() {
         val duration = System.currentTimeMillis() - start
 
         log("[INDEX] Created search indexes in $duration ms.")
+
+    } catch (ex: Exception) {
+
+        log(ex)
+    }
+}
+
+
+@OptIn(ExperimentalSerializationApi::class, ExperimentalTime::class)
+private suspend fun cleanMaps() {
+
+    log("[CLEAN] Re-save maps...")
+
+    try {
+
+        val time = measureTime {
+
+            val clusters = clusterCollection.find().batchSize(10000)
+
+            clusters.collect { cluster ->
+
+                val modifiedCluster = cluster.withWorldTraitMask()
+
+                clusterCollection.replaceOne(
+                    Filters.eq("coordinate", cluster.coordinate),
+                    modifiedCluster
+                )
+            }
+        }
+
+        log("[CLEAN] Re-saved maps in $time")
 
     } catch (ex: Exception) {
 
