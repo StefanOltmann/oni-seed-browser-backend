@@ -83,9 +83,7 @@ object UploadClusterConverter {
                             avgEmitRate = it.avgEmitRate,
                             idleTime = it.idleTime,
                             eruptionTime = it.eruptionTime,
-                            dormancyCycles = it.dormancyCycles,
                             dormancyCyclesRounded = it.dormancyCycles.roundToInt().toShort(),
-                            activeCycles = it.activeCycles,
                             activeCyclesRounded = it.activeCycles.roundToInt().toShort()
                         )
                     }

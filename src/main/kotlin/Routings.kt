@@ -98,7 +98,6 @@ import java.util.Base64
 import java.util.UUID
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
-import kotlin.math.roundToInt
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTime
@@ -1240,24 +1239,9 @@ private suspend fun cleanMaps() {
 
             clusters.collect { cluster ->
 
-                val modifiedCluster = cluster.copy(
-                    starMapEntriesVanilla = cluster.starMapEntriesVanilla ?: emptyList(),
-                    starMapEntriesSpacedOut = cluster.starMapEntriesSpacedOut ?: emptyList(),
-                    asteroids = cluster.asteroids.map { asteroid ->
-                        asteroid.copy(
-                            geysers = asteroid.geysers.map { geyser ->
-                                geyser.copy(
-                                    dormancyCyclesRounded = geyser.dormancyCycles.roundToInt().toShort(),
-                                    activeCyclesRounded = geyser.activeCycles.roundToInt().toShort()
-                                )
-                            }
-                        )
-                    }
-                )
-
                 clusterCollection.replaceOne(
                     Filters.eq("coordinate", cluster.coordinate),
-                    modifiedCluster
+                    cluster
                 )
             }
         }
