@@ -1219,9 +1219,6 @@ private suspend fun setMissingIndices() {
             requestedCoordinatesCollection
                 .createIndex(Document("coordinate", 1), uniqueIndexOptions)
 
-            database.getCollection<Document>("summaries")
-                .createIndex(Document("coordinate", 1), uniqueIndexOptions)
-
             /*
              * Indexes for aggregation speed
              */
