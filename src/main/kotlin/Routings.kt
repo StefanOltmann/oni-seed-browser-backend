@@ -1322,7 +1322,7 @@ private fun uploadMapToS3(
             .`object`(cluster.coordinate)
             .headers(
                 mapOf(
-                    "Content-Type" to " application/x-protobuf",
+                    "Content-Type" to " application/protobuf",
                     "Content-Encoding" to "gzip",
                     /* Cache for 10 years; we manually purge caches. */
                     "Cache-Control" to "public, max-age=315360000, immutable"
@@ -1378,11 +1378,10 @@ private suspend fun copyMapsToS3() {
 
         cursor.collect { cluster ->
 
-            // Re-upload everything
-//            existingClusterCoordinates.add(cluster.coordinate)
-//
-//            if (existingNames.contains(cluster.coordinate))
-//                return@collect
+            existingClusterCoordinates.add(cluster.coordinate)
+
+            if (existingNames.contains(cluster.coordinate))
+                return@collect
 
             uploadMapToS3(minioClient, cluster)
 
@@ -1449,7 +1448,7 @@ private suspend fun createSearchIndexes() {
                         .`object`(cluster.prefix)
                         .headers(
                             mapOf(
-                                "Content-Type" to "application/x-protobuf",
+                                "Content-Type" to "application/protobuf",
                                 "Content-Encoding" to "gzip",
                                 /* Cache for a day. */
                                 "Cache-Control" to "public, max-age=86400"
