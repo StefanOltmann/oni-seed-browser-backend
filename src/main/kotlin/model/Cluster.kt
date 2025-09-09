@@ -43,8 +43,8 @@ data class Cluster(
 
     val asteroids: List<Asteroid>,
 
-    val starMapEntriesVanilla: List<StarMapEntryVanilla>?,
+    val starMapEntriesVanilla: List<StarMapEntryVanilla>,
 
-    val starMapEntriesSpacedOut: List<StarMapEntrySpacedOut>?
+    val starMapEntriesSpacedOut: List<StarMapEntrySpacedOut>
 
 )
