@@ -104,7 +104,7 @@ import kotlin.time.measureTime
 
 const val LATEST_MAPS_LIMIT = 50
 
-const val EXPORT_BATCH_SIZE = 10000
+const val EXPORT_BATCH_SIZE = 5000
 
 const val TOKEN_HEADER_WEBPAGE = "token"
 const val TOKEN_HEADER_MOD = "MNI_TOKEN"
@@ -359,11 +359,9 @@ private fun Application.configureRoutingInternal() {
                                     ZipEntry("${exportCollection.id}-data-$paddedBatchNumber.json")
                                 )
 
-                                /*
-                                 * Encode directly to the stream. This avoids creating a new
-                                 * ByteArray on the heap which might let the server go out of memory.
-                                 */
-                                lenientJson.encodeToStream(batchMaps, zipOutputStream)
+                                ProtoBuf.encodeToByteArray(batchMaps).let { bytes ->
+                                    zipOutputStream.write(bytes)
+                                }
 
                                 zipOutputStream.closeEntry()
 
@@ -382,7 +380,7 @@ private fun Application.configureRoutingInternal() {
                             val paddedBatchNumber = batchNumber.toString().padStart(4, '0')
 
                             zipOutputStream.putNextEntry(
-                                ZipEntry("${exportCollection.id}-data-$paddedBatchNumber.json")
+                                ZipEntry("${exportCollection.id}-data-$paddedBatchNumber.pb")
                             )
 
                             /*
