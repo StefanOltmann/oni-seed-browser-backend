@@ -109,7 +109,7 @@ const val EXPORT_BATCH_SIZE = 10000
 const val TOKEN_HEADER_WEBPAGE = "token"
 const val TOKEN_HEADER_MOD = "MNI_TOKEN"
 
-const val WORLDS_BUCKET = "oni-maps.stefanoltmann.de"
+const val WORLDS_BUCKET = "oni-data.stefanoltmann.de"
 
 private val connectionString: String = System.getenv("MONGO_DB_CONNECTION_STRING") ?: ""
 
@@ -1303,15 +1303,16 @@ private suspend fun createContributorTable() {
     }
 }
 
+@OptIn(ExperimentalSerializationApi::class)
 private fun uploadMapToS3(
     minioClient: MinioClient,
     cluster: Cluster
 ) {
 
-    val json = lenientJson.encodeToString(cluster)
+    val protobufBytes = ProtoBuf.encodeToByteArray(cluster)
 
-    val gzippedJsonBytes = ZipUtil.zipBytes(
-        originalBytes = json.encodeToByteArray()
+    val compressedBytes = ZipUtil.zipBytes(
+        originalBytes = protobufBytes
     )
 
     minioClient.putObject(
@@ -1321,13 +1322,13 @@ private fun uploadMapToS3(
             .`object`(cluster.coordinate)
             .headers(
                 mapOf(
-                    "Content-Type" to "application/json",
+                    "Content-Type" to " application/x-protobuf",
                     "Content-Encoding" to "gzip",
                     /* Cache for 10 years; we manually purge caches. */
                     "Cache-Control" to "public, max-age=315360000, immutable"
                 )
             )
-            .stream(gzippedJsonBytes.inputStream(), gzippedJsonBytes.size.toLong(), -1)
+            .stream(compressedBytes.inputStream(), compressedBytes.size.toLong(), -1)
             .build()
     )
 }
@@ -1448,7 +1449,7 @@ private suspend fun createSearchIndexes() {
                         .`object`(cluster.prefix)
                         .headers(
                             mapOf(
-                                "Content-Type" to "application/protobuf",
+                                "Content-Type" to "application/x-protobuf",
                                 "Content-Encoding" to "gzip",
                                 /* Cache for a day. */
                                 "Cache-Control" to "public, max-age=86400"
