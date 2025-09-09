@@ -109,6 +109,8 @@ const val EXPORT_BATCH_SIZE = 10000
 const val TOKEN_HEADER_WEBPAGE = "token"
 const val TOKEN_HEADER_MOD = "MNI_TOKEN"
 
+const val WORLDS_BUCKET = "oni-maps.stefanoltmann.de"
+
 private val connectionString: String = System.getenv("MONGO_DB_CONNECTION_STRING") ?: ""
 
 private val salt = System.getenv("MNI_SALT")
@@ -1309,13 +1311,13 @@ private fun uploadMapToS3(
     val json = lenientJson.encodeToString(cluster)
 
     val gzippedJsonBytes = ZipUtil.zipBytes(
-        json.encodeToByteArray()
+        originalBytes = json.encodeToByteArray()
     )
 
     minioClient.putObject(
         PutObjectArgs
             .builder()
-            .bucket("oni-worlds.stefanoltmann.de")
+            .bucket(WORLDS_BUCKET)
             .`object`(cluster.coordinate)
             .headers(
                 mapOf(
@@ -1338,12 +1340,7 @@ private fun deleteMapFromS3(
     minioClient.removeObject(
         RemoveObjectArgs
             .builder()
-            .bucket(
-//                if (minioClient == localMinioClient)
-//                    "oni-worlds"
-//                else
-                "oni-worlds.stefanoltmann.de"
-            )
+            .bucket(WORLDS_BUCKET)
             .`object`(coordinate)
             .build()
     )
@@ -1359,8 +1356,7 @@ private suspend fun copyMapsToS3() {
 
         val objects = minioClient.listObjects(
             ListObjectsArgs.builder()
-                .bucket("oni-worlds.stefanoltmann.de")
-                .recursive(true)
+                .bucket(WORLDS_BUCKET)
                 .build()
         )
 
@@ -1373,7 +1369,7 @@ private suspend fun copyMapsToS3() {
             existingNames.add(item.objectName())
         }
 
-        val cursor = clusterCollection.find().batchSize(1000)
+        val cursor = clusterCollection.find().batchSize(10000)
 
         val existingClusterCoordinates = mutableSetOf<String>()
 
