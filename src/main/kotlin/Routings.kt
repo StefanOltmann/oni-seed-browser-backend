@@ -356,7 +356,7 @@ private fun Application.configureRoutingInternal() {
                                 val paddedBatchNumber = batchNumber.toString().padStart(4, '0')
 
                                 zipOutputStream.putNextEntry(
-                                    ZipEntry("${exportCollection.id}-data-$paddedBatchNumber.json")
+                                    ZipEntry("${exportCollection.id}-data-$paddedBatchNumber.pb")
                                 )
 
                                 ProtoBuf.encodeToByteArray(batchMaps).let { bytes ->
