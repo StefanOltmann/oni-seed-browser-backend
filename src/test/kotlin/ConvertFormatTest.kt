@@ -74,6 +74,11 @@ fun main() = runBlocking {
             if (cluster != clusterRestored)
                 error("Cluster is not equal")
 
+            val protoBufBytesReference = ProtoBuf.encodeToByteArray(clusterRestored)
+
+            if (!protoBufBytesReference.contentEquals(protobufBytes))
+                error("ProtoBuf bytes are not equal")
+
             val compressedProtobufBytes = ZipUtil.zipBytes(protobufBytes)
 
             println(" -> JSON = " + (jsonBytes.size / 1000.0) + " KB")
@@ -96,7 +101,6 @@ private fun readClustersFromFolder(
         .list(exportDataFolder)
         .filter { it.name.endsWith(".json") }
         .sortedBy { it.name }
-        .take(1)
 
     for (file in dataFiles) {
 
@@ -106,7 +110,7 @@ private fun readClustersFromFolder(
 
                 val clustersInFile = Json {
                     ignoreUnknownKeys = true
-                }.decodeFromSource<List<Cluster>>(source).take(1)
+                }.decodeFromSource<List<Cluster>>(source)
 
                 for (cluster in clustersInFile)
                     emit(cluster)
