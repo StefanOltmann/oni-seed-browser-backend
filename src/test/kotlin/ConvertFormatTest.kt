@@ -24,6 +24,7 @@ import kotlinx.io.buffered
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.encodeToByteArray
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.io.decodeFromSource
@@ -67,6 +68,11 @@ fun main() = runBlocking {
             val protobufBytes = ProtoBuf.encodeToByteArray(cluster)
 
             File("build/${cluster.coordinate}.protobuf").writeBytes(protobufBytes)
+
+            val clusterRestored = ProtoBuf.decodeFromByteArray<Cluster>(protobufBytes)
+
+            if (cluster != clusterRestored)
+                error("Cluster is not equal")
 
             val compressedProtobufBytes = ZipUtil.zipBytes(protobufBytes)
 
