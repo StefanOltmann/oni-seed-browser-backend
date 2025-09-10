@@ -365,8 +365,6 @@ private fun Application.configureRoutingInternal() {
                                     zipOutputStream.flush()
                                 }
 
-                                zipOutputStream.flush()
-
                                 zipOutputStream.closeEntry()
 
                                 // Clear the batch, increment file number, and force GC
@@ -393,8 +391,6 @@ private fun Application.configureRoutingInternal() {
 
                                 zipOutputStream.flush()
                             }
-
-                            zipOutputStream.flush()
 
                             zipOutputStream.closeEntry()
 
