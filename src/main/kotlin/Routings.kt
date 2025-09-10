@@ -75,7 +75,6 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.encodeToByteArray
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.encodeToStream
 import kotlinx.serialization.protobuf.ProtoBuf
 import model.Cluster
 import model.ClusterExportCollection
@@ -360,8 +359,13 @@ private fun Application.configureRoutingInternal() {
                                 )
 
                                 ProtoBuf.encodeToByteArray(batchMaps).let { bytes ->
+
                                     zipOutputStream.write(bytes)
+
+                                    zipOutputStream.flush()
                                 }
+
+                                zipOutputStream.flush()
 
                                 zipOutputStream.closeEntry()
 
@@ -383,11 +387,14 @@ private fun Application.configureRoutingInternal() {
                                 ZipEntry("${exportCollection.id}-data-$paddedBatchNumber.pb")
                             )
 
-                            /*
-                             * Encode directly to the stream. This avoids creating a new
-                             * ByteArray on the heap which might let the server go out of memory.
-                             */
-                            lenientJson.encodeToStream(batchMaps, zipOutputStream)
+                            ProtoBuf.encodeToByteArray(batchMaps).let { bytes ->
+
+                                zipOutputStream.write(bytes)
+
+                                zipOutputStream.flush()
+                            }
+
+                            zipOutputStream.flush()
 
                             zipOutputStream.closeEntry()
 
