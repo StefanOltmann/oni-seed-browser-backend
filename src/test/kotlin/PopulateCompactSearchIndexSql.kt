@@ -67,7 +67,7 @@ fun main() = runBlocking {
             }
 
             /* Batch INSERTs for better performance */
-            val batchSize = 300
+            val batchSize = 50
             val valueStrings = mutableListOf<String>()
 
             for ((type, clusters) in clustersPerType) {
