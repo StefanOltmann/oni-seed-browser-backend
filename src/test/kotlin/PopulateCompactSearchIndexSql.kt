@@ -30,45 +30,47 @@ fun main() = runBlocking {
         return@runBlocking
     }
 
-    val exportFolder = File("build")
+    /* Using a subfolder to keep things tidy */
+    val exportFolder = File("build/sql_export")
     exportFolder.mkdirs()
 
-    val sqlFile = exportFolder.resolve("sql_import.sql")
+    val batchesPerFile = 5000
 
     val time = measureTime {
 
-        /* Use a BufferedWriter to write the SQL file efficiently */
-        sqlFile.bufferedWriter().use { writer ->
+        val schemaFile = exportFolder.resolve("schema.sql")
 
-            // Write the SQL schema for Cloudflare D1
-            writer.write(
-                """
-                -- Deletes the existing table to ensure a clean import.
-                DROP TABLE IF EXISTS search_index;
+        schemaFile.writeText(
+            """
+            -- Deletes the existing table to ensure a clean import.
+            DROP TABLE IF EXISTS search_index;
 
-                -- Creates the table structure. data is now a BLOB for performance.
-                CREATE TABLE search_index (
-                    coordinate TEXT PRIMARY KEY,
-                    game_version TEXT NOT NULL,
-                    cluster TEXT NOT NULL,
-                    data BLOB NOT NULL
-                );
-
+            -- Creates the table structure. data is now a BLOB for performance.
+            CREATE TABLE search_index (
+                coordinate TEXT PRIMARY KEY,
+                game_version TEXT NOT NULL,
+                cluster TEXT NOT NULL,
+                data BLOB NOT NULL
+            );
             """.trimIndent()
-            )
-            writer.newLine()
-            writer.newLine()
+        )
+        println("Successfully created schema file: ${schemaFile.absolutePath}")
 
-            val flow = readClustersFromFolder(exportDataFolder)
-            val clustersPerType = mutableMapOf<ClusterType, MutableList<Cluster>>()
+        val flow = readClustersFromFolder(exportDataFolder)
+        val clustersPerType = mutableMapOf<ClusterType, MutableList<Cluster>>()
 
-            flow.collect { cluster ->
-                clustersPerType.getOrPut(cluster.cluster) { mutableListOf() }.add(cluster)
-            }
+        flow.collect { cluster ->
+            clustersPerType.getOrPut(cluster.cluster) { mutableListOf() }.add(cluster)
+        }
 
-            /* Batch INSERTs for better performance */
-            val batchSize = 50
-            val valueStrings = mutableListOf<String>()
+        val batchSize = 50
+        val valueStrings = mutableListOf<String>()
+
+        var filePart = 1
+        var batchesInCurrentFile = 0
+        var writer = createNewDataWriter(exportFolder, filePart)
+
+        try {
 
             for ((type, clusters) in clustersPerType) {
 
@@ -86,7 +88,24 @@ fun main() = runBlocking {
                     if (valueStrings.size >= batchSize) {
 
                         writeInsertBatch(writer, valueStrings)
+
                         valueStrings.clear()
+
+                        /* A batch was just written, so we increment the batch counter */
+                        batchesInCurrentFile++
+
+                        /* Check if the batch limit for the current file has been reached */
+                        if (batchesInCurrentFile >= batchesPerFile) {
+
+                            /* Close the current writer, start a new file, and reset the batch counter */
+                            writer.close()
+
+                            filePart++
+
+                            writer = createNewDataWriter(exportFolder, filePart)
+
+                            batchesInCurrentFile = 0
+                        }
                     }
                 }
             }
@@ -94,11 +113,23 @@ fun main() = runBlocking {
             /* Write any remaining items in the final, possibly smaller, batch */
             if (valueStrings.isNotEmpty())
                 writeInsertBatch(writer, valueStrings)
+
+        } finally {
+            writer.close()
         }
     }
 
-    println("Successfully created SQL file: ${sqlFile.absolutePath}")
+    println("Successfully created all SQL files in: ${exportFolder.absolutePath}")
     println("Operation took $time.")
+}
+
+/**
+ * Helper function to create a new BufferedWriter for a new data file part.
+ */
+private fun createNewDataWriter(folder: File, part: Int): BufferedWriter {
+    val file = folder.resolve("data_part_$part.sql")
+    println("Creating new data file: ${file.absolutePath}")
+    return file.bufferedWriter()
 }
 
 /**
@@ -122,19 +153,13 @@ private fun readClustersFromFolder(
 
     for (file in dataFiles) {
         SystemFileSystem.source(file).buffered().use { source ->
-
             val time = measureTime {
-
                 val bytes = source.readByteArray()
-
                 val clustersInFile = ProtoBuf.decodeFromByteArray<List<Cluster>>(bytes)
-
                 for (cluster in clustersInFile)
                     emit(cluster)
             }
-
             println("Processed ${file.name} in $time ...")
-
             System.gc()
         }
     }
