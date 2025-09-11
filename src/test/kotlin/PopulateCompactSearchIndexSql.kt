@@ -105,7 +105,7 @@ fun main() = runBlocking {
  * Writes a single batched INSERT statement to the SQL file.
  */
 private fun writeInsertBatch(writer: BufferedWriter, values: List<String>) {
-    writer.write("INSERT INTO search_index (coordinate, game_version, cluster, data) VALUES\n")
+    writer.write("INSERT IGNORE INTO search_index (coordinate, game_version, cluster, data) VALUES\n")
     writer.write(values.joinToString(",\n"))
     writer.write(";\n\n")
 }
