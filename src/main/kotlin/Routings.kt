@@ -57,6 +57,7 @@ import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondOutputStream
 import io.ktor.server.response.respondText
+import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
@@ -111,6 +112,9 @@ const val TOKEN_HEADER_MOD = "MNI_TOKEN"
 const val WORLDS_BUCKET = "oni-data.stefanoltmann.de"
 
 private val connectionString: String = System.getenv("MONGO_DB_CONNECTION_STRING") ?: ""
+
+private val purgeApiKey = System.getenv("PURGE_API_KEY")
+    ?: error("Missing PURGE_API_KEY environment variable")
 
 private val salt = System.getenv("MNI_SALT")
     ?: error("Missing SALT environment variable")
@@ -424,6 +428,51 @@ private fun Application.configureRoutingInternal() {
                 val count = clusterCollection.estimatedDocumentCount()
 
                 call.respond(count)
+
+            } catch (ex: Exception) {
+
+                log(ex)
+
+                call.respond(HttpStatusCode.InternalServerError)
+            }
+        }
+
+        /*
+         * Purge the requested key out of existence.
+         */
+        delete("/purge/{coordinate}") {
+
+            try {
+
+                val ipAddress = call.getIpAddress()
+
+                val apiKey: String? = this.call.request.headers["PURGE_API_KEY"]
+
+                if (apiKey != purgeApiKey) {
+
+                    log("[UPLOAD] Unauthorized API key used by $ipAddress.")
+
+                    call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
+
+                    return@delete
+                }
+
+                val coordinate = call.parameters["coordinate"]
+
+                if (coordinate.isNullOrBlank()) {
+
+                    call.respond(HttpStatusCode.BadRequest, "Invalid coordinate '$coordinate'")
+
+                    return@delete
+                }
+
+                clusterCollection.deleteOne(
+                    Filters.eq(Cluster::coordinate.name, coordinate)
+                )
+
+                deleteMapFromS3(minioClient, coordinate)
+
+                call.respond(HttpStatusCode.OK, "Map deleted.")
 
             } catch (ex: Exception) {
 
