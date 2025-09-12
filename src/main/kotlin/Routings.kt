@@ -253,9 +253,9 @@ private fun Application.configureRoutingInternal() {
 
         createContributorTable()
 
-        copyMapsToS3()
+        // copyMapsToS3()
 
-        createSearchIndexes()
+        // createSearchIndexes()
     }
 
     routing {
@@ -268,6 +268,88 @@ private fun Application.configureRoutingInternal() {
             val minutes = uptimeMinutes % 60
 
             call.respondText("ONI Seed Browser Backend $VERSION (up since $uptimeHours hours and $minutes minutes)")
+        }
+
+        get("/generate-search-indexes") {
+
+            try {
+
+                val ipAddress = call.getIpAddress()
+
+                val apiKey: String? = this.call.request.headers["API_KEY"]
+
+                if (apiKey != System.getenv("DATABASE_EXPORT_API_KEY")) {
+
+                    log("Unauthorized API key used by ip address $ipAddress.")
+
+                    call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
+
+                    return@get
+                }
+
+                backgroundScope.launch {
+
+                    val start = System.currentTimeMillis()
+
+                    createSearchIndexes()
+
+                    val duration = System.currentTimeMillis() - start
+
+                    log("Created indexes in $duration ms.")
+
+                    /* Final extra cleanup */
+                    System.gc()
+                }
+
+                call.respond(HttpStatusCode.OK, "Regeneration triggered.")
+
+            } catch (ex: Exception) {
+
+                log(ex)
+
+                call.respond(HttpStatusCode.InternalServerError, "Error on search index creation")
+            }
+        }
+
+        get("/copy-maps-to-s3") {
+
+            try {
+
+                val ipAddress = call.getIpAddress()
+
+                val apiKey: String? = this.call.request.headers["API_KEY"]
+
+                if (apiKey != System.getenv("DATABASE_EXPORT_API_KEY")) {
+
+                    log("Unauthorized API key used by ip address $ipAddress.")
+
+                    call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
+
+                    return@get
+                }
+
+                backgroundScope.launch {
+
+                    val start = System.currentTimeMillis()
+
+                    copyMapsToS3()
+
+                    val duration = System.currentTimeMillis() - start
+
+                    log("Copied maps in $duration ms.")
+
+                    /* Final extra cleanup */
+                    System.gc()
+                }
+
+                call.respond(HttpStatusCode.OK, "Regeneration triggered.")
+
+            } catch (ex: Exception) {
+
+                log(ex)
+
+                call.respond(HttpStatusCode.InternalServerError, "Error on map copy")
+            }
         }
 
         get("/export/{collection}") {
@@ -436,6 +518,7 @@ private fun Application.configureRoutingInternal() {
                 call.respond(HttpStatusCode.InternalServerError)
             }
         }
+
 
         /*
          * Purge the requested key out of existence.
