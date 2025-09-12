@@ -17,6 +17,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import io.ktor.client.HttpClient
+import io.ktor.client.request.delete
+import io.ktor.client.request.header
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.runBlocking
@@ -32,6 +35,8 @@ import model.ClusterType
 import model.WorldTrait
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTime
+
+private val httpClient = HttpClient()
 
 /*
  * Work on the data export
@@ -82,7 +87,16 @@ fun main() = runBlocking {
     }
 
     println("Operation took $time. Found ${coordinates.size} coordinates.")
+
+    // purgeCoordinates(coordinates)
 }
+
+private suspend fun purgeCoordinates(coordinates: Set<String>) =
+    coordinates.forEach { coordinate ->
+        httpClient.delete("https://ingest.mapsnotincluded.org/purge/$coordinate") {
+            header("PURGE_API_KEY", "DoIt!")
+        }
+    }
 
 @OptIn(ExperimentalSerializationApi::class)
 private fun readClustersFromFolder(
