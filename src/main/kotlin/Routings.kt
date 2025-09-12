@@ -342,7 +342,7 @@ private fun Application.configureRoutingInternal() {
                     System.gc()
                 }
 
-                call.respond(HttpStatusCode.OK, "Regeneration triggered.")
+                call.respond(HttpStatusCode.OK, "Copy maps triggered.")
 
             } catch (ex: Exception) {
 
