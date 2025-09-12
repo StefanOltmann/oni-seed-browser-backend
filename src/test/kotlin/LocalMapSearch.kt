@@ -32,7 +32,6 @@ import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.protobuf.ProtoBuf
 import model.Cluster
 import model.ClusterType
-import model.WorldTrait
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTime
 
@@ -58,7 +57,7 @@ fun main() = runBlocking {
 
     val coordinates = mutableSetOf<String>()
 
-    val time = measureTime {
+    val searchTime = measureTime {
 
         val flow = readClustersFromFolder(exportDataFolder)
 
@@ -68,17 +67,17 @@ fun main() = runBlocking {
 
             if (match) {
 
-                var hasGeoactive = false
-
-                for (asteroid in cluster.asteroids) {
-
-                    if (asteroid.getEffectiveWorldTraits().contains(WorldTrait.GeoActive))
-                        hasGeoactive = true
-
-                    break
-                }
-
-                if (hasGeoactive)
+//                var hasGeoactive = false
+//
+//                for (asteroid in cluster.asteroids) {
+//
+//                    if (asteroid.getEffectiveWorldTraits().contains(WorldTrait.GeoActive))
+//                        hasGeoactive = true
+//
+//                    break
+//                }
+//
+//                if (hasGeoactive)
                     coordinates.add(cluster.coordinate)
             }
         }
@@ -86,15 +85,24 @@ fun main() = runBlocking {
         println("Completed")
     }
 
-    println("Operation took $time. Found ${coordinates.size} coordinates.")
+    println("Search took $searchTime. Found ${coordinates.size} coordinates.")
 
-    // purgeCoordinates(coordinates)
+    return@runBlocking
+
+    println("Purging now...")
+
+    val deleteTime = measureTime {
+
+        purgeCoordinates(coordinates)
+    }
+
+    println("Deletion took $searchTime.")
 }
 
 private suspend fun purgeCoordinates(coordinates: Set<String>) =
     coordinates.forEach { coordinate ->
         httpClient.delete("https://ingest.mapsnotincluded.org/purge/$coordinate") {
-            header("PURGE_API_KEY", "DoIt!")
+            header("PURGE_API_KEY", "")
         }
     }
 
