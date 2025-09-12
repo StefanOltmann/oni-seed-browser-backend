@@ -54,7 +54,7 @@ fun main() = runBlocking {
         ClusterType.DLC_RELICA_MINOR
     )
 
-    val currentGameVersion = 679336
+    val currentGameVersion = 677228
 
     val coordinates = mutableSetOf<String>()
 

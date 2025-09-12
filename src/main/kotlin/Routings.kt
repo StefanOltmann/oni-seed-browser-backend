@@ -280,7 +280,7 @@ private fun Application.configureRoutingInternal() {
 
                 if (apiKey != System.getenv("DATABASE_EXPORT_API_KEY")) {
 
-                    log("Unauthorized API key used by ip address $ipAddress.")
+                    log("/generate-search-indexes : Unauthorized API key used by ip address $ipAddress.")
 
                     call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
 
@@ -321,7 +321,7 @@ private fun Application.configureRoutingInternal() {
 
                 if (apiKey != System.getenv("DATABASE_EXPORT_API_KEY")) {
 
-                    log("Unauthorized API key used by ip address $ipAddress.")
+                    log("/copy-maps-to-s3 : Unauthorized API key used by ip address $ipAddress.")
 
                     call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
 
@@ -533,7 +533,7 @@ private fun Application.configureRoutingInternal() {
 
                 if (apiKey != purgeApiKey) {
 
-                    log("[UPLOAD] Unauthorized API key used by $ipAddress.")
+                    log("[PURGE] Unauthorized API key used by $ipAddress.")
 
                     call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
 
@@ -554,6 +554,8 @@ private fun Application.configureRoutingInternal() {
                 )
 
                 deleteMapFromS3(minioClient, coordinate)
+
+                log("[PURGE] Removed $coordinate")
 
                 call.respond(HttpStatusCode.OK, "Map deleted.")
 
