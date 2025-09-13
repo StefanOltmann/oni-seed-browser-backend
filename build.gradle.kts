@@ -1,7 +1,7 @@
 plugins {
     application
-    kotlin("jvm") version "2.1.21"
-    kotlin("plugin.serialization") version "2.1.20"
+    kotlin("jvm") version "2.2.20"
+    kotlin("plugin.serialization") version "2.2.20"
     id("io.ktor.plugin") version "3.1.1"
     id("me.qoomon.git-versioning") version "6.4.4"
     id("io.sentry.jvm.gradle") version "5.3.0"
@@ -63,7 +63,7 @@ repositories {
 
 dependencies {
 
-    implementation("de.stefan-oltmann:oni-seed-browser-model:d35090d-SNAPSHOT")
+    implementation("de.stefan-oltmann:oni-seed-browser-model:8124919-SNAPSHOT")
 
     /*
      * Ktor server
