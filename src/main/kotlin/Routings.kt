@@ -45,7 +45,7 @@ import de.stefan_oltmann.oni.model.server.FailedGenReportDatabase
 import de.stefan_oltmann.oni.model.server.RequestedCoordinate
 import de.stefan_oltmann.oni.model.server.RequestedCoordinateStatus
 import de.stefan_oltmann.oni.model.server.Upload
-import de.stefan_oltmann.oni.model.server.UploadMetadata
+import de.stefan_oltmann.oni.model.server.upload.UploadMetadata
 import io.ktor.http.ContentDisposition
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders

@@ -57,10 +57,23 @@ sourceSets {
 }
 
 repositories {
+
     mavenCentral()
+
+    maven {
+
+        url = uri("https://maven.pkg.github.com/StefanOltmann/oni-seed-browser-model")
+
+        credentials {
+            username = System.getenv("GPR_USER")
+            password = System.getenv("GPR_TOKEN")
+        }
+    }
 }
 
 dependencies {
+
+    implementation("de.stefan-oltmann.oni:model:b719e5e")
 
     /*
      * Ktor server
