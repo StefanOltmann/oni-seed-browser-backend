@@ -8,6 +8,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      GPR_USER: ${{ github.actor }}
+      GPR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     permissions:
       contents: read
       packages: write
@@ -25,9 +28,6 @@ jobs:
 
       - name: Build and push docker image
         uses: docker/build-push-action@v4
-        env:
-          GPR_USER: ${{ github.actor }}
-          GPR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           context: .
           push: true
