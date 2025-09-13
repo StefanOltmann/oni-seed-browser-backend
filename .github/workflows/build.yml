@@ -8,9 +8,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      GPR_USER: ${{ github.actor }}
-      GPR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     permissions:
       contents: read
       packages: write
