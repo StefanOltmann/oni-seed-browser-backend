@@ -78,7 +78,7 @@ fun main() = runBlocking {
 //                }
 //
 //                if (hasGeoactive)
-                    coordinates.add(cluster.coordinate)
+                coordinates.add(cluster.coordinate)
             }
         }
 
