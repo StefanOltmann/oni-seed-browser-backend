@@ -25,10 +25,10 @@ import com.mongodb.client.model.Filters
 import com.mongodb.client.model.Projections
 import com.mongodb.client.model.Updates
 import com.mongodb.kotlin.client.coroutine.MongoClient
+import de.stefan_oltmann.oni.model.Cluster
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
-import model.Cluster
 import org.bson.Document
 import kotlin.time.measureTime
 

@@ -22,8 +22,8 @@ import com.mongodb.MongoClientSettings
 import com.mongodb.ServerApi
 import com.mongodb.ServerApiVersion
 import com.mongodb.kotlin.client.coroutine.MongoClient
+import de.stefan_oltmann.oni.model.server.UploadMetadata
 import kotlinx.coroutines.runBlocking
-import model.server.UploadMetadata
 import java.io.PrintWriter
 
 private val connectionString: String = System.getenv("MONGO_DB_CONNECTION_STRING") ?: ""

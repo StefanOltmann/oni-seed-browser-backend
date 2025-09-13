@@ -17,9 +17,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import de.stefan_oltmann.oni.model.ClusterType
+import de.stefan_oltmann.oni.model.Dlc
 import junit.framework.TestCase.assertFalse
-import model.ClusterType
-import model.Dlc
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith

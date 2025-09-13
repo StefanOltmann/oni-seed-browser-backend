@@ -17,6 +17,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import de.stefan_oltmann.oni.model.Cluster
+import de.stefan_oltmann.oni.model.ClusterType
 import io.ktor.client.HttpClient
 import io.ktor.client.request.delete
 import io.ktor.client.request.header
@@ -30,8 +32,6 @@ import kotlinx.io.readByteArray
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.protobuf.ProtoBuf
-import model.Cluster
-import model.ClusterType
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTime
 

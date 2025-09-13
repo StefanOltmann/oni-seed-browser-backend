@@ -17,8 +17,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import model.BiomePaths
-import model.BiomePathsTest
+import de.stefan_oltmann.oni.model.BiomePaths
+import de.stefan_oltmann.oni.model.BiomePathsTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 

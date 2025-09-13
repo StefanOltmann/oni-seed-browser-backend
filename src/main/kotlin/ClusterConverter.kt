@@ -1,14 +1,14 @@
-import model.Asteroid
-import model.BiomePaths
-import model.BiomePathsCompact
-import model.Cluster
-import model.Geyser
-import model.PointOfInterest
-import model.StarMapEntrySpacedOut
-import model.StarMapEntryVanilla
-import model.WorldTrait
-import model.server.upload.UploadAsteroid
-import model.server.upload.UploadCluster
+import de.stefan_oltmann.oni.model.Asteroid
+import de.stefan_oltmann.oni.model.BiomePaths
+import de.stefan_oltmann.oni.model.BiomePathsCompact
+import de.stefan_oltmann.oni.model.Cluster
+import de.stefan_oltmann.oni.model.Geyser
+import de.stefan_oltmann.oni.model.PointOfInterest
+import de.stefan_oltmann.oni.model.StarMapEntrySpacedOut
+import de.stefan_oltmann.oni.model.StarMapEntryVanilla
+import de.stefan_oltmann.oni.model.WorldTrait
+import de.stefan_oltmann.oni.model.server.upload.UploadAsteroid
+import de.stefan_oltmann.oni.model.server.upload.UploadCluster
 import kotlin.math.roundToInt
 
 object UploadClusterConverter {

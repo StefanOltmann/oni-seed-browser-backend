@@ -1,8 +1,8 @@
+import de.stefan_oltmann.oni.model.ClusterType
+import de.stefan_oltmann.oni.model.search.SearchIndex
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.protobuf.ProtoBuf
-import model.ClusterType
-import model.search.SearchIndex
 import java.io.File
 
 @OptIn(ExperimentalSerializationApi::class)

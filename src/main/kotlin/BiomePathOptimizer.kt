@@ -17,12 +17,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import de.stefan_oltmann.oni.model.BiomePaths
+import de.stefan_oltmann.oni.model.Point
+import de.stefan_oltmann.oni.model.ZoneType
 import de.stefan_oltmann.polybool.Epsilon
 import de.stefan_oltmann.polybool.PolyBool
 import de.stefan_oltmann.polybool.models.Polygon
-import model.BiomePaths
-import model.Point
-import model.ZoneType
 import kotlin.math.roundToInt
 
 fun BiomePaths.optimize(): BiomePaths {

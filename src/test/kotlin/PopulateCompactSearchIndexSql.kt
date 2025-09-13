@@ -1,3 +1,6 @@
+import de.stefan_oltmann.oni.model.Cluster
+import de.stefan_oltmann.oni.model.ClusterType
+import de.stefan_oltmann.oni.model.search.ClusterSummaryCompact
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.runBlocking
@@ -9,9 +12,6 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.encodeToHexString
 import kotlinx.serialization.protobuf.ProtoBuf
-import model.Cluster
-import model.ClusterType
-import model.search.ClusterSummaryCompact
 import java.io.BufferedWriter
 import java.io.File
 import kotlin.time.ExperimentalTime

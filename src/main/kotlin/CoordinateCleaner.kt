@@ -17,8 +17,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import model.ClusterType
-import model.Dlc
+import de.stefan_oltmann.oni.model.ClusterType
+import de.stefan_oltmann.oni.model.Dlc
 
 val allClusterTypesRegex =
     Regex(createRegexPattern(Dlc.entries))

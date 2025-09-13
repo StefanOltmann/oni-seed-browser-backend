@@ -1,10 +1,10 @@
+import de.stefan_oltmann.oni.model.ClusterType
+import de.stefan_oltmann.oni.model.filter.FilterQuery
+import de.stefan_oltmann.oni.model.search.SearchIndex
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.protobuf.ProtoBuf
-import model.ClusterType
-import model.filter.FilterQuery
-import model.search.SearchIndex
 import java.io.File
 
 fun main() {

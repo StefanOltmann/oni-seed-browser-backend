@@ -17,6 +17,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import de.stefan_oltmann.oni.model.Cluster
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.runBlocking
@@ -29,7 +30,6 @@ import kotlinx.serialization.encodeToByteArray
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.io.decodeFromSource
 import kotlinx.serialization.protobuf.ProtoBuf
-import model.Cluster
 import java.io.File
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTime
