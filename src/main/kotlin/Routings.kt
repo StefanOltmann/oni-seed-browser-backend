@@ -788,6 +788,8 @@ private fun Application.configureRoutingInternal() {
                  */
                 var uploaderAuthenticated = false
 
+                var tokenWithHash = false
+
                 /*
                  * Auth Token is optional, but if provided it
                  * must be valid and match the upload.
@@ -799,6 +801,9 @@ private fun Application.configureRoutingInternal() {
                         val jwt = jwtVerifier.verify(token)
 
                         val steamId = jwt.steamId
+
+                        if (jwt.claims.get("hash") != null)
+                            tokenWithHash = true
 
                         if (steamId == jwt.steamId)
                             uploaderAuthenticated = true
@@ -865,7 +870,7 @@ private fun Application.configureRoutingInternal() {
 
                 val duration = Clock.System.now().toEpochMilliseconds() - start
 
-                log("[UPLOAD] ${uploadCluster.coordinate} in $duration ms by $steamId (auth = $uploaderAuthenticated)")
+                log("[UPLOAD] ${uploadCluster.coordinate} in $duration ms by $steamId (auth = $uploaderAuthenticated, hash = $tokenWithHash)")
 
                 /*
                  * Add coordinate to the latest list.
