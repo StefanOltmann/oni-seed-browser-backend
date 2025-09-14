@@ -649,6 +649,7 @@ private fun Application.configureRoutingInternal() {
                  */
                 val upload = strictJson.decodeFromString<Upload>(originalData)
 
+                /* UserId must be set */
                 if (upload.userId.isBlank()) {
 
                     call.respond(HttpStatusCode.NotAcceptable, "userId was not set.")
@@ -658,6 +659,7 @@ private fun Application.configureRoutingInternal() {
                     return@post
                 }
 
+                /* InstallationId must be valid UUID */
                 try {
                     Uuid.parse(upload.installationId)
                 } catch (ex: IllegalArgumentException) {
@@ -669,12 +671,14 @@ private fun Application.configureRoutingInternal() {
                     return@post
                 }
 
+                /* Game version must be set */
                 if (upload.gameVersion.isBlank()) {
                     call.respond(HttpStatusCode.NotAcceptable, "Illegal data: gameVersion was not set.")
                     log("[UPLOAD] Rejected illegal data (no gameVersion): $upload")
                     return@post
                 }
 
+                /* File hashes must be set */
                 if (upload.fileHashes.isEmpty()) {
                     call.respond(HttpStatusCode.NotAcceptable, "Illegal data: fileHashes was empty.")
                     log("[UPLOAD] Rejected illegal data (no fileHashes): $upload")
@@ -724,12 +728,28 @@ private fun Application.configureRoutingInternal() {
                     return@post
                 }
 
+                /* ModHash must be sent. */
+
                 val modHash = upload.fileHashes["modHash"]
 
-                /* ModHash must be sent. */
                 if (modHash.isNullOrBlank()) {
                     call.respond(HttpStatusCode.NotAcceptable, "Illegal data: No 'modHash'.")
                     log("[UPLOAD] Rejected illegal data (no modHash): $upload")
+                    return@post
+                }
+
+                val steamId = if (upload.userId.startsWith("Steam-"))
+                    upload.userId.drop(6)
+                else
+                    null
+
+                /*
+                 * All contributors so far were on Steam.
+                 * We don't have a login with EPIC right now.
+                 */
+                if (steamId == null) {
+                    call.respond(HttpStatusCode.NotAcceptable, "We only accept the Steam version right now.")
+                    log("[UPLOAD] Rejected non-Steam upload from user ${upload.userId}")
                     return@post
                 }
 
@@ -767,21 +787,6 @@ private fun Application.configureRoutingInternal() {
                     ipAddress = ipAddress,
                     coordinate = uploadCluster.coordinate
                 )
-
-                val steamId = if (upload.userId.startsWith("Steam-"))
-                    upload.userId.drop(6)
-                else
-                    null
-
-                /*
-                 * All contributors so far were on Steam.
-                 * We don't have a login with EPIC right now.
-                 */
-                if (steamId == null) {
-                    call.respond(HttpStatusCode.NotAcceptable, "We only accept the Steam version right now.")
-                    log("[UPLOAD] Rejected non-Steam upload from user ${upload.userId}")
-                    return@post
-                }
 
                 /*
                  * Marker if the uploader was authenticated
