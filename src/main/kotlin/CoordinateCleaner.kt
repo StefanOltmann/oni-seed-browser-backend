@@ -20,7 +20,7 @@
 import de.stefan_oltmann.oni.model.ClusterType
 import de.stefan_oltmann.oni.model.Dlc
 
-val allClusterTypesRegex =
+private val allClusterTypesRegex =
     Regex(createRegexPattern(Dlc.entries))
 
 fun createRegexPattern(dlcs: List<Dlc>): String {
@@ -39,21 +39,10 @@ fun createRegexPattern(dlcs: List<Dlc>): String {
 fun isValidCoordinate(coordinate: String): Boolean =
     allClusterTypesRegex.matches(coordinate)
 
-///*
-// * List of valid biome remixes.
-// */
-//private val validBiomeRemixes = listOf(
-//    "E9TP8",
-//    "FBZT5",
-//    "SSZT5",
-//)
-
 /**
  * Set story traits & game settings to zero.
  *
- * Fails if coordinate is invalid
- *
- * TODO Support mixing settings.
+ * Fails if coordinate is invalid.
  */
 fun cleanCoordinate(coordinate: String): String {
 
@@ -83,10 +72,6 @@ fun cleanCoordinate(coordinate: String): String {
     val seedAsInteger = seed.toIntOrNull() ?: throw IllegalCoordinateException(coordinate)
 
     val biomeRemix = coordinatePartsWithoutCluster[3]
-
-    // TODO Implement the logic for checking here; see Imalas work.
-//    if (!validBiomeRemixes.contains(biomeRemix))
-//        biomeRemix = "0"
 
     /*
      * Return just the cluster prefix & seed with everything else set to 0
