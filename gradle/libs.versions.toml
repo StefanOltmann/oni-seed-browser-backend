@@ -1,0 +1,74 @@
+[versions]
+kotlin = "2.2.20"
+ktor = "3.1.1"
+logback = "1.2.11"
+slf4j = "2.0.6"
+mongodb = "5.2.0"
+sqldelight = "2.1.0"
+polybool = "0.1.0"
+jwt = "4.5.0"
+minio = "8.5.17"
+git-versioning = "6.4.4"
+sentry = "5.3.0"
+oni-model = "8124919-SNAPSHOT"
+
+[libraries]
+# ONI Model
+oni-seed-browser-model = { module = "de.stefan-oltmann:oni-seed-browser-model", version.ref = "oni-model" }
+
+# Ktor Server
+ktor-server-core = { module = "io.ktor:ktor-server-core-jvm", version.ref = "ktor" }
+ktor-server-netty = { module = "io.ktor:ktor-server-netty-jvm", version.ref = "ktor" }
+ktor-server-content-negotiation = { module = "io.ktor:ktor-server-content-negotiation", version.ref = "ktor" }
+ktor-server-compression = { module = "io.ktor:ktor-server-compression", version.ref = "ktor" }
+ktor-server-cors = { module = "io.ktor:ktor-server-cors", version.ref = "ktor" }
+ktor-server-auth = { module = "io.ktor:ktor-server-auth", version.ref = "ktor" }
+ktor-server-sessions = { module = "io.ktor:ktor-server-sessions", version.ref = "ktor" }
+ktor-server-html-builder = { module = "io.ktor:ktor-server-html-builder", version.ref = "ktor" }
+ktor-serialization-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
+ktor-serialization-protobuf = { module = "io.ktor:ktor-serialization-kotlinx-protobuf", version.ref = "ktor" }
+
+# Ktor Client
+ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
+
+# MongoDB
+mongodb-driver-kotlin = { module = "org.mongodb:mongodb-driver-kotlin-coroutine", version.ref = "mongodb" }
+mongodb-bson-kotlinx = { module = "org.mongodb:bson-kotlinx", version.ref = "mongodb" }
+
+# SQLite
+sqldelight-sqlite-driver = { module = "app.cash.sqldelight:sqlite-driver", version.ref = "sqldelight" }
+
+# Other libraries
+polybool-kotlin = { module = "de.stefan-oltmann:polybool-kotlin", version.ref = "polybool" }
+java-jwt = { module = "com.auth0:java-jwt", version.ref = "jwt" }
+minio = { module = "io.minio:minio", version.ref = "minio" }
+
+# Test libraries
+kotlin-test-junit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+ktor = { id = "io.ktor.plugin", version.ref = "ktor" }
+git-versioning = { id = "me.qoomon.git-versioning", version.ref = "git-versioning" }
+sentry = { id = "io.sentry.jvm.gradle", version.ref = "sentry" }
+sqldelight = { id = "app.cash.sqldelight", version.ref = "sqldelight" }
+
+[bundles]
+ktor-server = [
+    "ktor-server-core",
+    "ktor-server-netty",
+    "ktor-server-content-negotiation",
+    "ktor-server-compression",
+    "ktor-server-cors",
+    "ktor-server-auth",
+    "ktor-server-sessions",
+    "ktor-server-html-builder",
+    "ktor-serialization-json",
+    "ktor-serialization-protobuf"
+]
+
+mongodb = [
+    "mongodb-driver-kotlin",
+    "mongodb-bson-kotlinx"
+]

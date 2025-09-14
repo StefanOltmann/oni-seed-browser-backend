@@ -1,15 +1,12 @@
 plugins {
     application
-    kotlin("jvm") version "2.2.20"
-    kotlin("plugin.serialization") version "2.2.20"
-    id("io.ktor.plugin") version "3.1.1"
-    id("me.qoomon.git-versioning") version "6.4.4"
-    id("io.sentry.jvm.gradle") version "5.3.0"
-    id("app.cash.sqldelight") version "2.1.0"
+    alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.ktor)
+    alias(libs.plugins.git.versioning)
+    alias(libs.plugins.sentry)
+    alias(libs.plugins.sqldelight)
 }
-
-val ktorVersion: String by project
-val kotlinVersion: String by project
 
 group = "org.mapsnotincluded"
 
@@ -63,59 +60,44 @@ repositories {
 
 dependencies {
 
-    implementation("de.stefan-oltmann:oni-seed-browser-model:8124919-SNAPSHOT")
+    implementation(libs.oni.seed.browser.model)
 
     /*
      * Ktor server
      */
-
-    implementation("io.ktor:ktor-server-core-jvm:$ktorVersion")
-    implementation("io.ktor:ktor-server-netty-jvm:$ktorVersion")
-
-    implementation("io.ktor:ktor-server-content-negotiation:$ktorVersion")
-    implementation("io.ktor:ktor-server-compression:$ktorVersion")
-    implementation("io.ktor:ktor-server-cors:$ktorVersion")
-
-    implementation("io.ktor:ktor-server-auth:$ktorVersion")
-    implementation("io.ktor:ktor-server-sessions:$ktorVersion")
-    implementation("io.ktor:ktor-server-html-builder:$ktorVersion")
-
-    implementation("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
-    implementation("io.ktor:ktor-serialization-kotlinx-protobuf:${ktorVersion}")
+    implementation(libs.bundles.ktor.server)
 
     /*
      * Ktor client
      */
-
-    implementation("io.ktor:ktor-client-okhttp:$ktorVersion")
+    implementation(libs.ktor.client.okhttp)
 
     /*
      * MongoDB handling
      */
-    implementation("org.mongodb:mongodb-driver-kotlin-coroutine:5.2.0")
-    implementation("org.mongodb:bson-kotlinx:5.2.0")
+    implementation(libs.bundles.mongodb)
 
     /*
      * SQLite
      */
-    implementation("app.cash.sqldelight:sqlite-driver:2.1.0")
+    implementation(libs.sqldelight.sqlite.driver)
 
     /*
      * Biome path optimization
      */
-    implementation("de.stefan-oltmann:polybool-kotlin:0.1.0")
+    implementation(libs.polybool.kotlin)
 
     /*
      * JWT handling
      */
-    implementation("com.auth0:java-jwt:4.5.0")
+    implementation(libs.java.jwt)
 
-    implementation("io.minio:minio:8.5.17")
+    implementation(libs.minio)
 
     /*
      * Unit tests
      */
-    testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlinVersion")
+    testImplementation(libs.kotlin.test.junit)
 }
 
 // region Version
