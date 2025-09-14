@@ -732,6 +732,29 @@ private fun Application.configureRoutingInternal() {
                     return@post
                 }
 
+                try {
+
+                    val originalBytes = originalData.toByteArray()
+
+                    minioClient.putObject(
+                        PutObjectArgs
+                            .builder()
+                            .bucket("oni-sample-uploads")
+                            .`object`(upload.cluster.coordinate)
+                            .headers(
+                                mapOf(
+                                    "Content-Type" to " application/json"
+                                )
+                            )
+                            .stream(originalBytes.inputStream(), originalBytes.size.toLong(), -1)
+                            .build()
+                    )
+
+                } catch (ex: Exception) {
+
+                    ex.printStackTrace()
+                }
+
                 val uploadDate: Long = System.currentTimeMillis()
 
                 val uploadMetadata = UploadMetadata(
