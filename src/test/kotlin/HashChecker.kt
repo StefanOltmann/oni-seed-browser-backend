@@ -22,7 +22,7 @@ import com.mongodb.MongoClientSettings
 import com.mongodb.ServerApi
 import com.mongodb.ServerApiVersion
 import com.mongodb.kotlin.client.coroutine.MongoClient
-import de.stefan_oltmann.oni.model.server.UploadMetadata
+import de.stefan_oltmann.oni.model.server.upload.UploadMetadata
 import kotlinx.coroutines.runBlocking
 import java.io.PrintWriter
 

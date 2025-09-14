@@ -94,13 +94,14 @@ import java.security.KeyFactory
 import java.security.MessageDigest
 import java.security.interfaces.ECPublicKey
 import java.security.spec.X509EncodedKeySpec
-import java.util.Base64
-import java.util.UUID
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
+import kotlin.io.encoding.Base64
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTime
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 const val LATEST_MAPS_LIMIT = 50
 
@@ -122,7 +123,7 @@ private val salt = System.getenv("MNI_SALT")
 private val messageDigest = MessageDigest.getInstance("SHA-256")
 
 private val publicKey: ECPublicKey = System.getenv("MNI_JWT_PUBLIC_KEY")?.let { base64Key ->
-    val keyBytes = Base64.getDecoder().decode(base64Key)
+    val keyBytes = Base64.decode(base64Key)
     val keySpec = X509EncodedKeySpec(keyBytes)
     KeyFactory.getInstance("EC").generatePublic(keySpec) as ECPublicKey
 } ?: error("Missing MNI_JWT_PUBLIC_KEY environment variable")
@@ -204,10 +205,10 @@ fun Application.configureRouting() {
     }
 }
 
-@OptIn(ExperimentalSerializationApi::class, ExperimentalTime::class)
+@OptIn(ExperimentalSerializationApi::class, ExperimentalTime::class, ExperimentalUuidApi::class)
 private fun Application.configureRoutingInternal() {
 
-    val startTime = System.currentTimeMillis()
+    val startTime = Clock.System.now().toEpochMilliseconds()
 
     log.info("Starting Server at version $VERSION")
 
@@ -262,7 +263,7 @@ private fun Application.configureRoutingInternal() {
 
         get("/") {
 
-            val uptimeMinutes = (System.currentTimeMillis() - startTime) / 1000 / 60
+            val uptimeMinutes = (Clock.System.now().toEpochMilliseconds() - startTime) / 1000 / 60
 
             val uptimeHours = uptimeMinutes / 60
             val minutes = uptimeMinutes % 60
@@ -289,11 +290,11 @@ private fun Application.configureRoutingInternal() {
 
                 backgroundScope.launch {
 
-                    val start = System.currentTimeMillis()
+                    val start = Clock.System.now().toEpochMilliseconds()
 
                     createSearchIndexes()
 
-                    val duration = System.currentTimeMillis() - start
+                    val duration = Clock.System.now().toEpochMilliseconds() - start
 
                     log("Created indexes in $duration ms.")
 
@@ -330,11 +331,11 @@ private fun Application.configureRoutingInternal() {
 
                 backgroundScope.launch {
 
-                    val start = System.currentTimeMillis()
+                    val start = Clock.System.now().toEpochMilliseconds()
 
                     copyMapsToS3()
 
-                    val duration = System.currentTimeMillis() - start
+                    val duration = Clock.System.now().toEpochMilliseconds() - start
 
                     log("Copied maps in $duration ms.")
 
@@ -356,7 +357,7 @@ private fun Application.configureRoutingInternal() {
 
             try {
 
-                val start = System.currentTimeMillis()
+                val start = Clock.System.now().toEpochMilliseconds()
 
                 val ipAddress = call.getIpAddress()
 
@@ -488,7 +489,7 @@ private fun Application.configureRoutingInternal() {
                     }
                 }
 
-                val duration = System.currentTimeMillis() - start
+                val duration = Clock.System.now().toEpochMilliseconds() - start
 
                 log("Exported data in $duration ms.")
 
@@ -625,7 +626,7 @@ private fun Application.configureRoutingInternal() {
 
             try {
 
-                val start = System.currentTimeMillis()
+                val start = Clock.System.now().toEpochMilliseconds()
 
                 val ipAddress = call.getIpAddress()
 
@@ -658,7 +659,7 @@ private fun Application.configureRoutingInternal() {
                 }
 
                 try {
-                    UUID.fromString(upload.installationId)
+                    Uuid.parse(upload.installationId)
                 } catch (ex: IllegalArgumentException) {
 
                     log("[UPLOAD] InstallationID was not UUID: ${upload.installationId}")
@@ -755,7 +756,7 @@ private fun Application.configureRoutingInternal() {
                     ex.printStackTrace()
                 }
 
-                val uploadDate: Long = System.currentTimeMillis()
+                val uploadDate: Long = Clock.System.now().toEpochMilliseconds()
 
                 val uploadMetadata = UploadMetadata(
                     userId = upload.userId,
@@ -862,7 +863,7 @@ private fun Application.configureRoutingInternal() {
 
                 call.respond(HttpStatusCode.OK, "Data was saved.")
 
-                val duration = System.currentTimeMillis() - start
+                val duration = Clock.System.now().toEpochMilliseconds() - start
 
                 log("[UPLOAD] ${uploadCluster.coordinate} in $duration ms by $steamId (auth = $uploaderAuthenticated)")
 
@@ -898,7 +899,7 @@ private fun Application.configureRoutingInternal() {
 
             try {
 
-                val start = System.currentTimeMillis()
+                val start = Clock.System.now().toEpochMilliseconds()
 
                 val ipAddress = call.getIpAddress()
 
@@ -921,7 +922,7 @@ private fun Application.configureRoutingInternal() {
                 }
 
                 try {
-                    UUID.fromString(failedGenReport.installationId)
+                    Uuid.parse(failedGenReport.installationId)
                 } catch (ex: IllegalArgumentException) {
                     log("InstallationID was not UUID: ${failedGenReport.installationId}")
                     log(ex)
@@ -950,7 +951,7 @@ private fun Application.configureRoutingInternal() {
                     installationId = failedGenReport.installationId,
                     gameVersion = failedGenReport.gameVersion,
                     fileHashes = failedGenReport.fileHashes,
-                    reportDate = System.currentTimeMillis(),
+                    reportDate = Clock.System.now().toEpochMilliseconds(),
                     ipAddress = ipAddress,
                     coordinate = failedGenReport.coordinate
                 )
@@ -966,7 +967,7 @@ private fun Application.configureRoutingInternal() {
 
                 call.respond(HttpStatusCode.OK, "Report was saved.")
 
-                val duration = System.currentTimeMillis() - start
+                val duration = Clock.System.now().toEpochMilliseconds() - start
 
                 log("[UPLOAD] Ingested failed worldgen report in $duration ms by ${failedGenReport.userId}.")
 
@@ -982,7 +983,7 @@ private fun Application.configureRoutingInternal() {
 
             try {
 
-                val start = System.currentTimeMillis()
+                val start = Clock.System.now().toEpochMilliseconds()
 
                 val collection = database.getCollection<Document>("failedWorldGenReports")
 
@@ -995,7 +996,7 @@ private fun Application.configureRoutingInternal() {
 
                 call.respond(asSimpleString)
 
-                val duration = System.currentTimeMillis() - start
+                val duration = Clock.System.now().toEpochMilliseconds() - start
 
                 log("[REPORT] Returned ${coordinates.size} worldgen failures in $duration ms.")
 
@@ -1057,7 +1058,7 @@ private fun Application.configureRoutingInternal() {
                     requestedCoordinatesCollection.insertOne(
                         RequestedCoordinate(
                             steamId = steamId,
-                            date = System.currentTimeMillis(),
+                            date = Clock.System.now().toEpochMilliseconds(),
                             coordinate = cleanCoordinate,
                             status = RequestedCoordinateStatus.REQUESTED
                         )
@@ -1414,11 +1415,12 @@ private suspend fun cleanMaps() {
     }
 }
 
+@OptIn(ExperimentalTime::class)
 private suspend fun createContributorTable() {
 
     log("Creating contributor table...")
 
-    val start = System.currentTimeMillis()
+    val start = Clock.System.now().toEpochMilliseconds()
 
     try {
 
@@ -1451,7 +1453,7 @@ private suspend fun createContributorTable() {
             )
         }
 
-        val duration = System.currentTimeMillis() - start
+        val duration = Clock.System.now().toEpochMilliseconds() - start
 
         log("Created contributor table in $duration ms.")
 
@@ -1505,11 +1507,12 @@ private fun deleteMapFromS3(
     )
 }
 
+@OptIn(ExperimentalTime::class)
 private suspend fun copyMapsToS3() {
 
     log("[S3] Transfer maps to S3...")
 
-    val start = System.currentTimeMillis()
+    val start = Clock.System.now().toEpochMilliseconds()
 
     try {
 
@@ -1556,7 +1559,7 @@ private suspend fun copyMapsToS3() {
 //            deleteMapFromS3(externalMinioClient, map)
 //        }
 
-        val duration = System.currentTimeMillis() - start
+        val duration = Clock.System.now().toEpochMilliseconds() - start
 
         log("[S3] Completed in $duration ms. Added $addedCount.")
 
@@ -1571,7 +1574,7 @@ private suspend fun createSearchIndexes() {
 
     log("[INDEX] Create search indexes from MongoDB ...")
 
-    val start = System.currentTimeMillis()
+    val start = Clock.System.now().toEpochMilliseconds()
 
     try {
 
@@ -1620,7 +1623,7 @@ private suspend fun createSearchIndexes() {
             log("[INDEX] Processed ${cluster.prefix} with ${searchIndex.summaries.size} seeds in $time.")
         }
 
-        val duration = System.currentTimeMillis() - start
+        val duration = Clock.System.now().toEpochMilliseconds() - start
 
         log("[INDEX] Created search indexes in $duration ms.")
 

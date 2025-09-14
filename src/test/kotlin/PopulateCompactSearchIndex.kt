@@ -32,6 +32,7 @@ import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.encodeToByteArray
 import kotlinx.serialization.protobuf.ProtoBuf
 import java.io.File
+import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTime
 
@@ -71,7 +72,7 @@ fun main() = runBlocking {
 
         for ((type, clusters) in clustersPerType) {
 
-            val searchIndex = SearchIndex(type, System.currentTimeMillis())
+            val searchIndex = SearchIndex(type, Clock.System.now().toEpochMilliseconds())
 
             for (cluster in clusters)
                 searchIndex.add(cluster)
