@@ -83,7 +83,7 @@ fun main() = runBlocking {
             for (compressionLevel in 0..9) {
 
                 val (compressedProtobufBytes, time) = measureTimedValue {
-                    ZipUtil.zipBytes(protobufBytes, 9)
+                    ZipUtil.zipBytes(protobufBytes, compressionLevel)
                 }
 
                 println(" -> Protobuf (GZIP $compressionLevel) = " + (compressedProtobufBytes.size / 1000.0) + " KB in $time")
