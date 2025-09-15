@@ -94,6 +94,8 @@ dependencies {
 
     implementation(libs.minio)
 
+    implementation("com.github.luben:zstd-jni:1.5.6-1")
+
     /*
      * Unit tests
      */

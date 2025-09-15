@@ -17,6 +17,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import com.github.luben.zstd.Zstd
 import de.stefan_oltmann.oni.model.Cluster
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -65,26 +66,22 @@ fun main() = runBlocking {
 
             val compressedJsonBytes = ZipUtil.zipBytes(jsonBytes)
 
+            val zstdJsonBytes = Zstd.compress(jsonBytes)
+
             val protobufBytes = ProtoBuf.encodeToByteArray(cluster)
 
             File("build/${cluster.coordinate}.pb").writeBytes(protobufBytes)
 
-            val clusterRestored = ProtoBuf.decodeFromByteArray<Cluster>(protobufBytes)
-
-            if (cluster != clusterRestored)
-                error("Cluster is not equal")
-
-            val protoBufBytesReference = ProtoBuf.encodeToByteArray(clusterRestored)
-
-            if (!protoBufBytesReference.contentEquals(protobufBytes))
-                error("ProtoBuf bytes are not equal")
-
             val compressedProtobufBytes = ZipUtil.zipBytes(protobufBytes)
+
+            val zstdProtobufBytes = Zstd.compress(protobufBytes)
 
             println(" -> JSON = " + (jsonBytes.size / 1000.0) + " KB")
             println(" -> JSON (ZIP) = " + (compressedJsonBytes.size / 1000.0) + " KB")
+            println(" -> JSON (ZSTD) = " + (zstdJsonBytes.size / 1000.0) + " KB")
             println(" -> Protobuf = " + (protobufBytes.size / 1000.0) + " KB")
             println(" -> Protobuf (ZIP) = " + (compressedProtobufBytes.size / 1000.0) + " KB")
+            println(" -> Protobuf (ZSTD) = " + (zstdProtobufBytes.size / 1000.0) + " KB")
         }
 
         println("Completed")
