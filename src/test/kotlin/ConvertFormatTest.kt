@@ -86,18 +86,26 @@ fun main() = runBlocking {
                     ZipUtil.zipBytes(protobufBytes, compressionLevel)
                 }
 
-                println(" -> Protobuf (GZIP $compressionLevel) = " + (compressedProtobufBytes.size / 1000.0) + " KB in $time")
+                val (decompressedBytes, decompressionTime) = measureTimedValue {
+                    ZipUtil.unzipBytes(compressedProtobufBytes)
+                }
+
+                println(" -> Protobuf (GZIP $compressionLevel) = " + (compressedProtobufBytes.size / 1000.0) + " KB in $time (decompression = $decompressionTime)")
             }
 
             println("--- --- --- --- ---")
 
             for (compressionLevel in 0..22) {
 
-                val (zstdProtobufBytes, time) = measureTimedValue {
+                val (zstdProtobufBytes, compressionTime) = measureTimedValue {
                     Zstd.compress(protobufBytes, compressionLevel)
                 }
 
-                println(" -> Protobuf (ZSTD $compressionLevel) = " + (zstdProtobufBytes.size / 1000.0) + " KB in $time")
+                val (decompressedBytes, decompressionTime) = measureTimedValue {
+                    Zstd.decompress(zstdProtobufBytes, protobufBytes.size)
+                }
+
+                println(" -> Protobuf (ZSTD $compressionLevel) = " + (zstdProtobufBytes.size / 1000.0) + " KB in $compressionTime (decompression = $decompressionTime)")
             }
         }
 
