@@ -59,19 +59,45 @@ fun main() = runBlocking {
 
         flow.collect { cluster ->
 
-            println("### ${cluster.coordinate}")
+            /*
+             * Test reduce resolution
+             */
+            val clusterCopy = cluster.copy(
 
-            val jsonBytes = Json.encodeToString(cluster).encodeToByteArray()
+                asteroids = cluster.asteroids.map { asteroid ->
 
-            File("build/${cluster.coordinate}.json").writeBytes(jsonBytes)
+                    asteroid.copy(
+                        sizeX = (asteroid.sizeX / 3).toShort(),
+                        sizeY = (asteroid.sizeY / 3).toShort(),
+                        geysers = asteroid.geysers.map { geyser ->
+                            geyser.copy(
+                                x = (geyser.x / 3).toShort(),
+                                y = (geyser.y / 3).toShort()
+                            )
+                        },
+                        pointsOfInterest = asteroid.pointsOfInterest.map { pointOfInterest ->
+                            pointOfInterest.copy(
+                                x = (pointOfInterest.x / 3).toShort(),
+                                y = (pointOfInterest.y / 3).toShort()
+                            )
+                        }
+                    )
+                }
+            )
+
+            println("### ${clusterCopy.coordinate}")
+
+            val jsonBytes = Json.encodeToString(clusterCopy).encodeToByteArray()
+
+            File("build/${clusterCopy.coordinate}.json").writeBytes(jsonBytes)
 
             val compressedJsonBytes = ZipUtil.zipBytes(jsonBytes, 9)
 
             val zstdJsonBytes = Zstd.compress(jsonBytes, 19)
 
-            val protobufBytes = ProtoBuf.encodeToByteArray(cluster)
+            val protobufBytes = ProtoBuf.encodeToByteArray(clusterCopy)
 
-            File("build/${cluster.coordinate}.pb").writeBytes(protobufBytes)
+            File("build/${clusterCopy.coordinate}.pb").writeBytes(protobufBytes)
 
             println(" -> JSON = " + (jsonBytes.size / 1000.0) + " KB")
             println(" -> JSON (GZIP 9) = " + (compressedJsonBytes.size / 1000.0) + " KB")
