@@ -34,6 +34,7 @@ import kotlinx.serialization.protobuf.ProtoBuf
 import java.io.File
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTime
+import kotlin.time.measureTimedValue
 
 /*
  * Work on the data export
@@ -64,7 +65,7 @@ fun main() = runBlocking {
 
             File("build/${cluster.coordinate}.json").writeBytes(jsonBytes)
 
-            val compressedJsonBytes = ZipUtil.zipBytes(jsonBytes)
+            val compressedJsonBytes = ZipUtil.zipBytes(jsonBytes, 9)
 
             val zstdJsonBytes = Zstd.compress(jsonBytes, 19)
 
@@ -72,16 +73,32 @@ fun main() = runBlocking {
 
             File("build/${cluster.coordinate}.pb").writeBytes(protobufBytes)
 
-            val compressedProtobufBytes = ZipUtil.zipBytes(protobufBytes)
-
-            val zstdProtobufBytes = Zstd.compress(protobufBytes, 19)
-
             println(" -> JSON = " + (jsonBytes.size / 1000.0) + " KB")
-            println(" -> JSON (ZIP) = " + (compressedJsonBytes.size / 1000.0) + " KB")
-            println(" -> JSON (ZSTD) = " + (zstdJsonBytes.size / 1000.0) + " KB")
+            println(" -> JSON (GZIP 9) = " + (compressedJsonBytes.size / 1000.0) + " KB")
+            println(" -> JSON (ZSTD 19) = " + (zstdJsonBytes.size / 1000.0) + " KB")
             println(" -> Protobuf = " + (protobufBytes.size / 1000.0) + " KB")
-            println(" -> Protobuf (ZIP) = " + (compressedProtobufBytes.size / 1000.0) + " KB")
-            println(" -> Protobuf (ZSTD) = " + (zstdProtobufBytes.size / 1000.0) + " KB")
+
+            println("--- --- --- --- ---")
+
+            for (compressionLevel in 0..9) {
+
+                val (compressedProtobufBytes, time) = measureTimedValue {
+                    ZipUtil.zipBytes(protobufBytes, 9)
+                }
+
+                println(" -> Protobuf (GZIP $compressionLevel) = " + (compressedProtobufBytes.size / 1000.0) + " KB in $time")
+            }
+
+            println("--- --- --- --- ---")
+
+            for (compressionLevel in 0..22) {
+
+                val (zstdProtobufBytes, time) = measureTimedValue {
+                    Zstd.compress(protobufBytes, compressionLevel)
+                }
+
+                println(" -> Protobuf (ZSTD $compressionLevel) = " + (zstdProtobufBytes.size / 1000.0) + " KB in $time")
+            }
         }
 
         println("Completed")

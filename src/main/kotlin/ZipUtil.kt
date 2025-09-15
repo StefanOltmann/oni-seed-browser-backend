@@ -6,15 +6,24 @@ import java.util.zip.GZIPOutputStream
 object ZipUtil {
 
     fun zipBytes(
-        originalBytes: ByteArray
+        originalBytes: ByteArray,
+        compressionLevel: Int = 9
     ): ByteArray {
+
+        require(compressionLevel in 0..9) {
+            "compressionLevel must be between 0 (no compression) and 9 (max compression)"
+        }
 
         return ByteArrayOutputStream().use { byteStream ->
 
-            GZIPOutputStream(byteStream).use { gzipStream ->
+            object : GZIPOutputStream(byteStream) {
+                init {
+                    def.setLevel(compressionLevel)
+                }
+            }.use { gzipStream ->
                 gzipStream.write(originalBytes)
-                gzipStream.finish()
             }
+
             byteStream.toByteArray()
         }
     }
