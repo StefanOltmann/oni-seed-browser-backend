@@ -24,11 +24,11 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.io.buffered
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
+import kotlinx.io.readByteArray
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.encodeToByteArray
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.io.decodeFromSource
 import kotlinx.serialization.protobuf.ProtoBuf
 import java.io.File
 import kotlin.time.ExperimentalTime
@@ -67,7 +67,7 @@ fun main() = runBlocking {
 
             val protobufBytes = ProtoBuf.encodeToByteArray(cluster)
 
-            File("build/${cluster.coordinate}.protobuf").writeBytes(protobufBytes)
+            File("build/${cluster.coordinate}.pb").writeBytes(protobufBytes)
 
             val clusterRestored = ProtoBuf.decodeFromByteArray<Cluster>(protobufBytes)
 
@@ -99,8 +99,9 @@ private fun readClustersFromFolder(
 
     val dataFiles = SystemFileSystem
         .list(exportDataFolder)
-        .filter { it.name.endsWith(".json") }
+        .filter { it.name.startsWith("spacedout") && it.name.endsWith(".pb") }
         .sortedBy { it.name }
+        .take(1)
 
     for (file in dataFiles) {
 
@@ -108,11 +109,9 @@ private fun readClustersFromFolder(
 
             val time = measureTime {
 
-                val clustersInFile = Json {
-                    ignoreUnknownKeys = true
-                }.decodeFromSource<List<Cluster>>(source)
+                val clustersInFile = ProtoBuf.decodeFromByteArray<List<Cluster>>(source.readByteArray())
 
-                for (cluster in clustersInFile)
+                for (cluster in clustersInFile.take(1))
                     emit(cluster)
             }
 
