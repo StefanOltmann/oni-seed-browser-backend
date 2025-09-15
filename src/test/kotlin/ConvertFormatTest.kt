@@ -66,7 +66,7 @@ fun main() = runBlocking {
 
             val compressedJsonBytes = ZipUtil.zipBytes(jsonBytes)
 
-            val zstdJsonBytes = Zstd.compress(jsonBytes)
+            val zstdJsonBytes = Zstd.compress(jsonBytes, 19)
 
             val protobufBytes = ProtoBuf.encodeToByteArray(cluster)
 
@@ -74,7 +74,7 @@ fun main() = runBlocking {
 
             val compressedProtobufBytes = ZipUtil.zipBytes(protobufBytes)
 
-            val zstdProtobufBytes = Zstd.compress(protobufBytes)
+            val zstdProtobufBytes = Zstd.compress(protobufBytes, 19)
 
             println(" -> JSON = " + (jsonBytes.size / 1000.0) + " KB")
             println(" -> JSON (ZIP) = " + (compressedJsonBytes.size / 1000.0) + " KB")
