@@ -10,7 +10,7 @@ jwt = "4.5.0"
 minio = "8.5.17"
 git-versioning = "6.4.4"
 sentry = "5.3.0"
-oni-model = "8124919-SNAPSHOT"
+oni-model = "9da6dfd-SNAPSHOT"
 
 [libraries]
 # ONI Model

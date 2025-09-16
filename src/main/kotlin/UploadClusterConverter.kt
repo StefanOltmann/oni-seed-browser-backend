@@ -63,8 +63,6 @@ object UploadClusterConverter {
 
                 Asteroid(
                     id = asteroid.id,
-                    offsetX = asteroid.offsetX,
-                    offsetY = asteroid.offsetY,
                     sizeX = asteroid.sizeX,
                     sizeY = asteroid.sizeY,
                     worldTraitsBitmask = worldTraitsBitMask,
