@@ -22,14 +22,27 @@ import de.stefan_oltmann.oni.model.VanillaSpacePOI
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoNumber
+import kotlinx.serialization.protobuf.ProtoPacked
 
 @Serializable
 @OptIn(ExperimentalSerializationApi::class)
-data class StarMapEntryVanillaCompact(
+class StarMapEntryVanillaListCompact(
 
+    /**
+     * Byte array of [VanillaSpacePOI]
+     */
     @ProtoNumber(1)
-    val id: VanillaSpacePOI,
+    @ProtoPacked
+    val id: ByteArray,
 
     @ProtoNumber(2)
-    val distance: Byte
-)
+    @ProtoPacked
+    val distance: ByteArray
+) {
+
+    companion object {
+
+        // FIXME Generate methods to convert from StarMapEntryVanillaListCompact to List<StarMapEntryVanilla> and vice versa
+    }
+}
+

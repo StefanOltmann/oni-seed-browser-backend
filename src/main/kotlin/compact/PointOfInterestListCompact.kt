@@ -18,21 +18,34 @@
  */
 package compact
 
-import de.stefan_oltmann.oni.model.SpacedOutSpacePOI
+import de.stefan_oltmann.oni.model.PointOfInterestType
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoNumber
+import kotlinx.serialization.protobuf.ProtoPacked
 
 @Serializable
 @OptIn(ExperimentalSerializationApi::class)
-data class StarMapEntrySpacedOutCompact(
+class PointOfInterestListCompact(
 
+    /**
+     * Byte Array of [PointOfInterestType]
+     */
     @ProtoNumber(1)
-    val id: SpacedOutSpacePOI,
+    @ProtoPacked
+    val id: ByteArray,
 
     @ProtoNumber(2)
-    val q: Byte,
+    @ProtoPacked
+    val x: ShortArray,
 
     @ProtoNumber(3)
-    val r: Byte
-)
+    @ProtoPacked
+    val y: ShortArray
+) {
+
+    companion object {
+
+        // FIXME Generate methods to convert from PointOfInterestListCompact to List<PointOfInterest> and vice versa
+    }
+}

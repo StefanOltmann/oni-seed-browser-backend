@@ -27,7 +27,7 @@ import kotlinx.serialization.protobuf.ProtoNumber
 @Suppress("UNUSED")
 @Serializable
 @OptIn(ExperimentalSerializationApi::class)
-data class ClusterCompact(
+class ClusterCompact(
 
     @ProtoNumber(1)
     val coordinate: String,
@@ -52,9 +52,16 @@ data class ClusterCompact(
     val asteroids: List<AsteroidCompact>,
 
     @ProtoNumber(8)
-    val starMapEntriesVanilla: List<StarMapEntryVanillaCompact>,
+    val starMapEntriesVanilla: StarMapEntryVanillaListCompact,
 
     @ProtoNumber(9)
-    val starMapEntriesSpacedOut: List<StarMapEntrySpacedOutCompact>
+    val starMapEntriesSpacedOut: StarMapEntrySpacedOutListCompact
 
-)
+) {
+
+    companion object {
+
+        // FIXME Generate methods to convert from ClusterCompact to Cluster and vice versa
+        //       These should use the other companion helper classes.
+    }
+}

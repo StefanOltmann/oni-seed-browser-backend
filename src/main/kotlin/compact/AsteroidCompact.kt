@@ -49,10 +49,10 @@ data class AsteroidCompact(
     val biomePaths: String,
 
     @ProtoNumber(8)
-    val pointsOfInterest: List<PointOfInterestCompact>,
+    val pointsOfInterest: PointOfInterestListCompact,
 
     @ProtoNumber(9)
-    val geysers: List<GeyserCompact>
+    val geysers: GeyserListCompact
 
 ) {
 

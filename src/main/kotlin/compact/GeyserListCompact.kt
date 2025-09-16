@@ -18,64 +18,81 @@
  */
 package compact
 
-import de.stefan_oltmann.oni.model.GeyserType
-import de.stefan_oltmann.oni.model.serializer.GeyserTypeSerializer
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoNumber
+import kotlinx.serialization.protobuf.ProtoPacked
 
 @Suppress("UNUSED")
 @Serializable
 @OptIn(ExperimentalSerializationApi::class)
-data class GeyserCompact(
+class GeyserListCompact(
 
+    /*
+     * Byte array of [GeyserType] IDs.
+     */
     @ProtoNumber(1)
-    @Serializable(with = GeyserTypeSerializer::class)
-    val id: GeyserType,
+    @ProtoPacked
+    val id: ByteArray,
 
     @ProtoNumber(2)
-    val x: Short,
+    @ProtoPacked
+    val x: ShortArray,
 
     @ProtoNumber(3)
-    val y: Short,
+    @ProtoPacked
+    val y: ShortArray,
 
     /**
      * Emit rate in gram per second when active.
      * In our data values range from 2 to 528019.
      */
     @ProtoNumber(4)
-    val emitRate: Int,
+    @ProtoPacked
+    val emitRate: IntArray,
 
     /** Average emit rate in gram per second. */
     @ProtoNumber(5)
-    val avgEmitRate: Short,
+    @ProtoPacked
+    val avgEmitRate: ShortArray,
 
     /**
      * Idle time after eruption in seconds.
      * In our data values range from 0 to 11930.
      */
     @ProtoNumber(6)
-    val idleTime: Short,
+    @ProtoPacked
+    val idleTime: ShortArray,
 
     /**
      * Duration of eruption in seconds.
      * In our data values range from 1 to 1014.
      */
     @ProtoNumber(7)
-    val eruptionTime: Short,
+    @ProtoPacked
+    val eruptionTime: ShortArray,
 
     /**
      * Count of dormancy cycles.
      * In our data values range from 0 to 135.
      */
     @ProtoNumber(8)
-    val dormancyCyclesRounded: Short,
+    @ProtoPacked
+    val dormancyCyclesRounded: ShortArray,
 
     /**
      * Count of active cycles.
      * In our data values range from 0 to 180.
      */
     @ProtoNumber(9)
-    val activeCyclesRounded: Short
+    @ProtoPacked
+    val activeCyclesRounded: ShortArray
 
-)
+) {
+
+    companion object {
+
+        // FIXME Generate methods to convert from GeyserListCompact to List<Geyser> and vice versa
+    }
+}
+
