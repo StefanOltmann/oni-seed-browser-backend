@@ -646,10 +646,8 @@ private fun Application.configureRoutingInternal() {
 
                 /*
                  * Be strict on what the mod can send in.
-                 *
-                 * FIXME Go back to strict
                  */
-                val upload = lenientJson.decodeFromString<Upload>(originalData)
+                val upload = strictJson.decodeFromString<Upload>(originalData)
 
                 /* UserId must be set */
                 if (upload.userId.isBlank()) {

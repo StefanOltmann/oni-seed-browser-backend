@@ -26,7 +26,6 @@ import de.stefan_oltmann.oni.model.StarMapEntrySpacedOut
 import de.stefan_oltmann.oni.model.StarMapEntryVanilla
 import de.stefan_oltmann.oni.model.WorldTrait
 import de.stefan_oltmann.oni.model.server.upload.UploadCluster
-import kotlin.math.roundToInt
 
 object UploadClusterConverter {
 
@@ -79,8 +78,8 @@ object UploadClusterConverter {
                             avgEmitRate = it.avgEmitRate,
                             idleTime = it.idleTime,
                             eruptionTime = it.eruptionTime,
-                            dormancyCyclesRounded = it.dormancyCycles.roundToInt().toShort(),
-                            activeCyclesRounded = it.activeCycles.roundToInt().toShort()
+                            dormancyCyclesRounded = it.dormancyCycles,
+                            activeCyclesRounded = it.activeCycles
                         )
                     }
                 )
