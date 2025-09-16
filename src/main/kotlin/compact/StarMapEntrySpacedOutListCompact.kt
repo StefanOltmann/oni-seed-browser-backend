@@ -19,6 +19,7 @@
 package compact
 
 import de.stefan_oltmann.oni.model.SpacedOutSpacePOI
+import de.stefan_oltmann.oni.model.StarMapEntrySpacedOut
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoNumber
@@ -46,6 +47,34 @@ class StarMapEntrySpacedOutListCompact(
 
     companion object {
 
-        // FIXME Generate methods to convert from StarMapEntrySpacedOutListCompact to List<StarMapEntrySpacedOut> and vice versa
+        /**
+         * Converts a List<StarMapEntrySpacedOut> to StarMapEntrySpacedOutListCompact for efficient serialization.
+         */
+        fun fromStarMapEntries(entries: List<StarMapEntrySpacedOut>): StarMapEntrySpacedOutListCompact {
+            return StarMapEntrySpacedOutListCompact(
+                id = entries.map { it.id.ordinal.toByte() }.toByteArray(),
+                q = entries.map { it.q }.toByteArray(),
+                r = entries.map { it.r }.toByteArray()
+            )
+        }
+
+        /**
+         * Converts StarMapEntrySpacedOutListCompact back to List<StarMapEntrySpacedOut>.
+         */
+        fun toStarMapEntries(compact: StarMapEntrySpacedOutListCompact): List<StarMapEntrySpacedOut> {
+            val spacePOITypes = SpacedOutSpacePOI.values()
+            return (compact.id.indices).map { i ->
+                StarMapEntrySpacedOut(
+                    id = spacePOITypes[compact.id[i].toInt()],
+                    q = compact.q[i],
+                    r = compact.r[i]
+                )
+            }
+        }
     }
+
+    /**
+     * Converts this StarMapEntrySpacedOutListCompact to List<StarMapEntrySpacedOut>.
+     */
+    fun toStarMapEntries(): List<StarMapEntrySpacedOut> = toStarMapEntries(this)
 }

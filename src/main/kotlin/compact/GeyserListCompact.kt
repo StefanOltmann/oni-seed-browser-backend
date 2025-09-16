@@ -18,6 +18,8 @@
  */
 package compact
 
+import de.stefan_oltmann.oni.model.Geyser
+import de.stefan_oltmann.oni.model.GeyserType
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoNumber
@@ -92,7 +94,46 @@ class GeyserListCompact(
 
     companion object {
 
-        // FIXME Generate methods to convert from GeyserListCompact to List<Geyser> and vice versa
-    }
-}
+        /**
+         * Converts a List<Geyser> to GeyserListCompact for efficient serialization.
+         */
+        fun fromGeysers(geysers: List<Geyser>): GeyserListCompact {
+            return GeyserListCompact(
+                id = geysers.map { it.id.ordinal.toByte() }.toByteArray(),
+                x = geysers.map { it.x }.toShortArray(),
+                y = geysers.map { it.y }.toShortArray(),
+                emitRate = geysers.map { it.emitRate }.toIntArray(),
+                avgEmitRate = geysers.map { it.avgEmitRate }.toShortArray(),
+                idleTime = geysers.map { it.idleTime }.toShortArray(),
+                eruptionTime = geysers.map { it.eruptionTime }.toShortArray(),
+                dormancyCyclesRounded = geysers.map { it.dormancyCyclesRounded }.toShortArray(),
+                activeCyclesRounded = geysers.map { it.activeCyclesRounded }.toShortArray()
+            )
+        }
 
+        /**
+         * Converts GeyserListCompact back to List<Geyser>.
+         */
+        fun toGeysers(compact: GeyserListCompact): List<Geyser> {
+            val geyserTypes = GeyserType.values()
+            return (compact.id.indices).map { i ->
+                Geyser(
+                    id = geyserTypes[compact.id[i].toInt()],
+                    x = compact.x[i],
+                    y = compact.y[i],
+                    emitRate = compact.emitRate[i],
+                    avgEmitRate = compact.avgEmitRate[i],
+                    idleTime = compact.idleTime[i],
+                    eruptionTime = compact.eruptionTime[i],
+                    dormancyCyclesRounded = compact.dormancyCyclesRounded[i],
+                    activeCyclesRounded = compact.activeCyclesRounded[i]
+                )
+            }
+        }
+    }
+
+    /**
+     * Converts this GeyserListCompact to List<Geyser>.
+     */
+    fun toGeysers(): List<Geyser> = toGeysers(this)
+}

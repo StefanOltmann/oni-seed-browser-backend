@@ -18,6 +18,7 @@
  */
 package compact
 
+import de.stefan_oltmann.oni.model.StarMapEntryVanilla
 import de.stefan_oltmann.oni.model.VanillaSpacePOI
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
@@ -42,7 +43,32 @@ class StarMapEntryVanillaListCompact(
 
     companion object {
 
-        // FIXME Generate methods to convert from StarMapEntryVanillaListCompact to List<StarMapEntryVanilla> and vice versa
-    }
-}
+        /**
+         * Converts a List<StarMapEntryVanilla> to StarMapEntryVanillaListCompact for efficient serialization.
+         */
+        fun fromStarMapEntries(entries: List<StarMapEntryVanilla>): StarMapEntryVanillaListCompact {
+            return StarMapEntryVanillaListCompact(
+                id = entries.map { it.id.ordinal.toByte() }.toByteArray(),
+                distance = entries.map { it.distance }.toByteArray()
+            )
+        }
 
+        /**
+         * Converts StarMapEntryVanillaListCompact back to List<StarMapEntryVanilla>.
+         */
+        fun toStarMapEntries(compact: StarMapEntryVanillaListCompact): List<StarMapEntryVanilla> {
+            val spacePOITypes = VanillaSpacePOI.values()
+            return (compact.id.indices).map { i ->
+                StarMapEntryVanilla(
+                    id = spacePOITypes[compact.id[i].toInt()],
+                    distance = compact.distance[i]
+                )
+            }
+        }
+    }
+
+    /**
+     * Converts this StarMapEntryVanillaListCompact to List<StarMapEntryVanilla>.
+     */
+    fun toStarMapEntries(): List<StarMapEntryVanilla> = toStarMapEntries(this)
+}

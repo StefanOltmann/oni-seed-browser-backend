@@ -18,6 +18,7 @@
  */
 package compact
 
+import de.stefan_oltmann.oni.model.PointOfInterest
 import de.stefan_oltmann.oni.model.PointOfInterestType
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
@@ -46,6 +47,34 @@ class PointOfInterestListCompact(
 
     companion object {
 
-        // FIXME Generate methods to convert from PointOfInterestListCompact to List<PointOfInterest> and vice versa
+        /**
+         * Converts a List<PointOfInterest> to PointOfInterestListCompact for efficient serialization.
+         */
+        fun fromPointsOfInterest(pointsOfInterest: List<PointOfInterest>): PointOfInterestListCompact {
+            return PointOfInterestListCompact(
+                id = pointsOfInterest.map { it.id.ordinal.toByte() }.toByteArray(),
+                x = pointsOfInterest.map { it.x }.toShortArray(),
+                y = pointsOfInterest.map { it.y }.toShortArray()
+            )
+        }
+
+        /**
+         * Converts PointOfInterestListCompact back to List<PointOfInterest>.
+         */
+        fun toPointsOfInterest(compact: PointOfInterestListCompact): List<PointOfInterest> {
+            val poiTypes = PointOfInterestType.values()
+            return (compact.id.indices).map { i ->
+                PointOfInterest(
+                    id = poiTypes[compact.id[i].toInt()],
+                    x = compact.x[i],
+                    y = compact.y[i]
+                )
+            }
+        }
     }
+
+    /**
+     * Converts this PointOfInterestListCompact to List<PointOfInterest>.
+     */
+    fun toPointsOfInterest(): List<PointOfInterest> = toPointsOfInterest(this)
 }
