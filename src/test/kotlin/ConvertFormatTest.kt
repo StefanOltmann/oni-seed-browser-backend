@@ -18,7 +18,6 @@
  */
 
 import com.github.luben.zstd.Zstd
-import compact.ClusterCompact
 import de.stefan_oltmann.oni.model.Cluster
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -60,7 +59,9 @@ fun main() = runBlocking {
 
         flow.collect { cluster ->
 
-            val actualCluster = ClusterCompact.fromCluster(cluster)
+            val reducedResolutionCluster = cluster.reducedResolutionCluster
+
+            val actualCluster = reducedResolutionCluster // ClusterCompact.fromCluster(cluster)
 
             println("### ${actualCluster.coordinate}")
 
