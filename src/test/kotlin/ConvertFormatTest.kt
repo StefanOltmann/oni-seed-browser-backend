@@ -18,6 +18,7 @@
  */
 
 import com.github.luben.zstd.Zstd
+import compact.ClusterCompact
 import de.stefan_oltmann.oni.model.Cluster
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -59,45 +60,21 @@ fun main() = runBlocking {
 
         flow.collect { cluster ->
 
-            /*
-             * Test reduce resolution
-             */
-            val clusterCopy = cluster.copy(
+            val actualCluster = ClusterCompact.fromCluster(cluster)
 
-                asteroids = cluster.asteroids.map { asteroid ->
+            println("### ${actualCluster.coordinate}")
 
-                    asteroid.copy(
-                        sizeX = (asteroid.sizeX / 3).toShort(),
-                        sizeY = (asteroid.sizeY / 3).toShort(),
-                        geysers = asteroid.geysers.map { geyser ->
-                            geyser.copy(
-                                x = (geyser.x / 3).toShort(),
-                                y = (geyser.y / 3).toShort()
-                            )
-                        },
-                        pointsOfInterest = asteroid.pointsOfInterest.map { pointOfInterest ->
-                            pointOfInterest.copy(
-                                x = (pointOfInterest.x / 3).toShort(),
-                                y = (pointOfInterest.y / 3).toShort()
-                            )
-                        }
-                    )
-                }
-            )
+            val jsonBytes = Json.encodeToString(actualCluster).encodeToByteArray()
 
-            println("### ${clusterCopy.coordinate}")
-
-            val jsonBytes = Json.encodeToString(clusterCopy).encodeToByteArray()
-
-            File("build/${clusterCopy.coordinate}.json").writeBytes(jsonBytes)
+            File("build/${actualCluster.coordinate}.json").writeBytes(jsonBytes)
 
             val compressedJsonBytes = ZipUtil.zipBytes(jsonBytes, 9)
 
             val zstdJsonBytes = Zstd.compress(jsonBytes, 19)
 
-            val protobufBytes = ProtoBuf.encodeToByteArray(clusterCopy)
+            val protobufBytes = ProtoBuf.encodeToByteArray(actualCluster)
 
-            File("build/${clusterCopy.coordinate}.pb").writeBytes(protobufBytes)
+            File("build/${actualCluster.coordinate}.pb").writeBytes(protobufBytes)
 
             println(" -> JSON = " + (jsonBytes.size / 1000.0) + " KB")
             println(" -> JSON (GZIP 9) = " + (compressedJsonBytes.size / 1000.0) + " KB")

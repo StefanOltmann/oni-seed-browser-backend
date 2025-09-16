@@ -1,0 +1,74 @@
+/*
+ * ONI Seed Browser
+ * Copyright (C) 2025 Stefan Oltmann
+ * https://stefan-oltmann.de
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+package compact
+
+import de.stefan_oltmann.oni.model.StarMapEntryVanilla
+import de.stefan_oltmann.oni.model.VanillaSpacePOI
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.protobuf.ProtoNumber
+import kotlinx.serialization.protobuf.ProtoPacked
+
+@Serializable
+@OptIn(ExperimentalSerializationApi::class)
+class StarMapEntryVanillaListCompact(
+
+    /**
+     * Byte array of [VanillaSpacePOI]
+     */
+    @ProtoNumber(1)
+    @ProtoPacked
+    val id: ByteArray,
+
+    @ProtoNumber(2)
+    @ProtoPacked
+    val distance: ByteArray
+) {
+
+    companion object {
+
+        /**
+         * Converts a List<StarMapEntryVanilla> to StarMapEntryVanillaListCompact for efficient serialization.
+         */
+        fun fromStarMapEntries(entries: List<StarMapEntryVanilla>): StarMapEntryVanillaListCompact {
+            return StarMapEntryVanillaListCompact(
+                id = entries.map { it.id.ordinal.toByte() }.toByteArray(),
+                distance = entries.map { it.distance }.toByteArray()
+            )
+        }
+
+        /**
+         * Converts StarMapEntryVanillaListCompact back to List<StarMapEntryVanilla>.
+         */
+        fun toStarMapEntries(compact: StarMapEntryVanillaListCompact): List<StarMapEntryVanilla> {
+            val spacePOITypes = VanillaSpacePOI.values()
+            return (compact.id.indices).map { i ->
+                StarMapEntryVanilla(
+                    id = spacePOITypes[compact.id[i].toInt()],
+                    distance = compact.distance[i]
+                )
+            }
+        }
+    }
+
+    /**
+     * Converts this StarMapEntryVanillaListCompact to List<StarMapEntryVanilla>.
+     */
+    fun toStarMapEntries(): List<StarMapEntryVanilla> = toStarMapEntries(this)
+}
