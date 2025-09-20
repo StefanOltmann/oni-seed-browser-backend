@@ -102,7 +102,7 @@ import kotlin.time.measureTime
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
-const val LATEST_MAPS_LIMIT = 50
+const val LATEST_MAPS_LIMIT = 100
 
 const val EXPORT_BATCH_SIZE = 5000
 
