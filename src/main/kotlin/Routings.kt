@@ -624,8 +624,11 @@ private fun Application.configureRoutingInternal() {
 
                 val ipAddress = call.getIpAddress()
 
+                /*
+                 * Check API key and token validity
+                 */
+
                 val apiKey: String? = this.call.request.headers["MNI_API_KEY"]
-                val token: String? = this.call.request.headers[TOKEN_HEADER_MOD]
 
                 if (apiKey != System.getenv("MNI_API_KEY")) {
                     log("[UPLOAD] Unauthorized API key used by $ipAddress.")
@@ -633,105 +636,49 @@ private fun Application.configureRoutingInternal() {
                     return@post
                 }
 
+                val token: String? = this.call.request.headers[TOKEN_HEADER_MOD]
+
                 if (token.isNullOrBlank()) {
-                    log("[UPLOAD] Rejected missing steam auth token.")
+                    log("[UPLOAD] Missing steam auth token for $ipAddress.")
                     call.respond(HttpStatusCode.Unauthorized, "Missing steam auth token.")
                     return@post
                 }
 
-                val originalData = call.receiveText()
+                val jwt = try {
+
+                    jwtVerifier.verify(token)
+
+                } catch (ex: Exception) {
+
+                    log("[UPLOAD] Rejected invalid token from $ipAddress: ${ex.stackTraceToString()}")
+                    call.respond(HttpStatusCode.Unauthorized, "Invalid token.")
+                    return@post
+                }
+
+                val steamId = jwt.steamId
+
+                val uploaderSteamIdHash: String? = jwt.claims["hash"]?.asString()
+
+                if (uploaderSteamIdHash.isNullOrBlank()) {
+
+                    log("[UPLOAD] Rejected: Missing steam ID hash in token for $steamId.")
+                    call.respond(HttpStatusCode.Unauthorized, "Missing steam ID hash in token.")
+                    return@post
+                }
 
                 /*
-                 * Be strict on what the mod can send in.
+                 * Receive the upload and perform further checks
                  */
+
+                val originalData = call.receiveText()
+
+                /* Read the JSON data, and be strict. */
                 val upload = strictJson.decodeFromString<Upload>(originalData)
 
                 /* UserId must be set */
                 if (upload.userId.isBlank()) {
-
+                    log("[UPLOAD] Rejected illegal data (no userId): $upload ($steamId)")
                     call.respond(HttpStatusCode.NotAcceptable, "userId was not set.")
-
-                    log("[UPLOAD] Rejected illegal data (no userId): $upload")
-
-                    return@post
-                }
-
-                /* InstallationId must be valid UUID */
-                try {
-                    Uuid.parse(upload.installationId)
-                } catch (ex: IllegalArgumentException) {
-
-                    log("[UPLOAD] InstallationID was not UUID: ${upload.installationId}")
-
-                    call.respond(HttpStatusCode.NotAcceptable, "installationId must be UUID.")
-
-                    return@post
-                }
-
-                /* Game version must be set */
-                if (upload.gameVersion.isBlank()) {
-                    call.respond(HttpStatusCode.NotAcceptable, "Illegal data: gameVersion was not set.")
-                    log("[UPLOAD] Rejected illegal data (no gameVersion): $upload")
-                    return@post
-                }
-
-                /* File hashes must be set */
-                if (upload.fileHashes.isEmpty()) {
-                    call.respond(HttpStatusCode.NotAcceptable, "Illegal data: fileHashes was empty.")
-                    log("[UPLOAD] Rejected illegal data (no fileHashes): $upload")
-                    return@post
-                }
-
-                val uploadCluster = upload.cluster
-
-                /* Cluster must have a coordinate set */
-                if (uploadCluster.coordinate.isBlank()) {
-                    call.respond(HttpStatusCode.NotAcceptable, "Illegal data: No coordinates.")
-                    log("[UPLOAD] Rejected illegal data (no coordinates): $upload")
-                    return@post
-                }
-
-                /* Coordinate must be clean */
-                val cleanCoordinate = cleanCoordinate(uploadCluster.coordinate)
-
-                if (!uploadCluster.coordinate.equals(cleanCoordinate, ignoreCase = true)) {
-                    call.respond(
-                        HttpStatusCode.NotAcceptable,
-                        "Illegal coordinate: ${uploadCluster.coordinate} != $cleanCoordinate"
-                    )
-                    log("[UPLOAD] Rejected illegal data (coordinate): ${uploadCluster.coordinate} != $cleanCoordinate")
-                    return@post
-                }
-
-                /* Cluster must have asteroids */
-                if (uploadCluster.asteroids.isEmpty()) {
-                    call.respond(HttpStatusCode.NotAcceptable, "Illegal data: No asteroids")
-                    log("[UPLOAD] Rejected illegal data (no asteroids): $upload")
-                    return@post
-                }
-
-                val currentGameVersion = findCurrentGameVersion()
-
-                /* Must use the current version of the game */
-                if (uploadCluster.gameVersion < currentGameVersion) {
-
-                    call.respond(HttpStatusCode.NotAcceptable, "Please use a current version of the game.")
-
-                    log(
-                        "[UPLOAD] Rejected old game version ${uploadCluster.gameVersion} from ${upload.userId}. " +
-                            "Current: $currentGameVersion"
-                    )
-
-                    return@post
-                }
-
-                /* ModHash must be sent. */
-
-                val modHash = upload.fileHashes["modHash"]
-
-                if (modHash.isNullOrBlank()) {
-                    call.respond(HttpStatusCode.NotAcceptable, "Illegal data: No 'modHash'.")
-                    log("[UPLOAD] Rejected illegal data (no modHash): $upload")
                     return@post
                 }
 
@@ -740,15 +687,93 @@ private fun Application.configureRoutingInternal() {
                 else
                     null
 
-                /*
-                 * All contributors so far were on Steam.
-                 * We don't have a login with EPIC right now.
-                 */
+                /* upload.userId must be Steam ID */
                 if (steamIdFromUpload == null) {
-                    call.respond(HttpStatusCode.NotAcceptable, "We only accept the Steam version right now.")
-                    log("[UPLOAD] Rejected non-Steam upload from user ${upload.userId}")
+                    log("[UPLOAD] Rejected non-Steam upload from user ${upload.userId} ($steamId)")
+                    call.respond(HttpStatusCode.NotAcceptable, "We only accept the Steam version.")
                     return@post
                 }
+
+                /* Steam ID in upload must match Steam ID in token */
+                if (steamIdFromUpload != steamId) {
+                    log("[UPLOAD] Steam ID mismatch. Token = $steamId, Upload = $steamIdFromUpload")
+                    call.respond(HttpStatusCode.Unauthorized, "Steam ID mismatch.")
+                    return@post
+                }
+
+                /* InstallationId must be valid UUID */
+                try {
+                    Uuid.parse(upload.installationId)
+                } catch (_: IllegalArgumentException) {
+                    log("[UPLOAD] InstallationID was not UUID: ${upload.installationId} ($steamId)")
+                    call.respond(HttpStatusCode.NotAcceptable, "installationId must be UUID.")
+                    return@post
+                }
+
+                /* Game version must be set */
+                if (upload.gameVersion.isBlank()) {
+                    log("[UPLOAD] Rejected illegal data (no gameVersion): $upload ($steamId)")
+                    call.respond(HttpStatusCode.NotAcceptable, "Illegal data: gameVersion was not set.")
+                    return@post
+                }
+
+                /* File hashes must be set */
+                if (upload.fileHashes.isEmpty()) {
+                    log("[UPLOAD] Rejected illegal data (no fileHashes): $upload ($steamId)")
+                    call.respond(HttpStatusCode.NotAcceptable, "Illegal data: fileHashes was empty.")
+                    return@post
+                }
+
+                val uploadCluster = upload.cluster
+
+                /* Cluster must have a coordinate set */
+                if (uploadCluster.coordinate.isBlank()) {
+                    log("[UPLOAD] Rejected illegal data (no coordinates): $upload ($steamId)")
+                    call.respond(HttpStatusCode.NotAcceptable, "Illegal data: No coordinates.")
+                    return@post
+                }
+
+                /* Coordinate must be clean */
+                val cleanCoordinate = cleanCoordinate(uploadCluster.coordinate)
+
+                if (!uploadCluster.coordinate.equals(cleanCoordinate, ignoreCase = true)) {
+                    log("[UPLOAD] Rejected illegal data (coordinate): ${uploadCluster.coordinate} != $cleanCoordinate ($steamId)")
+                    call.respond(
+                        HttpStatusCode.NotAcceptable,
+                        "Illegal coordinate: ${uploadCluster.coordinate} != $cleanCoordinate"
+                    )
+                    return@post
+                }
+
+                /* Cluster must have asteroids */
+                if (uploadCluster.asteroids.isEmpty()) {
+                    log("[UPLOAD] Rejected illegal data (no asteroids): $upload ($steamId)")
+                    call.respond(HttpStatusCode.NotAcceptable, "Illegal data: No asteroids")
+                    return@post
+                }
+
+                val currentGameVersion = findCurrentGameVersion()
+
+                /* Must use the current version of the game */
+                if (uploadCluster.gameVersion < currentGameVersion) {
+                    log("[UPLOAD] Rejected old game version ${uploadCluster.gameVersion} from ${upload.userId}. Current: $currentGameVersion. SteamId: $steamId")
+                    call.respond(HttpStatusCode.NotAcceptable, "Please use a current version of the game.")
+                    return@post
+                }
+
+                /* ModHash must be sent. */
+
+                val modHash = upload.fileHashes["modHash"]
+
+                if (modHash.isNullOrBlank()) {
+                    log("[UPLOAD] Rejected illegal data (no modHash): $upload ($steamId)")
+                    call.respond(HttpStatusCode.NotAcceptable, "Illegal data: No 'modHash'.")
+                    return@post
+                }
+
+                /*
+                 * Save the upload to database.
+                 */
 
                 try {
 
@@ -784,33 +809,6 @@ private fun Application.configureRoutingInternal() {
                     ipAddress = ipAddress,
                     coordinate = uploadCluster.coordinate
                 )
-
-                val jwt = try {
-
-                    jwtVerifier.verify(token)
-
-                } catch (ex: Exception) {
-
-                    log("[UPLOAD] Rejected bad auth from $steamIdFromUpload: ${ex.stackTraceToString()}")
-                    call.respond(HttpStatusCode.Unauthorized, "Invalid token.")
-                    return@post
-                }
-
-                if (steamIdFromUpload != jwt.steamId) {
-
-                    log("[UPLOAD] Steam ID mismatch. Token = ${jwt.steamId}, Upload = $steamIdFromUpload")
-                    call.respond(HttpStatusCode.Unauthorized, "Steam ID mismatch.")
-                    return@post
-                }
-
-                val uploaderSteamIdHash: String? = jwt.claims["hash"]?.asString()
-
-                if (uploaderSteamIdHash.isNullOrBlank()) {
-
-                    log("[UPLOAD] Missing steam ID hash in token for $steamIdFromUpload.")
-                    call.respond(HttpStatusCode.Unauthorized, "Missing steam ID hash in token.")
-                    return@post
-                }
 
                 val optimizedCluster = UploadClusterConverter.convert(
                     uploadCluster = uploadCluster,
@@ -862,7 +860,7 @@ private fun Application.configureRoutingInternal() {
 
                 val duration = Clock.System.now().toEpochMilliseconds() - start
 
-                log("[UPLOAD] ${uploadCluster.coordinate} in $duration ms by $steamIdFromUpload ($uploaderSteamIdHash)")
+                log("[UPLOAD] ${uploadCluster.coordinate} in $duration ms by $steamId ($uploaderSteamIdHash)")
 
                 /*
                  * Add coordinate to the latest list.
@@ -870,7 +868,7 @@ private fun Application.configureRoutingInternal() {
                  */
                 backgroundScope.launch {
 
-                    delay(2000)
+                    delay(5000)
 
                     /*
                      * Add it to the top of the list.
@@ -903,13 +901,43 @@ private fun Application.configureRoutingInternal() {
                 val apiKey: String? = this.call.request.headers["MNI_API_KEY"]
 
                 if (apiKey != System.getenv("MNI_API_KEY")) {
-
                     log("Unauthorized API key used by $ipAddress.")
-
                     call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
-
                     return@post
                 }
+
+                val token: String? = this.call.request.headers[TOKEN_HEADER_MOD]
+
+                if (token.isNullOrBlank()) {
+                    log("[UPLOAD] Missing steam auth token for $ipAddress.")
+                    call.respond(HttpStatusCode.Unauthorized, "Missing steam auth token.")
+                    return@post
+                }
+
+                val jwt = try {
+
+                    jwtVerifier.verify(token)
+
+                } catch (ex: Exception) {
+
+                    log("[UPLOAD] Rejected invalid token from $ipAddress: ${ex.stackTraceToString()}")
+                    call.respond(HttpStatusCode.Unauthorized, "Invalid token.")
+                    return@post
+                }
+
+                val steamId = jwt.steamId
+
+                val uploaderSteamIdHash: String? = jwt.claims["hash"]?.asString()
+
+                if (uploaderSteamIdHash.isNullOrBlank()) {
+                    log("[UPLOAD] Rejected: Missing steam ID hash in token for $steamId.")
+                    call.respond(HttpStatusCode.Unauthorized, "Missing steam ID hash in token.")
+                    return@post
+                }
+
+                /*
+                 * Receive FailedGenReport
+                 */
 
                 val failedGenReport = call.receive<FailedGenReport>()
 
