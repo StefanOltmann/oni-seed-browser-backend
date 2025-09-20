@@ -860,7 +860,7 @@ private fun Application.configureRoutingInternal() {
 
                 val duration = Clock.System.now().toEpochMilliseconds() - start
 
-                log("[UPLOAD] ${uploadCluster.coordinate} in $duration ms by $steamId ($uploaderSteamIdHash)")
+                log("[UPLOAD] ${uploadCluster.coordinate} in $duration ms by Steam ID $steamId")
 
                 /*
                  * Add coordinate to the latest list.
