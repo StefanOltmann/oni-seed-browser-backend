@@ -265,6 +265,22 @@ private fun Application.configureRoutingInternal() {
             call.respondText("ONI Seed Browser Backend $VERSION (up since $uptimeHours hours and $minutes minutes)")
         }
 
+        get("/bench") {
+
+            val apiKey: String? = this.call.request.headers["API_KEY"]
+
+            if (apiKey != System.getenv("DATABASE_EXPORT_API_KEY")) {
+                call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
+                return@get
+            }
+
+            backgroundScope.launch {
+                Benchmark.run()
+            }
+
+            call.respondText("Benchmark started.")
+        }
+
         get("/generate-search-indexes") {
 
             try {
