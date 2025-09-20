@@ -803,7 +803,7 @@ private fun Application.configureRoutingInternal() {
                     return@post
                 }
 
-                val uploaderSteamIdHash: String? = jwt.claims["hash"]?.toString()
+                val uploaderSteamIdHash: String? = jwt.claims["hash"]?.asString()
 
                 if (uploaderSteamIdHash.isNullOrBlank()) {
 
