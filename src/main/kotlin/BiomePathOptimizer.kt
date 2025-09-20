@@ -38,15 +38,20 @@ fun BiomePaths.optimize(): BiomePaths {
             val regionPoints = mutableListOf<DoubleArray>()
 
             for (point in region)
-                regionPoints.add(arrayOf(point.x.toDouble(), point.y.toDouble()).toDoubleArray())
+                regionPoints.add(
+                    arrayOf(
+                        point.x.toDouble(),
+                        point.y.toDouble()
+                    ).toDoubleArray()
+                )
 
             regionPointsList.add(regionPoints)
         }
 
         val mergedPolygon: Polygon = PolyBool.union(
-            Epsilon(),
-            Polygon(regionPointsList),
-            Polygon()
+            epsilon = Epsilon.default,
+            firstPolygon = Polygon(regionPointsList),
+            secondPolygon = Polygon()
         )
 
         val resultListList = mutableListOf<List<Point>>()
