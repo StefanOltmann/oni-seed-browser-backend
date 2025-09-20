@@ -47,21 +47,26 @@ object Benchmark {
 
     fun run() {
 
-        repeat(3) {
+        println(
+            buildString {
 
-            println()
-            println("Running benchmark... #${it + 1}")
+                repeat(3) {
 
-            val cpu = cpuTest()
-            val mem = memoryTest()
-            val mix = mixedTest()
-            val score = (1_000_000_000.0 / (cpu + mem + mix)).pow(2) * 1e6
+                    appendLine()
+                    appendLine("Benchmark #${it + 1}")
 
-            println("-> CPU    = ${cpu / 1_000_000} ms")
-            println("-> Memory = ${mem / 1_000_000} ms")
-            println("-> Mixed  = ${mix / 1_000_000} ms")
-            println(" = ${"%.2f".format(score)}")
-        }
+                    val cpu = cpuTest()
+                    val mem = memoryTest()
+                    val mix = mixedTest()
+                    val score = (1_000_000_000.0 / (cpu + mem + mix)).pow(2) * 1e6
+
+                    appendLine("-> CPU    = ${cpu / 1_000_000} ms")
+                    appendLine("-> Memory = ${mem / 1_000_000} ms")
+                    appendLine("-> Mixed  = ${mix / 1_000_000} ms")
+                    appendLine(" = ${"%.2f".format(score)}")
+                }
+            }
+        )
     }
 }
 
