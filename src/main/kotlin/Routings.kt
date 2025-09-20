@@ -666,7 +666,7 @@ private fun Application.configureRoutingInternal() {
 
                 } catch (ex: Exception) {
 
-                    log("[UPLOAD] Rejected invalid token from $ipAddress: ${ex.stackTraceToString()}")
+                    log("[UPLOAD] Rejected invalid token from $ipAddress: ${ex.message}. Token: $token")
                     call.respond(HttpStatusCode.Unauthorized, "Invalid token.")
                     return@post
                 }
