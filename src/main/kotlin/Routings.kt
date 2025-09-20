@@ -244,13 +244,13 @@ private fun Application.configureRoutingInternal() {
 
         setMissingIndices()
 
-        // cleanMaps()
+        cleanMaps()
 
         createContributorTable()
 
         // copyMapsToS3()
 
-        // createSearchIndexes()
+        createSearchIndexes()
     }
 
     routing {
@@ -1399,7 +1399,9 @@ private suspend fun cleanMaps() {
 
                 clusterCollection.replaceOne(
                     Filters.eq("coordinate", cluster.coordinate),
-                    cluster
+                    cluster.copy(
+                        uploaderSteamIdHash = cluster.uploaderSteamIdHash.trim('"')
+                    )
                 )
             }
         }
@@ -1629,38 +1631,6 @@ private suspend fun createSearchIndexes() {
         log(ex)
     }
 }
-
-//@OptIn(ExperimentalSerializationApi::class, ExperimentalTime::class)
-//private suspend fun cleanMaps() {
-//
-//    log("[CLEAN] Re-save maps...")
-//
-//    try {
-//
-//        val time = measureTime {
-//
-//            val clusters = clusterCollection.find().batchSize(10000)
-//
-//            clusters.collect { cluster ->
-//
-//                val modifiedCluster = cluster
-//                    .withWorldTraitMask()
-//                    .withOptimizeBiomePaths()
-//
-//                clusterCollection.replaceOne(
-//                    Filters.eq("coordinate", cluster.coordinate),
-//                    modifiedCluster
-//                )
-//            }
-//        }
-//
-//        log("[CLEAN] Re-saved maps in $time")
-//
-//    } catch (ex: Exception) {
-//
-//        log(ex)
-//    }
-//}
 
 /*
  * Newer tokens have it as a subject, older ones as claim.
