@@ -91,7 +91,6 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.protobuf.ProtoBuf
 import org.bson.Document
 import java.security.KeyFactory
-import java.security.MessageDigest
 import java.security.interfaces.ECPublicKey
 import java.security.spec.X509EncodedKeySpec
 import java.util.zip.ZipEntry
@@ -116,11 +115,6 @@ private val connectionString: String = System.getenv("MONGO_DB_CONNECTION_STRING
 
 private val purgeApiKey = System.getenv("PURGE_API_KEY")
     ?: error("Missing PURGE_API_KEY environment variable")
-
-private val salt = System.getenv("MNI_SALT")
-    ?: error("Missing SALT environment variable")
-
-private val messageDigest = MessageDigest.getInstance("SHA-256")
 
 private val publicKey: ECPublicKey = System.getenv("MNI_JWT_PUBLIC_KEY")?.let { base64Key ->
     val keyBytes = Base64.decode(base64Key)
@@ -634,11 +628,14 @@ private fun Application.configureRoutingInternal() {
                 val token: String? = this.call.request.headers[TOKEN_HEADER_MOD]
 
                 if (apiKey != System.getenv("MNI_API_KEY")) {
-
                     log("[UPLOAD] Unauthorized API key used by $ipAddress.")
-
                     call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
+                    return@post
+                }
 
+                if (token.isNullOrBlank()) {
+                    log("[UPLOAD] Rejected missing steam auth token.")
+                    call.respond(HttpStatusCode.Unauthorized, "Missing steam auth token.")
                     return@post
                 }
 
@@ -738,7 +735,7 @@ private fun Application.configureRoutingInternal() {
                     return@post
                 }
 
-                val steamId = if (upload.userId.startsWith("Steam-"))
+                val steamIdFromUpload = if (upload.userId.startsWith("Steam-"))
                     upload.userId.drop(6)
                 else
                     null
@@ -747,7 +744,7 @@ private fun Application.configureRoutingInternal() {
                  * All contributors so far were on Steam.
                  * We don't have a login with EPIC right now.
                  */
-                if (steamId == null) {
+                if (steamIdFromUpload == null) {
                     call.respond(HttpStatusCode.NotAcceptable, "We only accept the Steam version right now.")
                     log("[UPLOAD] Rejected non-Steam upload from user ${upload.userId}")
                     return@post
@@ -788,47 +785,37 @@ private fun Application.configureRoutingInternal() {
                     coordinate = uploadCluster.coordinate
                 )
 
-                /*
-                 * Marker if the uploader was authenticated
-                 */
-                var uploaderAuthenticated = false
+                val jwt = try {
 
-                var tokenWithHash = false
+                    jwtVerifier.verify(token)
 
-                /*
-                 * Auth Token is optional, but if provided it
-                 * must be valid and match the upload.
-                 */
-                if (!token.isNullOrBlank()) {
+                } catch (ex: Exception) {
 
-                    try {
-
-                        val jwt = jwtVerifier.verify(token)
-
-                        val steamId = jwt.steamId
-
-                        if (jwt.claims.get("hash") != null)
-                            tokenWithHash = true
-
-                        if (steamId == jwt.steamId)
-                            uploaderAuthenticated = true
-                        else
-                            error("Steam ID mismatch. Token = ${jwt.steamId}, Upload = $steamId")
-
-                    } catch (ex: Exception) {
-
-                        call.respond(HttpStatusCode.Unauthorized, "Authentication failed.")
-                        log("[UPLOAD] Rejected bad auth from $steamId: ${ex.stackTraceToString()}")
-                        return@post
-                    }
+                    log("[UPLOAD] Rejected bad auth from $steamIdFromUpload: ${ex.stackTraceToString()}")
+                    call.respond(HttpStatusCode.Unauthorized, "Invalid token.")
+                    return@post
                 }
 
-                val uploaderSteamIdHash = saltedSha256(steamId)
+                if (steamIdFromUpload != jwt.steamId) {
+
+                    log("[UPLOAD] Steam ID mismatch. Token = ${jwt.steamId}, Upload = $steamIdFromUpload")
+                    call.respond(HttpStatusCode.Unauthorized, "Steam ID mismatch.")
+                    return@post
+                }
+
+                val uploaderSteamIdHash: String? = jwt.claims["hash"]?.toString()
+
+                if (uploaderSteamIdHash.isNullOrBlank()) {
+
+                    log("[UPLOAD] Missing steam ID hash in token for $steamIdFromUpload.")
+                    call.respond(HttpStatusCode.Unauthorized, "Missing steam ID hash in token.")
+                    return@post
+                }
 
                 val optimizedCluster = UploadClusterConverter.convert(
                     uploadCluster = uploadCluster,
                     uploaderSteamIdHash = uploaderSteamIdHash,
-                    uploaderAuthenticated = uploaderAuthenticated,
+                    uploaderAuthenticated = true,
                     uploadDate = uploadDate
                 )
 
@@ -875,7 +862,7 @@ private fun Application.configureRoutingInternal() {
 
                 val duration = Clock.System.now().toEpochMilliseconds() - start
 
-                log("[UPLOAD] ${uploadCluster.coordinate} in $duration ms by $steamId (auth = $uploaderAuthenticated, hash = $tokenWithHash)")
+                log("[UPLOAD] ${uploadCluster.coordinate} in $duration ms by $steamIdFromUpload")
 
                 /*
                  * Add coordinate to the latest list.
@@ -1680,15 +1667,6 @@ private suspend fun createSearchIndexes() {
  */
 private val DecodedJWT.steamId
     get() = this.subject ?: this.getClaim("steamId").asString()
-
-@OptIn(ExperimentalStdlibApi::class)
-private fun saltedSha256(input: String): String {
-
-    val saltedInput = input + salt
-    val bytes = saltedInput.toByteArray(Charsets.UTF_8)
-    val digest = messageDigest.digest(bytes)
-    return digest.toHexString()
-}
 
 private fun log(message: String) {
 
