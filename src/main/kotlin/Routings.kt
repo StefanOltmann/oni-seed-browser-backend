@@ -244,7 +244,7 @@ private fun Application.configureRoutingInternal() {
 
         setMissingIndices()
 
-        cleanMaps()
+        // cleanMaps()
 
         createContributorTable()
 
@@ -514,6 +514,7 @@ private fun Application.configureRoutingInternal() {
             }
         }
 
+        // DEPRECATED
         get("/count") {
 
             try {
@@ -529,7 +530,6 @@ private fun Application.configureRoutingInternal() {
                 call.respond(HttpStatusCode.InternalServerError)
             }
         }
-
 
         /*
          * Purge the requested key out of existence.
@@ -1443,9 +1443,7 @@ private suspend fun cleanMaps() {
 
                 clusterCollection.replaceOne(
                     Filters.eq("coordinate", cluster.coordinate),
-                    cluster.copy(
-                        uploaderSteamIdHash = cluster.uploaderSteamIdHash.trim('"')
-                    )
+                    cluster
                 )
             }
         }
@@ -1621,6 +1619,8 @@ private suspend fun createSearchIndexes() {
 
     try {
 
+        var count = 0
+
         for (cluster in ClusterType.entries) {
 
             val searchIndex = SearchIndex(
@@ -1663,8 +1663,33 @@ private suspend fun createSearchIndexes() {
                 )
             }
 
+            count += searchIndex.summaries.size
+
             log("[INDEX] Processed ${cluster.prefix} with ${searchIndex.summaries.size} seeds in $time.")
         }
+
+        val countBytes = count.toString().encodeToByteArray()
+
+        /*
+         * Save the count to S3 as well
+         *
+         * This ensures it matches to the actual searchable clusters.
+         */
+        minioClient.putObject(
+            PutObjectArgs
+                .builder()
+                .bucket("oni-search.stefanoltmann.de")
+                .`object`("count")
+                .headers(
+                    mapOf(
+                        "Content-Type" to "text/plain",
+                        /* Cache for a day. */
+                        "Cache-Control" to "public, max-age=86400"
+                    )
+                )
+                .stream(countBytes.inputStream(), countBytes.size.toLong(), -1)
+                .build()
+        )
 
         val duration = Clock.System.now().toEpochMilliseconds() - start
 
