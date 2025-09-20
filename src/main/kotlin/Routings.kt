@@ -1126,6 +1126,24 @@ private fun Application.configureRoutingInternal() {
         /**
          * Returns the latest maps added to the database.
          */
+        get("/latest") {
+
+            try {
+
+                call.respond(latestCoordinates)
+
+            } catch (ex: Exception) {
+
+                log(ex)
+
+                call.respond(HttpStatusCode.BadRequest, "Failed to get latest clusters.")
+            }
+        }
+
+        /**
+         * Returns the latest maps added to the database.
+         */
+        // DEPRECATED
         get("/latest/v2") {
 
             try {
