@@ -90,7 +90,6 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.protobuf.ProtoBuf
 import org.bson.Document
 import util.Benchmark
-import util.IllegalCoordinateException
 import util.ZipUtil
 import util.createRegexPattern
 import util.isValidCoordinate
@@ -1287,51 +1286,36 @@ private suspend fun handleGetRequestedCoordinate(
 
             val coordinate = requestedCoordinate.coordinate
 
-            try {
+            val existingWorld: Cluster? = clusterCollection
+                .find(
+                    Filters.eq("coordinate", coordinate)
+                ).firstOrNull()
 
-                val existingWorld: Cluster? = clusterCollection
-                    .find(
-                        Filters.eq("coordinate", coordinate)
-                    ).firstOrNull()
+            if (existingWorld != null) {
 
-                if (existingWorld != null) {
-
-                    /* Mark the coordinate status as duplicated. */
-                    requestedCoordinatesCollection.updateOne(
-                        Filters.eq(RequestedCoordinate::coordinate.name, coordinate),
-                        Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.DUPLICATED)
-                    )
-
-                    continue@findseed
-                }
-
-                log("[REQUEST] $coordinate delivered.")
-
-                call.respond(HttpStatusCode.OK, coordinate)
-
-                /*
-                 * Mark the coordinate as delivered to a mod for processing
-                 */
+                /* Mark the coordinate status as duplicated. */
                 requestedCoordinatesCollection.updateOne(
                     Filters.eq(RequestedCoordinate::coordinate.name, coordinate),
-                    Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.DELIVERED)
-                )
-
-                /* Stop execution as we delivered one seed to a mod. */
-                break@findseed
-
-            } catch (ex: IllegalCoordinateException) {
-
-                log(ex)
-
-                /* Mark the coordinate status as illegal */
-                requestedCoordinatesCollection.updateOne(
-                    Filters.eq(RequestedCoordinate::coordinate.name, ex.coordinate),
-                    Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.ILLEGAL)
+                    Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.DUPLICATED)
                 )
 
                 continue@findseed
             }
+
+            log("[REQUEST] $coordinate delivered.")
+
+            call.respond(HttpStatusCode.OK, coordinate)
+
+            /*
+             * Mark the coordinate as delivered to a mod for processing
+             */
+            requestedCoordinatesCollection.updateOne(
+                Filters.eq(RequestedCoordinate::coordinate.name, coordinate),
+                Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.DELIVERED)
+            )
+
+            /* Stop execution as we delivered one seed to a mod. */
+            break@findseed
         }
     }
 }

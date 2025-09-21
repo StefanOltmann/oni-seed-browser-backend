@@ -39,6 +39,3 @@ fun createRegexPattern(dlcs: List<Dlc>): String {
 
 fun isValidCoordinate(coordinate: String): Boolean =
     allClusterTypesRegex.matches(coordinate)
-
-class IllegalCoordinateException(val coordinate: String) :
-    RuntimeException("Coordinate was illegal: $coordinate")
