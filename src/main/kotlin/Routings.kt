@@ -752,7 +752,7 @@ private fun Application.configureRoutingInternal() {
                     return@post
                 }
 
-                /* Coordinate must be clean */
+                /* Coordinate must be valid */
                 if (!isValidCoordinate(uploadCluster.coordinate)) {
                     log("[UPLOAD] Rejected illegal data (coordinate): ${uploadCluster.coordinate} ($steamId)")
                     call.respond(
@@ -779,10 +779,7 @@ private fun Application.configureRoutingInternal() {
                 }
 
                 /* ModHash must be sent. */
-
-                val modHash = upload.fileHashes["modHash"]
-
-                if (modHash.isNullOrBlank()) {
+                if (upload.fileHashes["modHash"].isNullOrBlank()) {
                     log("[UPLOAD] Rejected illegal data (no modHash): $upload ($steamId)")
                     call.respond(HttpStatusCode.NotAcceptable, "Illegal data: No 'modHash'.")
                     return@post
