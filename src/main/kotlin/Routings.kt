@@ -40,10 +40,12 @@ import de.stefan_oltmann.oni.model.Contributor
 import de.stefan_oltmann.oni.model.Dlc
 import de.stefan_oltmann.oni.model.search.SearchIndex
 import de.stefan_oltmann.oni.model.server.FailedGenReport
+import de.stefan_oltmann.oni.model.server.FailedGenReportCheckResult
 import de.stefan_oltmann.oni.model.server.FailedGenReportDatabase
 import de.stefan_oltmann.oni.model.server.RequestedCoordinate
 import de.stefan_oltmann.oni.model.server.RequestedCoordinateStatus
 import de.stefan_oltmann.oni.model.server.Upload
+import de.stefan_oltmann.oni.model.server.UploadCheckResult
 import de.stefan_oltmann.oni.model.server.upload.UploadMetadata
 import io.ktor.http.ContentDisposition
 import io.ktor.http.ContentType
@@ -101,7 +103,6 @@ import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTime
 import kotlin.uuid.ExperimentalUuidApi
-import kotlin.uuid.Uuid
 
 const val LATEST_MAPS_LIMIT = 100
 
@@ -692,94 +693,17 @@ private fun Application.configureRoutingInternal() {
                 /* Read the JSON data, and be strict. */
                 val upload = strictJson.decodeFromString<Upload>(originalData)
 
-                /* UserId must be set */
-                if (upload.userId.isBlank()) {
-                    log("[UPLOAD] Rejected illegal data (no userId): $upload ($steamId)")
-                    call.respond(HttpStatusCode.NotAcceptable, "userId was not set.")
-                    return@post
-                }
+                val uploadCheckResult = upload.check(
+                    tokenSteamId = steamId,
+                    currentGameVersion = findCurrentGameVersion()
+                )
 
-                val steamIdFromUpload = if (upload.userId.startsWith("Steam-"))
-                    upload.userId.drop(6)
-                else
-                    null
+                if (uploadCheckResult is UploadCheckResult.Error) {
 
-                /* upload.userId must be Steam ID */
-                if (steamIdFromUpload == null) {
-                    log("[UPLOAD] Rejected non-Steam upload from user ${upload.userId} ($steamId)")
-                    call.respond(HttpStatusCode.NotAcceptable, "We only accept the Steam version.")
-                    return@post
-                }
+                    log("[UPLOAD] Rejected upload: ${uploadCheckResult.message} ($steamId)")
 
-                /* Steam ID in upload must match Steam ID in token */
-                if (steamIdFromUpload != steamId) {
-                    log("[UPLOAD] Steam ID mismatch. Token = $steamId, Upload = $steamIdFromUpload")
-                    call.respond(HttpStatusCode.Unauthorized, "Steam ID mismatch.")
-                    return@post
-                }
+                    call.respond(HttpStatusCode.NotAcceptable, uploadCheckResult.message)
 
-                /* InstallationId must be valid UUID */
-                try {
-                    Uuid.parse(upload.installationId)
-                } catch (_: IllegalArgumentException) {
-                    log("[UPLOAD] InstallationID was not UUID: ${upload.installationId} ($steamId)")
-                    call.respond(HttpStatusCode.NotAcceptable, "installationId must be UUID.")
-                    return@post
-                }
-
-                /* Game version must be set */
-                if (upload.gameVersion.isBlank()) {
-                    log("[UPLOAD] Rejected illegal data (no gameVersion): $upload ($steamId)")
-                    call.respond(HttpStatusCode.NotAcceptable, "Illegal data: gameVersion was not set.")
-                    return@post
-                }
-
-                /* File hashes must be set */
-                if (upload.fileHashes.isEmpty()) {
-                    log("[UPLOAD] Rejected illegal data (no fileHashes): $upload ($steamId)")
-                    call.respond(HttpStatusCode.NotAcceptable, "Illegal data: fileHashes was empty.")
-                    return@post
-                }
-
-                val uploadCluster = upload.cluster
-
-                /* Cluster must have a coordinate set */
-                if (uploadCluster.coordinate.isBlank()) {
-                    log("[UPLOAD] Rejected illegal data (no coordinates): $upload ($steamId)")
-                    call.respond(HttpStatusCode.NotAcceptable, "Illegal data: No coordinates.")
-                    return@post
-                }
-
-                /* Coordinate must be valid */
-                if (!ClusterType.isValidCoordinate(uploadCluster.coordinate)) {
-                    log("[UPLOAD] Rejected illegal data (coordinate): ${uploadCluster.coordinate} ($steamId)")
-                    call.respond(
-                        HttpStatusCode.NotAcceptable,
-                        "Illegal coordinate: ${uploadCluster.coordinate}"
-                    )
-                    return@post
-                }
-
-                /* Cluster must have asteroids */
-                if (uploadCluster.asteroids.isEmpty()) {
-                    log("[UPLOAD] Rejected illegal data (no asteroids): $upload ($steamId)")
-                    call.respond(HttpStatusCode.NotAcceptable, "Illegal data: No asteroids")
-                    return@post
-                }
-
-                val currentGameVersion = findCurrentGameVersion()
-
-                /* Must use the current version of the game */
-                if (uploadCluster.gameVersion < currentGameVersion) {
-                    log("[UPLOAD] Rejected old game version ${uploadCluster.gameVersion} from ${upload.userId}. Current: $currentGameVersion. SteamId: $steamId")
-                    call.respond(HttpStatusCode.NotAcceptable, "Please use a current version of the game.")
-                    return@post
-                }
-
-                /* ModHash must be sent. */
-                if (upload.fileHashes["modHash"].isNullOrBlank()) {
-                    log("[UPLOAD] Rejected illegal data (no modHash): $upload ($steamId)")
-                    call.respond(HttpStatusCode.NotAcceptable, "Illegal data: No 'modHash'.")
                     return@post
                 }
 
@@ -819,11 +743,11 @@ private fun Application.configureRoutingInternal() {
                     fileHashes = upload.fileHashes,
                     uploadDate = uploadDate,
                     ipAddress = ipAddress,
-                    coordinate = uploadCluster.coordinate
+                    coordinate = upload.cluster.coordinate
                 )
 
                 val optimizedCluster = UploadClusterConverter.convert(
-                    uploadCluster = uploadCluster,
+                    uploadCluster = upload.cluster,
                     uploaderSteamIdHash = uploaderSteamIdHash,
                     uploaderAuthenticated = true,
                     uploadDate = uploadDate
@@ -838,7 +762,7 @@ private fun Application.configureRoutingInternal() {
                 /* Mark any requested coordinates as completed */
                 requestedCoordinatesCollection
                     .updateOne(
-                        Filters.eq(RequestedCoordinate::coordinate.name, uploadCluster.coordinate),
+                        Filters.eq(RequestedCoordinate::coordinate.name, upload.cluster.coordinate),
                         Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.COMPLETED)
                     )
 
@@ -872,7 +796,7 @@ private fun Application.configureRoutingInternal() {
 
                 val duration = Clock.System.now().toEpochMilliseconds() - start
 
-                log("[UPLOAD] ${uploadCluster.coordinate} in $duration ms by Steam ID $steamId")
+                log("[UPLOAD] ${upload.cluster.coordinate} in $duration ms by $steamId")
 
                 /*
                  * Add coordinate to the latest list.
@@ -953,33 +877,14 @@ private fun Application.configureRoutingInternal() {
 
                 val failedGenReport = call.receive<FailedGenReport>()
 
-                if (failedGenReport.userId.isBlank()) {
-                    call.respond(HttpStatusCode.NotAcceptable, "userId was not set.")
-                    return@post
-                }
+                val failedGenReportCheckResult = failedGenReport.check(steamId)
 
-                try {
-                    Uuid.parse(failedGenReport.installationId)
-                } catch (ex: IllegalArgumentException) {
-                    log("InstallationID was not UUID: ${failedGenReport.installationId}")
-                    log(ex)
-                    call.respond(HttpStatusCode.NotAcceptable, "installationId must be UUID.")
-                    return@post
-                }
+                if (failedGenReportCheckResult is FailedGenReportCheckResult.Error) {
 
-                if (failedGenReport.gameVersion.isBlank()) {
-                    call.respond(HttpStatusCode.NotAcceptable, "gameVersion was not set.")
-                    return@post
-                }
+                    log("[UPLOAD] Rejected failed world gen report: ${failedGenReportCheckResult.message} ($steamId)")
 
-                if (failedGenReport.fileHashes.isEmpty()) {
-                    call.respond(HttpStatusCode.NotAcceptable, "fileHashes was empty.")
-                    return@post
-                }
+                    call.respond(HttpStatusCode.NotAcceptable, failedGenReportCheckResult.message)
 
-                /* Cluster must have a coordinate set */
-                if (failedGenReport.coordinate.isBlank()) {
-                    call.respond(HttpStatusCode.NotAcceptable, "Illegal data.")
                     return@post
                 }
 
@@ -1672,7 +1577,7 @@ private suspend fun createSearchIndexes() {
 /*
  * Newer tokens have it as a subject, older ones as claim.
  */
-private val DecodedJWT.steamId
+private val DecodedJWT.steamId: String
     get() = this.subject ?: this.getClaim("steamId").asString()
 
 private fun log(message: String) {
