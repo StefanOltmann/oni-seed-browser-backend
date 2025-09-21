@@ -4,7 +4,7 @@ COPY .git .git
 COPY gradle gradle
 COPY build.gradle.kts gradle.properties settings.gradle.kts gradlew ./
 COPY src src
-RUN ./gradlew --no-daemon --info buildFatJar
+RUN ./gradlew --no-daemon --info test buildFatJar
 
 FROM openjdk:17-jdk-slim
 EXPOSE 8080:8080
