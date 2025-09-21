@@ -16,7 +16,6 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import com.auth0.jwt.exceptions.JWTVerificationException
@@ -90,6 +89,11 @@ import kotlinx.serialization.encodeToByteArray
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.protobuf.ProtoBuf
 import org.bson.Document
+import util.Benchmark
+import util.IllegalCoordinateException
+import util.ZipUtil
+import util.createRegexPattern
+import util.isValidCoordinate
 import java.security.KeyFactory
 import java.security.interfaces.ECPublicKey
 import java.security.spec.X509EncodedKeySpec
@@ -278,7 +282,7 @@ private fun Application.configureRoutingInternal() {
                 Benchmark.run()
             }
 
-            call.respondText("Benchmark started.")
+            call.respondText("util.Benchmark started.")
         }
 
         get("/generate-search-indexes") {

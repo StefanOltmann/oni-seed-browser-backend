@@ -16,7 +16,6 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
 import com.github.luben.zstd.Zstd
 import de.stefan_oltmann.oni.model.Cluster
 import kotlinx.coroutines.flow.Flow
@@ -31,6 +30,7 @@ import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.encodeToByteArray
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.protobuf.ProtoBuf
+import util.ZipUtil
 import java.io.File
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTime

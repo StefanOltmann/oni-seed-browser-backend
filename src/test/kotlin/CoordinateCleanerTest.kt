@@ -16,10 +16,11 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
 import de.stefan_oltmann.oni.model.ClusterType
 import de.stefan_oltmann.oni.model.Dlc
 import junit.framework.TestCase.assertFalse
+import util.createRegexPattern
+import util.isValidCoordinate
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue

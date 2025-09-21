@@ -26,6 +26,7 @@ import de.stefan_oltmann.oni.model.StarMapEntrySpacedOut
 import de.stefan_oltmann.oni.model.StarMapEntryVanilla
 import de.stefan_oltmann.oni.model.WorldTrait
 import de.stefan_oltmann.oni.model.server.upload.UploadCluster
+import util.optimize
 
 object UploadClusterConverter {
 
