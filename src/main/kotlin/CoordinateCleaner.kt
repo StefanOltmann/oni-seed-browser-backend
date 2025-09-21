@@ -33,51 +33,11 @@ fun createRegexPattern(dlcs: List<Dlc>): String {
 
     val clusterPrefixesJoined = clusterPrefixes.joinToString("|")
 
-    return "^($clusterPrefixesJoined)-\\d+-[^-]*-[^-]*-[^-]*"
+    return "^($clusterPrefixesJoined)-\\d+-0-0-[^-]*"
 }
 
 fun isValidCoordinate(coordinate: String): Boolean =
     allClusterTypesRegex.matches(coordinate)
-
-/**
- * Set story traits & game settings to zero.
- *
- * Fails if coordinate is invalid.
- */
-fun cleanCoordinate(coordinate: String): String {
-
-    val clusterType = ClusterType.entries.find {
-        coordinate.startsWith(it.prefix, ignoreCase = true)
-    }
-
-    /* If we don't find a matching cluster it's illegal. */
-    if (clusterType == null)
-        throw IllegalCoordinateException(coordinate)
-
-    val coordinatePartsWithoutCluster = coordinate
-        .substring(clusterType.prefix.length + 1)
-        .split('-')
-
-    /*
-     * We expect an array like 101520169, 0, 0, 0 here
-     */
-    if (coordinatePartsWithoutCluster.size != 4)
-        throw IllegalCoordinateException(coordinate)
-
-    val seed = coordinatePartsWithoutCluster[0]
-
-    /*
-     * The seed must be an integer and also in the integer range.
-     */
-    val seedAsInteger = seed.toIntOrNull() ?: throw IllegalCoordinateException(coordinate)
-
-    val biomeRemix = coordinatePartsWithoutCluster[3]
-
-    /*
-     * Return just the cluster prefix & seed with everything else set to 0
-     */
-    return clusterType.prefix + "-" + seedAsInteger + "-0-0-$biomeRemix"
-}
 
 class IllegalCoordinateException(val coordinate: String) :
     RuntimeException("Coordinate was illegal: $coordinate")

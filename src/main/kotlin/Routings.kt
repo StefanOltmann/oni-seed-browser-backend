@@ -750,13 +750,11 @@ private fun Application.configureRoutingInternal() {
                 }
 
                 /* Coordinate must be clean */
-                val cleanCoordinate = cleanCoordinate(uploadCluster.coordinate)
-
-                if (!uploadCluster.coordinate.equals(cleanCoordinate, ignoreCase = true)) {
-                    log("[UPLOAD] Rejected illegal data (coordinate): ${uploadCluster.coordinate} != $cleanCoordinate ($steamId)")
+                if (!isValidCoordinate(uploadCluster.coordinate)) {
+                    log("[UPLOAD] Rejected illegal data (coordinate): ${uploadCluster.coordinate} ($steamId)")
                     call.respond(
                         HttpStatusCode.NotAcceptable,
-                        "Illegal coordinate: ${uploadCluster.coordinate} != $cleanCoordinate"
+                        "Illegal coordinate: ${uploadCluster.coordinate}"
                     )
                     return@post
                 }
@@ -1066,15 +1064,9 @@ private fun Application.configureRoutingInternal() {
 
                 val coordinate = call.receive<String>()
 
-                val cleanCoordinate = try {
-
-                    cleanCoordinate(coordinate)
-
-                } catch (ex: Exception) {
+                if (!isValidCoordinate(coordinate)) {
 
                     log("[REQUEST] Ignoring invalid coordinate $coordinate (by $steamId)")
-
-                    log(ex)
 
                     call.respond(HttpStatusCode.BadRequest, "Invalid coordinate '$coordinate'")
 
@@ -1082,31 +1074,31 @@ private fun Application.configureRoutingInternal() {
                 }
 
                 val exists = requestedCoordinatesCollection.countDocuments(
-                    Filters.eq(RequestedCoordinate::coordinate.name, cleanCoordinate)
+                    Filters.eq(RequestedCoordinate::coordinate.name, coordinate)
                 ) > 0
 
                 if (exists) {
 
-                    log("[REQUEST] Ignoring already requested coordinate $cleanCoordinate (by $steamId)")
+                    log("[REQUEST] Ignoring already requested coordinate $coordinate (by $steamId)")
 
                     /* Send info that the coordinate already exists. */
-                    call.respond(HttpStatusCode.Conflict, "Coordinate $cleanCoordinate was already requested.")
+                    call.respond(HttpStatusCode.Conflict, "Coordinate $coordinate was already requested.")
 
                 } else {
 
-                    log("[REQUEST] Requesting coordinate $cleanCoordinate (by $steamId)")
+                    log("[REQUEST] Requesting coordinate $coordinate (by $steamId)")
 
                     requestedCoordinatesCollection.insertOne(
                         RequestedCoordinate(
                             steamId = steamId,
                             date = Clock.System.now().toEpochMilliseconds(),
-                            coordinate = cleanCoordinate,
+                            coordinate = coordinate,
                             status = RequestedCoordinateStatus.REQUESTED
                         )
                     )
 
                     /* Send OK status. */
-                    call.respond(HttpStatusCode.OK, "Coordinate $cleanCoordinate requested.")
+                    call.respond(HttpStatusCode.OK, "Coordinate $coordinate requested.")
                 }
 
             } catch (ex: JWTVerificationException) {
@@ -1293,56 +1285,29 @@ private suspend fun handleGetRequestedCoordinate(
 
             try {
 
-                val cleanCoordinate = cleanCoordinate(coordinate)
-
-                /*
-                 * Update the coordinate to a clean one.
-                 */
-                if (coordinate != cleanCoordinate) {
-
-                    try {
-
-                        requestedCoordinatesCollection.updateOne(
-                            Filters.eq(RequestedCoordinate::coordinate.name, coordinate),
-                            Updates.set(RequestedCoordinate::coordinate.name, cleanCoordinate)
-                        )
-
-                    } catch (_: Exception) {
-
-                        /* If we can't update to the new name, the request already existed and is duplicated. */
-
-                        requestedCoordinatesCollection.updateOne(
-                            Filters.eq(RequestedCoordinate::coordinate.name, coordinate),
-                            Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.DUPLICATED)
-                        )
-
-                        continue@findseed
-                    }
-                }
-
                 val existingWorld: Cluster? = clusterCollection
                     .find(
-                        Filters.eq("coordinate", cleanCoordinate)
+                        Filters.eq("coordinate", coordinate)
                     ).firstOrNull()
 
                 if (existingWorld != null) {
 
                     /* Mark the coordinate status as duplicated. */
                     requestedCoordinatesCollection.updateOne(
-                        Filters.eq(RequestedCoordinate::coordinate.name, cleanCoordinate),
+                        Filters.eq(RequestedCoordinate::coordinate.name, coordinate),
                         Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.DUPLICATED)
                     )
 
                     continue@findseed
                 }
 
-                call.respond(HttpStatusCode.OK, cleanCoordinate)
+                call.respond(HttpStatusCode.OK, coordinate)
 
                 /*
                  * Mark the coordinate as delivered to a mod for processing
                  */
                 requestedCoordinatesCollection.updateOne(
-                    Filters.eq(RequestedCoordinate::coordinate.name, cleanCoordinate),
+                    Filters.eq(RequestedCoordinate::coordinate.name, coordinate),
                     Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.DELIVERED)
                 )
 
