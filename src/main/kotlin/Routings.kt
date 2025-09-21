@@ -91,8 +91,6 @@ import kotlinx.serialization.protobuf.ProtoBuf
 import org.bson.Document
 import util.Benchmark
 import util.ZipUtil
-import util.createRegexPattern
-import util.isValidCoordinate
 import java.security.KeyFactory
 import java.security.interfaces.ECPublicKey
 import java.security.spec.X509EncodedKeySpec
@@ -753,7 +751,7 @@ private fun Application.configureRoutingInternal() {
                 }
 
                 /* Coordinate must be valid */
-                if (!isValidCoordinate(uploadCluster.coordinate)) {
+                if (!ClusterType.isValidCoordinate(uploadCluster.coordinate)) {
                     log("[UPLOAD] Rejected illegal data (coordinate): ${uploadCluster.coordinate} ($steamId)")
                     call.respond(
                         HttpStatusCode.NotAcceptable,
@@ -1064,7 +1062,7 @@ private fun Application.configureRoutingInternal() {
 
                 val coordinate = call.receive<String>()
 
-                if (!isValidCoordinate(coordinate)) {
+                if (!ClusterType.isValidCoordinate(coordinate)) {
 
                     log("[REQUEST] Ignoring invalid coordinate $coordinate (by $steamId)")
 
@@ -1263,7 +1261,7 @@ private suspend fun handleGetRequestedCoordinate(
                 ),
                 Filters.regex(
                     RequestedCoordinate::coordinate.name,
-                    createRegexPattern(dlcs)
+                    ClusterType.createRegexPattern(dlcs)
                 )
             ),
             Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.PROCESSING)
