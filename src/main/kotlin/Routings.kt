@@ -503,23 +503,6 @@ private fun Application.configureRoutingInternal() {
             }
         }
 
-        // DEPRECATED
-        get("/count") {
-
-            try {
-
-                val count = clusterCollection.estimatedDocumentCount()
-
-                call.respond(count)
-
-            } catch (ex: Exception) {
-
-                log(ex)
-
-                call.respond(HttpStatusCode.InternalServerError)
-            }
-        }
-
         /*
          * Purge the requested key out of existence.
          */
