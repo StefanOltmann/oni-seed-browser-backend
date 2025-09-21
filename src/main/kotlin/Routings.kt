@@ -105,11 +105,11 @@ import kotlin.time.measureTime
 import kotlin.uuid.ExperimentalUuidApi
 
 const val LATEST_MAPS_LIMIT = 100
-
 const val EXPORT_BATCH_SIZE = 5000
 
 const val TOKEN_HEADER_WEBPAGE = "token"
 const val TOKEN_HEADER_MOD = "MNI_TOKEN"
+const val MNI_API_KEY = "MNI_API_KEY"
 
 const val WORLDS_BUCKET = "oni-data.stefanoltmann.de"
 
@@ -168,20 +168,11 @@ private val strictJson = Json {
     encodeDefaults = true
 }
 
-private val lenientJson = Json {
-
-    ignoreUnknownKeys = true
-
-    encodeDefaults = true
-}
-
 private val minioClient =
     MinioClient.builder()
         .endpoint(externalS3Url)
         .credentials(externalS3User, externalS3Password)
         .build()
-
-private var seedRequestCounter = 0
 
 private val backgroundScope = CoroutineScope(Dispatchers.Default)
 
@@ -209,7 +200,7 @@ private fun Application.configureRoutingInternal() {
     log.info("Starting Server at version $VERSION")
 
     install(ContentNegotiation) {
-        json(lenientJson)
+        json(strictJson)
     }
 
     install(Compression) {
@@ -221,19 +212,15 @@ private fun Application.configureRoutingInternal() {
             /* Only compress responses larger than 1 KB (for efficiency) */
             minimumSize(1024)
 
-            matchContentType(
-                ContentType.Application.Json,
-                ContentType.Application.Cbor,
-                ContentType.Application.Zip
-            )
+            matchContentType(ContentType.Application.Json, ContentType.Application.Zip)
         }
     }
 
     install(CORS) {
 
         allowMethod(HttpMethod.Options)
-        allowMethod(HttpMethod.Post)
         allowMethod(HttpMethod.Get)
+        allowMethod(HttpMethod.Post)
 
         allowHeader(HttpHeaders.AccessControlAllowOrigin)
         allowHeader(HttpHeaders.ContentType)
@@ -613,17 +600,6 @@ private fun Application.configureRoutingInternal() {
                     return@get
                 }
 
-//                val requestedCoordinate = requestedCoordinatesCollection.find(
-//                    Filters.eq(RequestedCoordinate::coordinate.name, coordinate)
-//                ).firstOrNull()
-//
-//                if (requestedCoordinate?.status == RequestedCoordinateStatus.FAILED) {
-//
-//                    call.respond(HttpStatusCode.NotAcceptable, "Coordinate $coordinate failed to germinate.")
-//
-//                    return@get
-//                }
-
                 call.respond(HttpStatusCode.NotFound, "Coordinate $coordinate does not exist.")
 
             } catch (ex: Exception) {
@@ -646,9 +622,9 @@ private fun Application.configureRoutingInternal() {
                  * Check API key and token validity
                  */
 
-                val apiKey: String? = this.call.request.headers["MNI_API_KEY"]
+                val apiKey: String? = this.call.request.headers[MNI_API_KEY]
 
-                if (apiKey != System.getenv("MNI_API_KEY")) {
+                if (apiKey != System.getenv(MNI_API_KEY)) {
                     log("[UPLOAD] Unauthorized API key used by $ipAddress.")
                     call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
                     return@post
@@ -834,9 +810,9 @@ private fun Application.configureRoutingInternal() {
 
                 val ipAddress = call.getIpAddress()
 
-                val apiKey: String? = this.call.request.headers["MNI_API_KEY"]
+                val apiKey: String? = this.call.request.headers[MNI_API_KEY]
 
-                if (apiKey != System.getenv("MNI_API_KEY")) {
+                if (apiKey != System.getenv(MNI_API_KEY)) {
                     log("Unauthorized API key used by $ipAddress.")
                     call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
                     return@post
@@ -1035,24 +1011,6 @@ private fun Application.configureRoutingInternal() {
             }
         }
 
-        /**
-         * Returns the latest maps added to the database.
-         */
-        // DEPRECATED
-        get("/latest/v2") {
-
-            try {
-
-                call.respond(latestCoordinates)
-
-            } catch (ex: Exception) {
-
-                log(ex)
-
-                call.respond(HttpStatusCode.BadRequest, "Failed to get latest clusters.")
-            }
-        }
-
         /*
          * Provides requested coordinates to the running mod.
          */
@@ -1113,9 +1071,8 @@ private fun Application.configureRoutingInternal() {
     }
 }
 
-// TODO Call an API to get this version
 private fun findCurrentGameVersion(): Int {
-    return 679336 // Current version as of 2025-08-16
+    return 679336 // Current version as of 2025-09-21
 }
 
 private suspend fun handleGetRequestedCoordinate(
@@ -1125,9 +1082,9 @@ private suspend fun handleGetRequestedCoordinate(
 
     val ipAddress = call.getIpAddress()
 
-    val apiKey = call.request.headers["MNI_API_KEY"]
+    val apiKey = call.request.headers[MNI_API_KEY]
 
-    if (apiKey != System.getenv("MNI_API_KEY")) {
+    if (apiKey != System.getenv(MNI_API_KEY)) {
 
         log("Unauthorized API key used by $ipAddress.")
 
@@ -1135,21 +1092,6 @@ private suspend fun handleGetRequestedCoordinate(
 
         return
     }
-
-//    /*
-//     * To avoid blocking runners with seed requests, we only pick up every second call.
-//     * This brings back more randomization.
-//     */
-//    if (seedRequestCounter++ % 2 == 0) {
-//
-//        /*
-//         * Respond with an empty string, so the mod will generate a random cluster.
-//         */
-//
-//        call.respond(HttpStatusCode.OK, "")
-//
-//        return
-//    }
 
     /* Loop through the requests until we find something valid. */
     findseed@ while (true) {

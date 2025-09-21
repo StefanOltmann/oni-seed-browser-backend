@@ -59,9 +59,7 @@ fun main() = runBlocking {
 
         flow.collect { cluster ->
 
-            val reducedResolutionCluster = cluster.reducedResolutionCluster
-
-            val actualCluster = reducedResolutionCluster // ClusterCompact.fromCluster(cluster)
+            val actualCluster = cluster
 
             println("### ${actualCluster.coordinate}")
 
