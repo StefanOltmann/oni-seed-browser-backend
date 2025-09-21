@@ -5,7 +5,6 @@ plugins {
     alias(libs.plugins.ktor)
     alias(libs.plugins.git.versioning)
     alias(libs.plugins.sentry)
-    alias(libs.plugins.sqldelight)
 }
 
 group = "org.mapsnotincluded"
@@ -27,14 +26,6 @@ gitVersioning.apply {
 
 kotlin {
     jvmToolchain(jdkVersion = 17)
-}
-
-sqldelight {
-    databases {
-        create("SearchIndexDatabase") {
-            packageName.set("org.mapsnotincluded.search")
-        }
-    }
 }
 
 application {
@@ -76,11 +67,6 @@ dependencies {
      * MongoDB handling
      */
     implementation(libs.bundles.mongodb)
-
-    /*
-     * SQLite
-     */
-    implementation(libs.sqldelight.sqlite.driver)
 
     /*
      * Biome path optimization
