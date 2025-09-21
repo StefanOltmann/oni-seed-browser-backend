@@ -1233,20 +1233,20 @@ private suspend fun handleGetRequestedCoordinate(
         return
     }
 
-    /*
-     * To avoid blocking runners with seed requests, we only pick up every second call.
-     * This brings back more randomization.
-     */
-    if (seedRequestCounter++ % 2 == 0) {
-
-        /*
-         * Respond with an empty string, so the mod will generate a random cluster.
-         */
-
-        call.respond(HttpStatusCode.OK, "")
-
-        return
-    }
+//    /*
+//     * To avoid blocking runners with seed requests, we only pick up every second call.
+//     * This brings back more randomization.
+//     */
+//    if (seedRequestCounter++ % 2 == 0) {
+//
+//        /*
+//         * Respond with an empty string, so the mod will generate a random cluster.
+//         */
+//
+//        call.respond(HttpStatusCode.OK, "")
+//
+//        return
+//    }
 
     /* Loop through the requests until we find something valid. */
     findseed@ while (true) {
@@ -1300,6 +1300,8 @@ private suspend fun handleGetRequestedCoordinate(
 
                     continue@findseed
                 }
+
+                log("[REQUEST] $coordinate delivered.")
 
                 call.respond(HttpStatusCode.OK, coordinate)
 
