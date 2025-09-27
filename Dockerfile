@@ -4,6 +4,7 @@ COPY .git .git
 COPY gradle gradle
 COPY build.gradle.kts gradle.properties settings.gradle.kts gradlew ./
 COPY src src
+RUN chmod +x gradlew
 RUN ./gradlew --no-daemon --info test buildFatJar
 
 FROM openjdk:17-jdk-slim
