@@ -69,6 +69,16 @@ dependencies {
     implementation(libs.bundles.mongodb)
 
     /*
+     * Database
+     */
+    implementation(libs.postgresql)
+
+    /*
+     * JetBrains Exposed ORM
+     */
+    implementation(libs.bundles.exposed)
+
+    /*
      * Biome path optimization
      */
     implementation(libs.polybool.kotlin)
