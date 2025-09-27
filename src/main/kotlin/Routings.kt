@@ -128,13 +128,13 @@ private val publicKey: ECPublicKey = System.getenv("MNI_JWT_PUBLIC_KEY")?.let { 
 } ?: error("Missing MNI_JWT_PUBLIC_KEY environment variable")
 
 private val externalS3Url: String =
-    System.getenv("MNI_EXTERNAL_S3_URL") ?: error("Missing MNI_EXTERNAL_S3_URL environment variable")
+    System.getenv("MNI_S3_URL") ?: error("Missing MNI_S3_URL environment variable")
 
 private val externalS3User: String =
-    System.getenv("MNI_EXTERNAL_S3_USER") ?: error("Missing MNI_EXTERNAL_S3_USER environment variable")
+    System.getenv("MNI_S3_USERNAME") ?: error("Missing MNI_S3_USERNAME environment variable")
 
 private val externalS3Password: String =
-    System.getenv("MNI_EXTERNAL_S3_PASSWORD") ?: error("Missing MNI_EXTERNAL_S3_PASSWORD environment variable")
+    System.getenv("MNI_S3_PASSWORD") ?: error("Missing MNI_S3_PASSWORD environment variable")
 
 private val ecdsaAlgorithm = Algorithm.ECDSA256(publicKey)
 
