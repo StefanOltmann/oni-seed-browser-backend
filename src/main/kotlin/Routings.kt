@@ -109,14 +109,17 @@ const val EXPORT_BATCH_SIZE = 5000
 
 const val TOKEN_HEADER_WEBPAGE = "token"
 const val TOKEN_HEADER_MOD = "MNI_TOKEN"
+
 const val MNI_API_KEY = "MNI_API_KEY"
+const val MNI_PURGE_API_KEY = "MNI_PURGE_API_KEY"
+const val MNI_DATABASE_EXPORT_API_KEY = "MNI_DATABASE_EXPORT_API_KEY"
 
-const val WORLDS_BUCKET = "oni-data.stefanoltmann.de"
+const val S3_WORLDS_BUCKET = "oni-data.stefanoltmann.de"
 
-private val connectionString: String = System.getenv("MONGO_DB_CONNECTION_STRING") ?: ""
+private val connectionString: String = System.getenv("MNI_MONGO_DB_CONNECTION_STRING") ?: ""
 
-private val purgeApiKey = System.getenv("PURGE_API_KEY")
-    ?: error("Missing PURGE_API_KEY environment variable")
+private val purgeApiKey = System.getenv(MNI_PURGE_API_KEY)
+    ?: error("Missing MNI_PURGE_API_KEY environment variable")
 
 private val publicKey: ECPublicKey = System.getenv("MNI_JWT_PUBLIC_KEY")?.let { base64Key ->
     val keyBytes = Base64.decode(base64Key)
@@ -125,13 +128,13 @@ private val publicKey: ECPublicKey = System.getenv("MNI_JWT_PUBLIC_KEY")?.let { 
 } ?: error("Missing MNI_JWT_PUBLIC_KEY environment variable")
 
 private val externalS3Url: String =
-    System.getenv("EXTERNAL_S3_URL") ?: error("Missing EXTERNAL_S3_URL environment variable")
+    System.getenv("MNI_EXTERNAL_S3_URL") ?: error("Missing MNI_EXTERNAL_S3_URL environment variable")
 
 private val externalS3User: String =
-    System.getenv("EXTERNAL_S3_USER") ?: error("Missing EXTERNAL_S3_USER environment variable")
+    System.getenv("MNI_EXTERNAL_S3_USER") ?: error("Missing MNI_EXTERNAL_S3_USER environment variable")
 
 private val externalS3Password: String =
-    System.getenv("EXTERNAL_S3_PASSWORD") ?: error("Missing EXTERNAL_S3_PASSWORD environment variable")
+    System.getenv("MNI_EXTERNAL_S3_PASSWORD") ?: error("Missing MNI_EXTERNAL_S3_PASSWORD environment variable")
 
 private val ecdsaAlgorithm = Algorithm.ECDSA256(publicKey)
 
@@ -258,7 +261,7 @@ private fun Application.configureRoutingInternal() {
 
             val apiKey: String? = this.call.request.headers["API_KEY"]
 
-            if (apiKey != System.getenv("DATABASE_EXPORT_API_KEY")) {
+            if (apiKey != System.getenv(MNI_DATABASE_EXPORT_API_KEY)) {
                 call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
                 return@get
             }
@@ -278,7 +281,7 @@ private fun Application.configureRoutingInternal() {
 
                 val apiKey: String? = this.call.request.headers["API_KEY"]
 
-                if (apiKey != System.getenv("DATABASE_EXPORT_API_KEY")) {
+                if (apiKey != System.getenv(MNI_DATABASE_EXPORT_API_KEY)) {
 
                     log("/generate-search-indexes : Unauthorized API key used by ip address $ipAddress.")
 
@@ -319,7 +322,7 @@ private fun Application.configureRoutingInternal() {
 
                 val apiKey: String? = this.call.request.headers["API_KEY"]
 
-                if (apiKey != System.getenv("DATABASE_EXPORT_API_KEY")) {
+                if (apiKey != System.getenv(MNI_DATABASE_EXPORT_API_KEY)) {
 
                     log("/copy-maps-to-s3 : Unauthorized API key used by ip address $ipAddress.")
 
@@ -362,7 +365,7 @@ private fun Application.configureRoutingInternal() {
 
                 val apiKey: String? = this.call.request.headers["API_KEY"]
 
-                if (apiKey != System.getenv("DATABASE_EXPORT_API_KEY")) {
+                if (apiKey != System.getenv(MNI_DATABASE_EXPORT_API_KEY)) {
 
                     log("Unauthorized API key used by ip address $ipAddress.")
 
@@ -1317,7 +1320,7 @@ private fun uploadMapToS3(
     minioClient.putObject(
         PutObjectArgs
             .builder()
-            .bucket(WORLDS_BUCKET)
+            .bucket(S3_WORLDS_BUCKET)
             .`object`(cluster.coordinate)
             .headers(
                 mapOf(
@@ -1340,7 +1343,7 @@ private fun deleteMapFromS3(
     minioClient.removeObject(
         RemoveObjectArgs
             .builder()
-            .bucket(WORLDS_BUCKET)
+            .bucket(S3_WORLDS_BUCKET)
             .`object`(coordinate)
             .build()
     )
@@ -1357,7 +1360,7 @@ private suspend fun copyMapsToS3() {
 
         val objects = minioClient.listObjects(
             ListObjectsArgs.builder()
-                .bucket(WORLDS_BUCKET)
+                .bucket(S3_WORLDS_BUCKET)
                 .build()
         )
 
