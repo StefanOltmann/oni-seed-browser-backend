@@ -596,6 +596,20 @@ private fun Application.configureRoutingInternal() {
             }
         }
 
+        get("/current-game-version") {
+
+            try {
+
+                call.respond(findCurrentGameVersion().toString())
+
+            } catch (ex: Exception) {
+
+                log(ex)
+
+                call.respond(HttpStatusCode.InternalServerError, "Sorry, your request failed.")
+            }
+        }
+
         post("/upload") {
 
             try {
