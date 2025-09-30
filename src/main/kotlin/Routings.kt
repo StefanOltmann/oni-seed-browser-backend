@@ -1431,16 +1431,15 @@ private suspend fun createSearchIndexes() {
 
             val time = measureTime {
 
-                val clustersToIndex = clusterCollection.find(
-                    Filters.eq(Cluster::cluster.name, cluster.prefix)
-                ).batchSize(10000)
+                val clustersToIndex = clusterCollection
+                    .find(Filters.eq(Cluster::cluster.name, cluster.prefix))
+                    .sort(descending(Cluster::uploadDate.name))
+                    .batchSize(10000)
 
                 clustersToIndex.collect { cluster ->
 
                     searchIndex.add(cluster)
                 }
-
-                searchIndex.sort()
 
                 val protobufBytes = ProtoBuf.encodeToByteArray(searchIndex)
 
