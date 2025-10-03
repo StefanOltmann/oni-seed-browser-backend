@@ -1046,6 +1046,48 @@ private fun Application.configureRoutingInternal() {
             }
         }
 
+        get("/my-contributions") {
+
+            try {
+
+                val token: String? = this.call.request.headers[TOKEN_HEADER_WEBPAGE]
+
+                if (token.isNullOrBlank()) {
+                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER_WEBPAGE' header.")
+                    return@get
+                }
+
+                val jwt = jwtVerifier.verify(token)
+
+                val steamIdHash = jwt.claims["hash"]?.asString()
+
+                val contributorCollection = database.getCollection<Contributor>("contributors")
+
+                val contributor = contributorCollection
+                    .find(
+                        Filters.eq(Contributor::steamIdHash.name, steamIdHash)
+                    )
+                    .firstOrNull()
+
+                if (contributor != null)
+                    call.respond(
+                        status = HttpStatusCode.OK,
+                        message = contributor.mapCount.toString()
+                    )
+                else
+                    call.respond(
+                        status = HttpStatusCode.NotFound,
+                        message = "It looks like you didn't contribute yet."
+                    )
+
+            } catch (ex: Exception) {
+
+                log(ex)
+
+                call.respond(HttpStatusCode.InternalServerError, "Sorry, your request failed.")
+            }
+        }
+
         get("/health") {
 
             if (connectionString.isBlank()) {
