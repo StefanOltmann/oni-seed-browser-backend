@@ -181,6 +181,8 @@ private val backgroundScope = CoroutineScope(Dispatchers.Default)
 
 private val latestCoordinates = mutableListOf<String>()
 
+private var seedRequestCounter = 0L
+
 @OptIn(ExperimentalSerializationApi::class)
 fun Application.configureRouting() {
 
@@ -1015,6 +1017,14 @@ private fun Application.configureRoutingInternal() {
          * Provides requested coordinates to the running mod.
          */
         post("/requested-coordinate") {
+
+            /*
+             * Let every second call be random.
+             */
+            if (seedRequestCounter++ % 2L == 0L) {
+                call.respond(HttpStatusCode.OK, "")
+                return@post
+            }
 
             val dlcs = call.receive<List<Dlc>>().toMutableList()
 
