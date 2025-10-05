@@ -1019,9 +1019,9 @@ private fun Application.configureRoutingInternal() {
         post("/requested-coordinate") {
 
             /*
-             * Let every second call be random.
+             * Only answer every third request (to avoid blocking runners with seed requests).
              */
-            if (seedRequestCounter++ % 2L == 0L) {
+            if (seedRequestCounter++ % 3L == 0L) {
                 call.respond(HttpStatusCode.OK, "")
                 return@post
             }
