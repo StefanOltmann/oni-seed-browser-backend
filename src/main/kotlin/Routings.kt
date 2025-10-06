@@ -1018,13 +1018,23 @@ private fun Application.configureRoutingInternal() {
          */
         post("/requested-coordinate") {
 
-            val dlcs = call.receive<List<Dlc>>().toMutableList()
+            try {
 
-            /* If it's not SpacedOut, it's for the base game. */
-            if (!dlcs.contains(Dlc.SpacedOut))
-                dlcs.add(Dlc.BaseGame)
+                val dlcs = call.receive<List<Dlc>>().toMutableList()
 
-            handleGetRequestedCoordinate(call, dlcs)
+                /* If it's not SpacedOut, it's for the base game. */
+                if (!dlcs.contains(Dlc.SpacedOut))
+                    dlcs.add(Dlc.BaseGame)
+
+                handleGetRequestedCoordinate(call, dlcs)
+
+            } catch (ex: Exception) {
+
+                log(ex)
+
+                /* Send empty request to mod runners, so they can continue. */
+                call.respond(HttpStatusCode.OK, "")
+            }
         }
 
         get("/contributors") {
@@ -1130,7 +1140,7 @@ private suspend fun handleGetRequestedCoordinate(
 
     if (apiKey != System.getenv(MNI_API_KEY)) {
 
-        log("Unauthorized API key used by $ipAddress.")
+        log("[REQUEST] Unauthorized API key used by $ipAddress.")
 
         call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
 
@@ -1140,7 +1150,11 @@ private suspend fun handleGetRequestedCoordinate(
     val token: String? = call.request.headers[TOKEN_HEADER_WEBPAGE]
 
     if (token.isNullOrBlank()) {
+
+        log("[REQUEST] No token send by $ipAddress.")
+
         call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER_WEBPAGE' header.")
+
         return
     }
 
