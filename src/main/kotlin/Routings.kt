@@ -889,7 +889,7 @@ private fun Application.configureRoutingInternal() {
 
                 val duration = Clock.System.now().toEpochMilliseconds() - start
 
-                log("[UPLOAD] Ingested failed worldgen report in $duration ms by ${failedGenReport.userId}.")
+                log("[UPLOAD] Ingested failed worldgen report in $duration ms by $steamId.")
 
             } catch (ex: Exception) {
 
