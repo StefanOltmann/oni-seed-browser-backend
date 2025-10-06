@@ -1147,13 +1147,13 @@ private suspend fun handleGetRequestedCoordinate(
         return
     }
 
-    val token: String? = call.request.headers[TOKEN_HEADER_WEBPAGE]
+    val token: String? = call.request.headers[TOKEN_HEADER_MOD]
 
     if (token.isNullOrBlank()) {
 
         log("[REQUEST] No token send by $ipAddress.")
 
-        call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER_WEBPAGE' header.")
+        call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER_MOD' header.")
 
         return
     }
