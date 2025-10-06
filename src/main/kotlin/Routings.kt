@@ -1018,14 +1018,6 @@ private fun Application.configureRoutingInternal() {
          */
         post("/requested-coordinate") {
 
-            /*
-             * Only answer every third request (to avoid blocking runners with seed requests).
-             */
-            if (seedRequestCounter++ % 3L == 0L) {
-                call.respond(HttpStatusCode.OK, "")
-                return@post
-            }
-
             val dlcs = call.receive<List<Dlc>>().toMutableList()
 
             /* If it's not SpacedOut, it's for the base game. */
@@ -1145,18 +1137,39 @@ private suspend fun handleGetRequestedCoordinate(
         return
     }
 
+    val token: String? = call.request.headers[TOKEN_HEADER_WEBPAGE]
+
+    if (token.isNullOrBlank()) {
+        call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER_WEBPAGE' header.")
+        return
+    }
+
+    val jwt = jwtVerifier.verify(token)
+
+    val steamId = jwt.subject
+
+    var selfRequested = false
+
     /* Loop through the requests until we find something valid. */
     findseed@ while (true) {
 
         /*
          * Get the next coordinate waiting and set it to processing state so that
          * other mods won't get the same coordinate.
+         *
+         * First look for a coordinate the mod runner requested, so each contributor
+         * fulfills his/her own requests with priority.
          */
-        val requestedCoordinate = requestedCoordinatesCollection.findOneAndUpdate(
+        var requestedCoordinate = requestedCoordinatesCollection.findOneAndUpdate(
             Filters.and(
                 Filters.eq(
                     RequestedCoordinate::status.name,
                     RequestedCoordinateStatus.REQUESTED
+                ),
+                /* This is the important filter */
+                Filters.eq(
+                    RequestedCoordinate::steamId.name,
+                    steamId
                 ),
                 Filters.regex(
                     RequestedCoordinate::coordinate.name,
@@ -1165,6 +1178,37 @@ private suspend fun handleGetRequestedCoordinate(
             ),
             Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.PROCESSING)
         )
+
+        if (requestedCoordinate != null)
+            selfRequested = true
+
+        /*
+         * If the mod runner doesn't have an open request we take a random one from someone else.
+         */
+        if (requestedCoordinate == null) {
+
+            /*
+             * Only answer every third random request (to avoid blocking runners with seed requests).
+             */
+            if (seedRequestCounter++ % 3L == 0L) {
+                call.respond(HttpStatusCode.OK, "")
+                return
+            }
+
+            requestedCoordinate = requestedCoordinatesCollection.findOneAndUpdate(
+                Filters.and(
+                    Filters.eq(
+                        RequestedCoordinate::status.name,
+                        RequestedCoordinateStatus.REQUESTED
+                    ),
+                    Filters.regex(
+                        RequestedCoordinate::coordinate.name,
+                        ClusterType.createRegexPattern(dlcs)
+                    )
+                ),
+                Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.PROCESSING)
+            )
+        }
 
         if (requestedCoordinate == null) {
 
@@ -1181,9 +1225,7 @@ private suspend fun handleGetRequestedCoordinate(
             val coordinate = requestedCoordinate.coordinate
 
             val existingWorld: Cluster? = clusterCollection
-                .find(
-                    Filters.eq("coordinate", coordinate)
-                ).firstOrNull()
+                .find(Filters.eq("coordinate", coordinate)).firstOrNull()
 
             if (existingWorld != null) {
 
@@ -1196,7 +1238,7 @@ private suspend fun handleGetRequestedCoordinate(
                 continue@findseed
             }
 
-            log("[REQUEST] $coordinate delivered.")
+            log("[REQUEST] $coordinate delivered to $steamId (selfRequested = $selfRequested)")
 
             call.respond(HttpStatusCode.OK, coordinate)
 
