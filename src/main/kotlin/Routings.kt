@@ -1150,11 +1150,8 @@ private suspend fun handleGetRequestedCoordinate(
     val token: String? = call.request.headers[TOKEN_HEADER_MOD]
 
     if (token.isNullOrBlank()) {
-
-        log("[REQUEST] No token send by $ipAddress.")
-
-        call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER_MOD' header.")
-
+        log("[UPLOAD] Missing steam auth token for $ipAddress.")
+        call.respond(HttpStatusCode.Unauthorized, "Missing steam auth token.")
         return
     }
 
