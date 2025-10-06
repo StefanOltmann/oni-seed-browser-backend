@@ -1148,8 +1148,6 @@ private suspend fun handleGetRequestedCoordinate(
 
     val steamId = jwt.subject
 
-    var selfRequested = false
-
     /* Loop through the requests until we find something valid. */
     findseed@ while (true) {
 
@@ -1178,9 +1176,6 @@ private suspend fun handleGetRequestedCoordinate(
             ),
             Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.PROCESSING)
         )
-
-        if (requestedCoordinate != null)
-            selfRequested = true
 
         /*
          * If the mod runner doesn't have an open request we take a random one from someone else.
@@ -1238,7 +1233,7 @@ private suspend fun handleGetRequestedCoordinate(
                 continue@findseed
             }
 
-            log("[REQUEST] $coordinate delivered to $steamId (selfRequested = $selfRequested)")
+            log("[REQUEST] $coordinate delivered requested by ${requestedCoordinate.steamId} to $steamId")
 
             call.respond(HttpStatusCode.OK, coordinate)
 
