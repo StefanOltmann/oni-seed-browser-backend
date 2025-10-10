@@ -701,7 +701,7 @@ private fun Application.configureRoutingInternal() {
                             .`object`(upload.cluster.coordinate)
                             .headers(
                                 mapOf(
-                                    "Content-Type" to " application/json"
+                                    "Content-Type" to "application/json"
                                 )
                             )
                             .stream(originalBytes.inputStream(), originalBytes.size.toLong(), -1)
@@ -1544,7 +1544,9 @@ private suspend fun createSearchIndexes() {
 
     try {
 
-        var count = 0
+        var count = 0L
+
+        val countPerContributor = mutableMapOf<String, Long>()
 
         for (cluster in ClusterType.entries) {
 
@@ -1561,6 +1563,11 @@ private suspend fun createSearchIndexes() {
                     .batchSize(10000)
 
                 clustersToIndex.collect { cluster ->
+
+                    countPerContributor.putIfAbsent(
+                        cluster.uploaderSteamIdHash,
+                        (countPerContributor[cluster.uploaderSteamIdHash] ?: 0L) + 1
+                    )
 
                     searchIndex.add(cluster)
                 }
@@ -1612,6 +1619,30 @@ private suspend fun createSearchIndexes() {
                     )
                 )
                 .stream(countBytes.inputStream(), countBytes.size.toLong(), -1)
+                .build()
+        )
+
+        /*
+         * Save the contributors to S3
+         *
+         * This ensures it matches to the actual count
+         */
+
+        val countPerContributorBytes = strictJson.encodeToString(countPerContributor).encodeToByteArray()
+
+        minioClient.putObject(
+            PutObjectArgs
+                .builder()
+                .bucket("oni-search.stefanoltmann.de")
+                .`object`("contributors")
+                .headers(
+                    mapOf(
+                        "Content-Type" to "application/json",
+                        /* Cache for a day. */
+                        "Cache-Control" to "public, max-age=86400"
+                    )
+                )
+                .stream(countPerContributorBytes.inputStream(), countPerContributorBytes.size.toLong(), -1)
                 .build()
         )
 
