@@ -1254,7 +1254,7 @@ private suspend fun handleGetRequestedCoordinate(
                 continue@findseed
             }
 
-            log("[REQUEST] $coordinate delivered requested by ${requestedCoordinate.steamId} to $steamId")
+            log("[REQUEST] $coordinate requested by ${requestedCoordinate.steamId} delivered to $steamId")
 
             call.respond(HttpStatusCode.OK, coordinate)
 
