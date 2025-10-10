@@ -36,7 +36,6 @@ import com.mongodb.kotlin.client.coroutine.MongoDatabase
 import de.stefan_oltmann.oni.model.Cluster
 import de.stefan_oltmann.oni.model.ClusterExportCollection
 import de.stefan_oltmann.oni.model.ClusterType
-import de.stefan_oltmann.oni.model.Contributor
 import de.stefan_oltmann.oni.model.Dlc
 import de.stefan_oltmann.oni.model.search.SearchIndex
 import de.stefan_oltmann.oni.model.server.FailedGenReport
@@ -876,36 +875,6 @@ private fun Application.configureRoutingInternal() {
             }
         }
 
-        // DEPRECATED
-        get("/list-worldgen-failures") {
-
-            try {
-
-                val start = Clock.System.now().toEpochMilliseconds()
-
-                val collection = database.getCollection<Document>("failedWorldGenReports")
-
-                val coordinates: List<String> = collection.find()
-                    .projection(Projections.fields(Projections.include("coordinate")))
-                    .map { it["coordinate"] as String }
-                    .toList()
-
-                val asSimpleString = coordinates.sorted().joinToString("\n")
-
-                call.respond(asSimpleString)
-
-                val duration = Clock.System.now().toEpochMilliseconds() - start
-
-                log("[REPORT] Returned ${coordinates.size} worldgen failures in $duration ms.")
-
-            } catch (ex: Exception) {
-
-                log(ex)
-
-                call.respond(HttpStatusCode.BadRequest, "Failed to list worldgen failures")
-            }
-        }
-
         post("/request-coordinate") {
 
             try {
@@ -1012,70 +981,6 @@ private fun Application.configureRoutingInternal() {
 
                 /* Send empty request to mod runners, so they can continue. */
                 call.respond(HttpStatusCode.OK, "")
-            }
-        }
-
-        // DEPRECATED
-        get("/contributors") {
-
-            try {
-
-                val contributorCollection = database.getCollection<Contributor>("contributors")
-
-                val contributors = contributorCollection
-                    .find()
-                    .toList()
-                    .sortedByDescending { it.mapCount }
-
-                call.respond(contributors)
-
-            } catch (ex: Exception) {
-
-                log(ex)
-
-                call.respond(HttpStatusCode.InternalServerError, "Sorry, your request failed.")
-            }
-        }
-
-        get("/my-contributions") {
-
-            try {
-
-                val token: String? = this.call.request.headers[TOKEN_HEADER_WEBPAGE]
-
-                if (token.isNullOrBlank()) {
-                    call.respond(HttpStatusCode.BadRequest, "Missing '$TOKEN_HEADER_WEBPAGE' header.")
-                    return@get
-                }
-
-                val jwt = jwtVerifier.verify(token)
-
-                val steamIdHash = jwt.claims["hash"]?.asString()
-
-                val contributorCollection = database.getCollection<Contributor>("contributors")
-
-                val contributor = contributorCollection
-                    .find(
-                        Filters.eq(Contributor::steamIdHash.name, steamIdHash)
-                    )
-                    .firstOrNull()
-
-                if (contributor != null)
-                    call.respond(
-                        status = HttpStatusCode.OK,
-                        message = contributor.mapCount.toString()
-                    )
-                else
-                    call.respond(
-                        status = HttpStatusCode.NotFound,
-                        message = "It looks like you didn't contribute yet."
-                    )
-
-            } catch (ex: Exception) {
-
-                log(ex)
-
-                call.respond(HttpStatusCode.InternalServerError, "Sorry, your request failed.")
             }
         }
 
