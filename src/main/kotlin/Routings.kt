@@ -1168,13 +1168,13 @@ private suspend fun handleGetRequestedCoordinate(
         )
 
         /*
-         * If the mod runner doesn't have an open request we take a random one from someone else.
+         * If the mod runner doesn't have an open request, we take a random one from someone else.
          */
         if (requestedCoordinate == null) {
 
             /*
              * Only answer every third random request (to avoid blocking runners with seed requests).
-             * Count this per requesting steam ID, so every runner runs an equal amount of requested
+             * Count this per requesting steam ID, so every runner runs an equal number of requested
              * seeds by others.
              */
 
