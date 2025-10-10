@@ -1646,6 +1646,35 @@ private suspend fun createSearchIndexes() {
                 .build()
         )
 
+        /**
+         * Also upload failed worldgens
+         */
+
+        val collection = database.getCollection<Document>("failedWorldGenReports")
+
+        val coordinates: List<String> = collection.find()
+            .projection(Projections.fields(Projections.include("coordinate")))
+            .map { it["coordinate"] as String }
+            .toList()
+
+        val failedWorldGenReportsBytes = coordinates.sorted().joinToString("\n").encodeToByteArray()
+
+        minioClient.putObject(
+            PutObjectArgs
+                .builder()
+                .bucket("oni-search.stefanoltmann.de")
+                .`object`("failed-worldgens")
+                .headers(
+                    mapOf(
+                        "Content-Type" to "text/plain",
+                        /* Cache for a day. */
+                        "Cache-Control" to "public, max-age=86400"
+                    )
+                )
+                .stream(failedWorldGenReportsBytes.inputStream(), failedWorldGenReportsBytes.size.toLong(), -1)
+                .build()
+        )
+
         val duration = Clock.System.now().toEpochMilliseconds() - start
 
         log("[INDEX] Created search indexes in $duration ms.")
