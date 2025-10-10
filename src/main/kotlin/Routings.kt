@@ -745,30 +745,6 @@ private fun Application.configureRoutingInternal() {
                         Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.COMPLETED)
                     )
 
-//                /* Update the contributor info */
-//
-//                val newMapCount = countMapsForUploader(database, uploaderSteamIdHash)
-//
-//                val contributorsCollection =
-//                    database.getCollection<Contributor>("contributors")
-//
-//                val updateResult = contributorsCollection.updateOne(
-//                    Filters.eq("steamIdHash", uploaderSteamIdHash),
-//                    Updates.set("mapCount", newMapCount)
-//                )
-//
-//                /* For the first contribution we need to create a new entry. */
-//                if (updateResult.matchedCount == 0L) {
-//
-//                    contributorsCollection.insertOne(
-//                        Contributor(
-//                            steamIdHash = uploaderSteamIdHash,
-//                            username = null,
-//                            mapCount = newMapCount
-//                        )
-//                    )
-//                }
-
                 uploadMapToS3(minioClient, optimizedCluster)
 
                 call.respond(HttpStatusCode.OK, "Data was saved.")
@@ -1383,54 +1359,6 @@ private suspend fun cleanMaps() {
     }
 }
 
-//@OptIn(ExperimentalTime::class)
-//private suspend fun createContributorTable() {
-//
-//    log("Creating contributor table...")
-//
-//    val start = Clock.System.now().toEpochMilliseconds()
-//
-//    try {
-//
-//        val uploadCollection = database.getCollection<Document>("worlds")
-//
-//        val aggregation = listOf(
-//            Aggregates.group("\$uploaderSteamIdHash", Accumulators.sum("count", 1)),
-//            Aggregates.sort(descending("count"))
-//        )
-//
-//        val counts = uploadCollection.aggregate(aggregation)
-//            .map { it.getString("_id") to it.getInteger("count") } // Extract userId and count
-//            .toList()
-//            .toMap()
-//
-//        val contributorsCollection = database.getCollection<Contributor>("contributors")
-//
-//        for (entry in counts) {
-//
-//            contributorsCollection.deleteOne(
-//                Filters.eq("steamIdHash", entry.key)
-//            )
-//
-//            contributorsCollection.insertOne(
-//                Contributor(
-//                    steamIdHash = entry.key,
-//                    username = null,
-//                    mapCount = entry.value
-//                )
-//            )
-//        }
-//
-//        val duration = Clock.System.now().toEpochMilliseconds() - start
-//
-//        log("Created contributor table in $duration ms.")
-//
-//    } catch (ex: Exception) {
-//
-//        log(ex)
-//    }
-//}
-
 @OptIn(ExperimentalSerializationApi::class)
 private fun uploadMapToS3(
     minioClient: MinioClient,
@@ -1562,14 +1490,13 @@ private suspend fun createSearchIndexes() {
                 val clustersToIndex = clusterCollection
                     .find(Filters.eq(Cluster::cluster.name, cluster.prefix))
                     .sort(descending(Cluster::uploadDate.name))
-                    .batchSize(10000)
+                    .batchSize(20000)
 
                 clustersToIndex.collect { cluster ->
 
-                    countPerContributor.putIfAbsent(
-                        cluster.uploaderSteamIdHash,
+                    /* Increase count */
+                    countPerContributor[cluster.uploaderSteamIdHash] =
                         (countPerContributor[cluster.uploaderSteamIdHash] ?: 0L) + 1
-                    )
 
                     searchIndex.add(cluster)
                 }
