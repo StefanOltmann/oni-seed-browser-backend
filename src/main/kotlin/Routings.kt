@@ -24,7 +24,6 @@ import com.mongodb.ConnectionString
 import com.mongodb.MongoClientSettings
 import com.mongodb.ServerApi
 import com.mongodb.ServerApiVersion
-import com.mongodb.client.model.Accumulators
 import com.mongodb.client.model.Aggregates
 import com.mongodb.client.model.Filters
 import com.mongodb.client.model.FindOneAndUpdateOptions
@@ -241,7 +240,7 @@ private fun Application.configureRoutingInternal() {
 
         // cleanMaps()
 
-        createContributorTable()
+        // createContributorTable()
 
         // copyMapsToS3()
 
@@ -745,29 +744,29 @@ private fun Application.configureRoutingInternal() {
                         Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.COMPLETED)
                     )
 
-                /* Update the contributor info */
-
-                val newMapCount = countMapsForUploader(database, uploaderSteamIdHash)
-
-                val contributorsCollection =
-                    database.getCollection<Contributor>("contributors")
-
-                val updateResult = contributorsCollection.updateOne(
-                    Filters.eq("steamIdHash", uploaderSteamIdHash),
-                    Updates.set("mapCount", newMapCount)
-                )
-
-                /* For the first contribution we need to create a new entry. */
-                if (updateResult.matchedCount == 0L) {
-
-                    contributorsCollection.insertOne(
-                        Contributor(
-                            steamIdHash = uploaderSteamIdHash,
-                            username = null,
-                            mapCount = newMapCount
-                        )
-                    )
-                }
+//                /* Update the contributor info */
+//
+//                val newMapCount = countMapsForUploader(database, uploaderSteamIdHash)
+//
+//                val contributorsCollection =
+//                    database.getCollection<Contributor>("contributors")
+//
+//                val updateResult = contributorsCollection.updateOne(
+//                    Filters.eq("steamIdHash", uploaderSteamIdHash),
+//                    Updates.set("mapCount", newMapCount)
+//                )
+//
+//                /* For the first contribution we need to create a new entry. */
+//                if (updateResult.matchedCount == 0L) {
+//
+//                    contributorsCollection.insertOne(
+//                        Contributor(
+//                            steamIdHash = uploaderSteamIdHash,
+//                            username = null,
+//                            mapCount = newMapCount
+//                        )
+//                    )
+//                }
 
                 uploadMapToS3(minioClient, optimizedCluster)
 
@@ -900,6 +899,7 @@ private fun Application.configureRoutingInternal() {
             }
         }
 
+        // DEPRECATED
         get("/list-worldgen-failures") {
 
             try {
@@ -1038,6 +1038,7 @@ private fun Application.configureRoutingInternal() {
             }
         }
 
+        // DEPRECATED
         get("/contributors") {
 
             try {
@@ -1381,53 +1382,53 @@ private suspend fun cleanMaps() {
     }
 }
 
-@OptIn(ExperimentalTime::class)
-private suspend fun createContributorTable() {
-
-    log("Creating contributor table...")
-
-    val start = Clock.System.now().toEpochMilliseconds()
-
-    try {
-
-        val uploadCollection = database.getCollection<Document>("worlds")
-
-        val aggregation = listOf(
-            Aggregates.group("\$uploaderSteamIdHash", Accumulators.sum("count", 1)),
-            Aggregates.sort(descending("count"))
-        )
-
-        val counts = uploadCollection.aggregate(aggregation)
-            .map { it.getString("_id") to it.getInteger("count") } // Extract userId and count
-            .toList()
-            .toMap()
-
-        val contributorsCollection = database.getCollection<Contributor>("contributors")
-
-        for (entry in counts) {
-
-            contributorsCollection.deleteOne(
-                Filters.eq("steamIdHash", entry.key)
-            )
-
-            contributorsCollection.insertOne(
-                Contributor(
-                    steamIdHash = entry.key,
-                    username = null,
-                    mapCount = entry.value
-                )
-            )
-        }
-
-        val duration = Clock.System.now().toEpochMilliseconds() - start
-
-        log("Created contributor table in $duration ms.")
-
-    } catch (ex: Exception) {
-
-        log(ex)
-    }
-}
+//@OptIn(ExperimentalTime::class)
+//private suspend fun createContributorTable() {
+//
+//    log("Creating contributor table...")
+//
+//    val start = Clock.System.now().toEpochMilliseconds()
+//
+//    try {
+//
+//        val uploadCollection = database.getCollection<Document>("worlds")
+//
+//        val aggregation = listOf(
+//            Aggregates.group("\$uploaderSteamIdHash", Accumulators.sum("count", 1)),
+//            Aggregates.sort(descending("count"))
+//        )
+//
+//        val counts = uploadCollection.aggregate(aggregation)
+//            .map { it.getString("_id") to it.getInteger("count") } // Extract userId and count
+//            .toList()
+//            .toMap()
+//
+//        val contributorsCollection = database.getCollection<Contributor>("contributors")
+//
+//        for (entry in counts) {
+//
+//            contributorsCollection.deleteOne(
+//                Filters.eq("steamIdHash", entry.key)
+//            )
+//
+//            contributorsCollection.insertOne(
+//                Contributor(
+//                    steamIdHash = entry.key,
+//                    username = null,
+//                    mapCount = entry.value
+//                )
+//            )
+//        }
+//
+//        val duration = Clock.System.now().toEpochMilliseconds() - start
+//
+//        log("Created contributor table in $duration ms.")
+//
+//    } catch (ex: Exception) {
+//
+//        log(ex)
+//    }
+//}
 
 @OptIn(ExperimentalSerializationApi::class)
 private fun uploadMapToS3(
