@@ -27,6 +27,7 @@ import com.mongodb.ServerApiVersion
 import com.mongodb.client.model.Accumulators
 import com.mongodb.client.model.Aggregates
 import com.mongodb.client.model.Filters
+import com.mongodb.client.model.FindOneAndUpdateOptions
 import com.mongodb.client.model.IndexOptions
 import com.mongodb.client.model.Projections
 import com.mongodb.client.model.Sorts.descending
@@ -1209,7 +1210,7 @@ private suspend fun handleGetRequestedCoordinate(
             }
 
             requestedCoordinate = requestedCoordinatesCollection.findOneAndUpdate(
-                Filters.and(
+                filter = Filters.and(
                     Filters.eq(
                         RequestedCoordinate::status.name,
                         RequestedCoordinateStatus.REQUESTED
@@ -1219,7 +1220,9 @@ private suspend fun handleGetRequestedCoordinate(
                         ClusterType.createRegexPattern(dlcs)
                     )
                 ),
-                Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.PROCESSING)
+                update = Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.PROCESSING),
+                options = FindOneAndUpdateOptions()
+                    .sort(descending(RequestedCoordinate::date.name))
             )
         }
 
