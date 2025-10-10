@@ -1472,11 +1472,11 @@ private suspend fun createSearchIndexes() {
 
     val start = Clock.System.now().toEpochMilliseconds()
 
+    var count = 0L
+
+    val countPerContributor = mutableMapOf<String, Long>()
+
     try {
-
-        var count = 0L
-
-        val countPerContributor = mutableMapOf<String, Long>()
 
         for (cluster in ClusterType.entries) {
 
@@ -1556,6 +1556,8 @@ private suspend fun createSearchIndexes() {
          *
          * This ensures it matches to the actual count
          */
+
+        log("[INDEX] Saving contributors to S3: $countPerContributor")
 
         val countPerContributorBytes = strictJson.encodeToString(countPerContributor).encodeToByteArray()
 
