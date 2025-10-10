@@ -115,6 +115,7 @@ const val MNI_PURGE_API_KEY = "MNI_PURGE_API_KEY"
 const val MNI_DATABASE_EXPORT_API_KEY = "MNI_DATABASE_EXPORT_API_KEY"
 
 const val S3_WORLDS_BUCKET = "oni-data.stefanoltmann.de"
+const val S3_SEARCH_BUCKET = "oni-search.stefanoltmann.de"
 
 private val connectionString: String = System.getenv("MNI_MONGO_DB_CONNECTION_STRING") ?: ""
 
@@ -1580,7 +1581,7 @@ private suspend fun createSearchIndexes() {
                 minioClient.putObject(
                     PutObjectArgs
                         .builder()
-                        .bucket("oni-search.stefanoltmann.de")
+                        .bucket(S3_SEARCH_BUCKET)
                         .`object`(cluster.prefix)
                         .headers(
                             mapOf(
@@ -1610,7 +1611,7 @@ private suspend fun createSearchIndexes() {
         minioClient.putObject(
             PutObjectArgs
                 .builder()
-                .bucket("oni-search.stefanoltmann.de")
+                .bucket(S3_SEARCH_BUCKET)
                 .`object`("count")
                 .headers(
                     mapOf(
@@ -1634,7 +1635,7 @@ private suspend fun createSearchIndexes() {
         minioClient.putObject(
             PutObjectArgs
                 .builder()
-                .bucket("oni-search.stefanoltmann.de")
+                .bucket(S3_SEARCH_BUCKET)
                 .`object`("contributors")
                 .headers(
                     mapOf(
@@ -1663,7 +1664,7 @@ private suspend fun createSearchIndexes() {
         minioClient.putObject(
             PutObjectArgs
                 .builder()
-                .bucket("oni-search.stefanoltmann.de")
+                .bucket(S3_SEARCH_BUCKET)
                 .`object`("failed-worldgens")
                 .headers(
                     mapOf(
