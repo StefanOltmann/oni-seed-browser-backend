@@ -1010,7 +1010,7 @@ private fun Application.configureRoutingInternal() {
 }
 
 private fun findCurrentGameVersion(): Int {
-    return 679336 // Current version as of 2025-09-21
+    return 693461 // Current version as of 2025-10-11
 }
 
 private suspend fun handleGetRequestedCoordinate(
