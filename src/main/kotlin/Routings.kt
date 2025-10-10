@@ -181,7 +181,7 @@ private val backgroundScope = CoroutineScope(Dispatchers.Default)
 
 private val latestCoordinates = mutableListOf<String>()
 
-private var seedRequestCounter = 0L
+private val seedRequestCounterMap = mutableMapOf<String, Long>()
 
 @OptIn(ExperimentalSerializationApi::class)
 fun Application.configureRouting() {
@@ -1195,8 +1195,15 @@ private suspend fun handleGetRequestedCoordinate(
 
             /*
              * Only answer every third random request (to avoid blocking runners with seed requests).
+             * Count this per requesting steam ID, so every runner runs an equal amount of requested
+             * seeds by others.
              */
-            if (seedRequestCounter++ % 3L == 0L) {
+
+            val seedRequestCounter = (seedRequestCounterMap[steamId] ?: 0) + 1
+
+            seedRequestCounterMap[steamId] = seedRequestCounter
+
+            if (seedRequestCounter % 3L == 0L) {
                 call.respond(HttpStatusCode.OK, "")
                 return
             }
