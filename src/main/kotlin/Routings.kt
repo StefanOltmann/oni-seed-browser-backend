@@ -251,11 +251,13 @@ private fun Application.configureRoutingInternal() {
 
         // createContributorTable()
 
-        // copyMapsToS3()
+        copyMapsToS3()
 
         // createSearchIndexes()
 
         populateDatabaseSearchIndexes()
+
+        populateDatabaseWorld()
     }
 
     routing {
@@ -1507,6 +1509,59 @@ private suspend fun copyMapsToS3() {
         val duration = Clock.System.now().toEpochMilliseconds() - start
 
         log("[S3] Completed in $duration ms. Added $addedCount.")
+
+    } catch (ex: Exception) {
+
+        log(ex)
+    }
+}
+
+@OptIn(ExperimentalSerializationApi::class, ExperimentalTime::class)
+private suspend fun populateDatabaseWorld() {
+
+    log("[TRANSFER] Add worlds to database ...")
+
+    val start = Clock.System.now().toEpochMilliseconds()
+
+    try {
+
+        for (cluster in ClusterType.entries) {
+
+            val time = measureTime {
+
+                val clustersToIndex = clusterCollection
+                    .find(Filters.eq(Cluster::cluster.name, cluster.prefix))
+                    .sort(descending(Cluster::uploadDate.name))
+                    .batchSize(20000)
+
+                clustersToIndex.collect { cluster ->
+
+                    val protobufBytes = ProtoBuf.encodeToByteArray(cluster)
+
+                    val compressedBytes = ZipUtil.zipBytes(
+                        originalBytes = protobufBytes
+                    )
+
+                    transaction {
+
+                        WorldsTable.insertIgnore {
+                            it[WorldsTable.coordinate] = cluster.coordinate
+                            it[WorldsTable.clusterTypeId] = cluster.cluster.id.toInt()
+                            it[WorldsTable.gameVersion] = cluster.gameVersion
+                            it[WorldsTable.uploaderSteamIdHash] = uploaderSteamIdHash
+                            it[WorldsTable.uploadDate] = uploadDate
+                            it[WorldsTable.data] = compressedBytes
+                        }
+                    }
+                }
+            }
+
+            log("[TRANSFER] Processed ${cluster.prefix} in $time.")
+        }
+
+        val duration = Clock.System.now().toEpochMilliseconds() - start
+
+        log("[TRANSFER] Added missing worlds in $duration ms.")
 
     } catch (ex: Exception) {
 
