@@ -249,8 +249,6 @@ private fun Application.configureRoutingInternal() {
 
         // cleanMaps()
 
-        // createContributorTable()
-
         // createSearchIndexes()
 
         populateDatabaseSearchIndexes()
