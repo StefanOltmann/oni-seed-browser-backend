@@ -36,14 +36,14 @@ object DatabaseFactory {
         val password = System.getenv("MNI_DATABASE_PASSWORD")
             ?: error("MNI_DATABASE_PASSWORD environment variable not set")
 
-        Database.connect(
+        val db = Database.connect(
             url = url,
             driver = "org.postgresql.Driver",
             user = username,
             password = password
         )
 
-        transaction {
+        transaction(db) {
 
             addLogger(StdOutSqlLogger)
 
