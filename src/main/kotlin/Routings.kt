@@ -244,7 +244,7 @@ private fun Application.configureRoutingInternal() {
 
         // copyMapsToS3()
 
-        createSearchIndexes()
+        // createSearchIndexes()
     }
 
     routing {
