@@ -1536,10 +1536,12 @@ private suspend fun createSearchIndexes() {
 
             val time = measureTime {
 
-                val resultRows = SearchIndexTable
-                    .select(SearchIndexTable.clusterTypeId eq cluster.id.toInt())
-                    .orderBy(SearchIndexTable.uploadDate to SortOrder.DESC)
-                    .asFlow()
+                val resultRows = transaction {
+                    SearchIndexTable
+                        .select(SearchIndexTable.clusterTypeId eq cluster.id.toInt())
+                        .orderBy(SearchIndexTable.uploadDate to SortOrder.DESC)
+                        .asFlow()
+                }
 
                 val summaries = mutableListOf<ClusterSummaryCompact>()
 
