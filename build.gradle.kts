@@ -57,6 +57,7 @@ dependencies {
      * Ktor server
      */
     implementation(libs.bundles.ktor.server)
+    implementation(libs.logback.classic)
 
     /*
      * Ktor client
