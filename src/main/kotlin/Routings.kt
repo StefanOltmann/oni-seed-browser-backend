@@ -859,7 +859,7 @@ private fun Application.configureRoutingInternal() {
                 val apiKey: String? = this.call.request.headers[MNI_API_KEY]
 
                 if (apiKey != System.getenv(MNI_API_KEY)) {
-                    log("Unauthorized API key used by $ipAddress.")
+                    log("[WORLDGENFAIL] Unauthorized API key used by $ipAddress.")
                     call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
                     return@post
                 }
@@ -867,7 +867,7 @@ private fun Application.configureRoutingInternal() {
                 val token: String? = this.call.request.headers[TOKEN_HEADER_MOD]
 
                 if (token.isNullOrBlank()) {
-                    log("[UPLOAD] Missing steam auth token for $ipAddress.")
+                    log("[WORLDGENFAIL] Missing steam auth token for $ipAddress.")
                     call.respond(HttpStatusCode.Unauthorized, "Missing steam auth token.")
                     return@post
                 }
@@ -878,7 +878,7 @@ private fun Application.configureRoutingInternal() {
 
                 } catch (ex: Exception) {
 
-                    log("[UPLOAD] Rejected invalid token from $ipAddress: ${ex.stackTraceToString()}")
+                    log("[WORLDGENFAIL] Rejected invalid token from $ipAddress: ${ex.stackTraceToString()}")
                     call.respond(HttpStatusCode.Unauthorized, "Invalid token.")
                     return@post
                 }
@@ -888,7 +888,7 @@ private fun Application.configureRoutingInternal() {
                 val uploaderSteamIdHash: String? = jwt.claims["hash"]?.asString()
 
                 if (uploaderSteamIdHash.isNullOrBlank()) {
-                    log("[UPLOAD] Rejected: Missing steam ID hash in token for $steamId.")
+                    log("[WORLDGENFAIL] Rejected: Missing steam ID hash in token for $steamId.")
                     call.respond(HttpStatusCode.Unauthorized, "Missing steam ID hash in token.")
                     return@post
                 }
@@ -903,7 +903,7 @@ private fun Application.configureRoutingInternal() {
 
                 if (failedGenReportCheckResult is FailedGenReportCheckResult.Error) {
 
-                    log("[UPLOAD] Rejected failed world gen report: ${failedGenReportCheckResult.message} ($steamId)")
+                    log("[WORLDGENFAIL] Rejected failed world gen report: ${failedGenReportCheckResult.message} ($steamId)")
 
                     call.respond(HttpStatusCode.NotAcceptable, failedGenReportCheckResult.message)
 
@@ -959,7 +959,7 @@ private fun Application.configureRoutingInternal() {
 
                 val duration = Clock.System.now().toEpochMilliseconds() - start
 
-                log("[UPLOAD] Worldgen failure: ${failedGenReport.coordinate} reported by $steamId in $duration ms")
+                log("[WORLDGENFAIL] ${failedGenReport.coordinate} reported by $steamId in $duration ms")
 
             } catch (ex: Exception) {
 
