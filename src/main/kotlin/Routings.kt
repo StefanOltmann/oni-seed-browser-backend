@@ -55,7 +55,6 @@ import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.install
-import io.ktor.server.application.log
 import io.ktor.server.plugins.compression.Compression
 import io.ktor.server.plugins.compression.gzip
 import io.ktor.server.plugins.compression.matchContentType
@@ -202,7 +201,7 @@ private fun Application.configureRoutingInternal() {
 
     val startTime = Clock.System.now().toEpochMilliseconds()
 
-    log.info("Starting Server at version $VERSION")
+    println("[INIT] Starting Server at version $VERSION")
 
     install(ContentNegotiation) {
         json(strictJson)
