@@ -80,7 +80,7 @@ object FailedWorldGenReportsTable : Table("failed_world_gen_reports") {
     val ipAddress = text("ip_address")
     val reportDate = long("report_date")
 
-    val gameVersion = integer("game_version")
+    val gameVersion = text("game_version")
 
     val fileHashesJson = text("file_hashes_json")
 

@@ -951,7 +951,7 @@ private fun Application.configureRoutingInternal() {
                         it[FailedWorldGenReportsTable.ipAddress] = ipAddress
                         it[FailedWorldGenReportsTable.reportDate] = System.currentTimeMillis()
 
-                        it[FailedWorldGenReportsTable.gameVersion] = failedGenReport.gameVersion.toInt()
+                        it[FailedWorldGenReportsTable.gameVersion] = failedGenReport.gameVersion
                         it[FailedWorldGenReportsTable.fileHashesJson] =
                             strictJson.encodeToString(failedGenReport.fileHashes)
                     }
