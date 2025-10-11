@@ -24,7 +24,6 @@ import com.mongodb.ConnectionString
 import com.mongodb.MongoClientSettings
 import com.mongodb.ServerApi
 import com.mongodb.ServerApiVersion
-import com.mongodb.client.model.Aggregates
 import com.mongodb.client.model.Filters
 import com.mongodb.client.model.FindOneAndUpdateOptions
 import com.mongodb.client.model.IndexOptions
@@ -32,7 +31,6 @@ import com.mongodb.client.model.Projections
 import com.mongodb.client.model.Sorts.descending
 import com.mongodb.client.model.Updates
 import com.mongodb.kotlin.client.coroutine.MongoClient
-import com.mongodb.kotlin.client.coroutine.MongoDatabase
 import de.stefan_oltmann.oni.model.Cluster
 import de.stefan_oltmann.oni.model.ClusterExportCollection
 import de.stefan_oltmann.oni.model.ClusterType
@@ -114,6 +112,7 @@ const val MNI_DATABASE_EXPORT_API_KEY = "MNI_DATABASE_EXPORT_API_KEY"
 
 const val S3_WORLDS_BUCKET = "oni-data.stefanoltmann.de"
 const val S3_SEARCH_BUCKET = "oni-search.stefanoltmann.de"
+const val S3_METADATA_BUCKET = "oni-upload-metadata"
 
 private val connectionString: String = System.getenv("MNI_MONGO_DB_CONNECTION_STRING") ?: ""
 
@@ -685,7 +684,7 @@ private fun Application.configureRoutingInternal() {
                 }
 
                 /*
-                 * Save the upload to database.
+                 * Save the upload to database
                  */
 
                 try {
@@ -730,10 +729,6 @@ private fun Application.configureRoutingInternal() {
                     uploadDate = uploadDate
                 )
 
-                val uploadCollection = database.getCollection<UploadMetadata>("uploads")
-
-                uploadCollection.insertOne(uploadMetadata)
-
                 clusterCollection.insertOne(optimizedCluster)
 
                 /* Mark any requested coordinates as completed */
@@ -744,6 +739,8 @@ private fun Application.configureRoutingInternal() {
                     )
 
                 uploadMapToS3(minioClient, optimizedCluster)
+
+                uploadMetadataToS3(minioClient, uploadMetadata)
 
                 call.respond(HttpStatusCode.OK, "Data was saved.")
 
@@ -1162,21 +1159,6 @@ private fun ApplicationCall.getIpAddress(): String =
     request.headers["X-Forwarded-For"]?.split(",")?.firstOrNull()?.trim()
         ?: request.origin.remoteAddress
 
-private suspend fun countMapsForUploader(
-    database: MongoDatabase,
-    uploaderSteamIdHash: String
-): Int {
-
-    val worldsCollection = database.getCollection<Document>("worlds")
-
-    val pipeline = listOf(
-        Aggregates.match(Filters.eq("uploaderSteamIdHash", uploaderSteamIdHash)),
-        Aggregates.count("count")
-    )
-
-    return worldsCollection.aggregate(pipeline).firstOrNull()?.getInteger("count") ?: 0
-}
-
 private suspend fun setMissingIndices() {
 
     /*
@@ -1218,12 +1200,6 @@ private suspend fun setMissingIndices() {
 
             clusterCollection
                 .createIndex(Document("cluster", 1))
-
-            database.getCollection<Document>("uploads")
-                .createIndex(Document("uploadDate", 1))
-
-            database.getCollection<Document>("uploads")
-                .createIndex(Document("installationId", 1))
         }
 
         log("[INIT] Missing indexes set in $time.")
@@ -1281,6 +1257,36 @@ private fun uploadMapToS3(
             .builder()
             .bucket(S3_WORLDS_BUCKET)
             .`object`(cluster.coordinate)
+            .headers(
+                mapOf(
+                    "Content-Type" to " application/protobuf",
+                    "Content-Encoding" to "gzip",
+                    /* Cache for 10 years; we manually purge caches. */
+                    "Cache-Control" to "public, max-age=315360000, immutable"
+                )
+            )
+            .stream(compressedBytes.inputStream(), compressedBytes.size.toLong(), -1)
+            .build()
+    )
+}
+
+@OptIn(ExperimentalSerializationApi::class)
+private fun uploadMetadataToS3(
+    minioClient: MinioClient,
+    uploadMetadata: UploadMetadata
+) {
+
+    val protobufBytes = ProtoBuf.encodeToByteArray(uploadMetadata)
+
+    val compressedBytes = ZipUtil.zipBytes(
+        originalBytes = protobufBytes
+    )
+
+    minioClient.putObject(
+        PutObjectArgs
+            .builder()
+            .bucket(S3_METADATA_BUCKET)
+            .`object`(uploadMetadata.coordinate)
             .headers(
                 mapOf(
                     "Content-Type" to " application/protobuf",
