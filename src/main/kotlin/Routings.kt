@@ -92,7 +92,7 @@ import org.bson.Document
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.match
+import org.jetbrains.exposed.v1.core.regexp
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.insertIgnore
@@ -1169,7 +1169,7 @@ private suspend fun handleGetRequestedCoordinate(
                 )
                 .where {
                     (RequestedCoordinatesTable.steamId eq steamId) and
-                        RequestedCoordinatesTable.coordinate.match(regexPattern)
+                        RequestedCoordinatesTable.coordinate.regexp(regexPattern)
                 }
                 .limit(1)
                 .firstOrNull()
@@ -1217,7 +1217,7 @@ private suspend fun handleGetRequestedCoordinate(
                         RequestedCoordinatesTable.steamId,
                         RequestedCoordinatesTable.date
                     )
-                    .where { RequestedCoordinatesTable.coordinate.match(regexPattern) }
+                    .where { RequestedCoordinatesTable.coordinate.regexp(regexPattern) }
                     .orderBy(RequestedCoordinatesTable.date, SortOrder.DESC)
                     .limit(1)
                     .firstOrNull()
