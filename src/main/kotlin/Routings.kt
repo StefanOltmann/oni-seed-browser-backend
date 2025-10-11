@@ -26,7 +26,6 @@ import com.mongodb.ServerApi
 import com.mongodb.ServerApiVersion
 import com.mongodb.client.model.Filters
 import com.mongodb.client.model.IndexOptions
-import com.mongodb.client.model.Projections
 import com.mongodb.client.model.Sorts.descending
 import com.mongodb.kotlin.client.coroutine.MongoClient
 import db.FailedWorldGenReportsTable
@@ -42,8 +41,6 @@ import de.stefan_oltmann.oni.model.search.ClusterSummaryCompact
 import de.stefan_oltmann.oni.model.search.SearchIndex
 import de.stefan_oltmann.oni.model.server.FailedGenReport
 import de.stefan_oltmann.oni.model.server.FailedGenReportCheckResult
-import de.stefan_oltmann.oni.model.server.FailedGenReportDatabase
-import de.stefan_oltmann.oni.model.server.RequestedCoordinate
 import de.stefan_oltmann.oni.model.server.Upload
 import de.stefan_oltmann.oni.model.server.UploadCheckResult
 import de.stefan_oltmann.oni.model.server.upload.UploadMetadata
@@ -81,8 +78,6 @@ import io.sentry.Sentry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.encodeToByteArray
@@ -167,12 +162,6 @@ private val database = mongoClient.getDatabase("oni")
 private val clusterCollection =
     database.getCollection<Cluster>("worlds")
 
-private val requestedCoordinatesCollection =
-    database.getCollection<RequestedCoordinate>("requestedCoordinates")
-
-private val failedWorldGenReportsCollection =
-    database.getCollection<FailedGenReportDatabase>("failedWorldGenReports")
-
 private val strictJson = Json {
 
     ignoreUnknownKeys = false
@@ -252,8 +241,6 @@ private fun Application.configureRoutingInternal() {
         // createSearchIndexes()
 
         populateDatabaseSearchIndexes()
-
-        populateDatabaseFailedWorldgens()
 
         populateDatabaseWorld()
     }
@@ -589,8 +576,12 @@ private fun Application.configureRoutingInternal() {
                     return@get
                 }
 
-                val isKnownFailedWorld = failedWorldGenReportsCollection
-                    .countDocuments(Filters.eq(Cluster::coordinate.name, coordinate)) > 0
+                val isKnownFailedWorld = transaction {
+                    FailedWorldGenReportsTable
+                        .select(FailedWorldGenReportsTable.coordinate)
+                        .where { FailedWorldGenReportsTable.coordinate eq coordinate }
+                        .empty().not()
+                }
 
                 if (isKnownFailedWorld) {
 
@@ -911,20 +902,6 @@ private fun Application.configureRoutingInternal() {
                 }
 
                 /*
-                 * MongoDB update
-                 */
-
-                val failedGenReportDatabase = FailedGenReportDatabase(
-                    userId = failedGenReport.userId,
-                    installationId = failedGenReport.installationId,
-                    gameVersion = failedGenReport.gameVersion,
-                    fileHashes = failedGenReport.fileHashes,
-                    reportDate = Clock.System.now().toEpochMilliseconds(),
-                    ipAddress = ipAddress,
-                    coordinate = failedGenReport.coordinate
-                )
-
-                /*
                  * Database update
                  */
 
@@ -944,12 +921,6 @@ private fun Application.configureRoutingInternal() {
                             strictJson.encodeToString(failedGenReport.fileHashes)
                     }
                 }
-
-                /*
-                 * MongoDB
-                 */
-
-                failedWorldGenReportsCollection.insertOne(failedGenReportDatabase)
 
                 /*
                  * Finalize
@@ -1291,16 +1262,6 @@ private suspend fun setMissingIndices() {
             clusterCollection
                 .createIndex(Document("coordinate", 1), uniqueIndexOptions)
 
-            database.getCollection<Document>("uploads")
-                .createIndex(Document("coordinate", 1), uniqueIndexOptions)
-
-            failedWorldGenReportsCollection
-                .createIndex(Document("coordinate", 1), uniqueIndexOptions)
-
-            /*
-             * Indexes for aggregation speed
-             */
-
             clusterCollection
                 .createIndex(Document("uploaderSteamIdHash", 1))
 
@@ -1627,68 +1588,6 @@ private suspend fun populateDatabaseSearchIndexes() {
 }
 
 @OptIn(ExperimentalSerializationApi::class, ExperimentalTime::class)
-private suspend fun populateDatabaseFailedWorldgens() {
-
-    log("[INDEX] Add failed worldgen to database ...")
-
-    val start = Clock.System.now().toEpochMilliseconds()
-
-    try {
-
-        val time = measureTime {
-
-            val failedReportsToMigrate = failedWorldGenReportsCollection
-                .find()
-                .batchSize(20000)
-
-            val existingCoordinates = transaction {
-
-                val set = HashSet<String>()
-
-                exec("SELECT coordinate FROM failed_world_gen_reports") { rs ->
-
-                    while (rs.next())
-                        set.add(rs.getString(1))
-                }
-
-                set
-            }
-
-            failedReportsToMigrate.collect { failedReport ->
-
-                if (existingCoordinates.contains(failedReport.coordinate))
-                    return@collect
-
-                transaction {
-
-                    FailedWorldGenReportsTable.insertIgnore {
-
-                        it[FailedWorldGenReportsTable.coordinate] = failedReport.coordinate
-                        it[FailedWorldGenReportsTable.steamId] = failedReport.userId
-                        it[FailedWorldGenReportsTable.installationId] = failedReport.installationId
-                        it[FailedWorldGenReportsTable.ipAddress] = failedReport.ipAddress
-                        it[FailedWorldGenReportsTable.reportDate] = failedReport.reportDate
-                        it[FailedWorldGenReportsTable.gameVersion] = failedReport.gameVersion
-                        it[FailedWorldGenReportsTable.fileHashesJson] =
-                            strictJson.encodeToString(failedReport.fileHashes)
-                    }
-                }
-            }
-        }
-
-        log("[INDEX] Processed failed worldgen reports in $time.")
-
-        val duration = Clock.System.now().toEpochMilliseconds() - start
-
-        log("[INDEX] Added missing database failed worldgen reports in $duration ms.")
-
-    } catch (ex: Exception) {
-
-        log(ex)
-    }
-}
-
-@OptIn(ExperimentalSerializationApi::class, ExperimentalTime::class)
 private suspend fun createSearchIndexes() {
 
     log("[INDEX] Create search indexes from MongoDB ...")
@@ -1801,17 +1700,17 @@ private suspend fun createSearchIndexes() {
         )
 
         /**
-         * Also upload failed worldgens
+         * Also upload failed world gens
          */
 
-        val collection = database.getCollection<Document>("failedWorldGenReports")
+        val failedWorldGenReports = transaction {
+            FailedWorldGenReportsTable
+                .select(FailedWorldGenReportsTable.coordinate)
+                .map { it[FailedWorldGenReportsTable.coordinate] }
+                .sorted()
+        }
 
-        val coordinates: List<String> = collection.find()
-            .projection(Projections.fields(Projections.include("coordinate")))
-            .map { it["coordinate"] as String }
-            .toList()
-
-        val failedWorldGenReportsBytes = coordinates.sorted().joinToString("\n").encodeToByteArray()
+        val failedWorldGenReportsBytes = failedWorldGenReports.joinToString("\n").encodeToByteArray()
 
         minioClient.putObject(
             PutObjectArgs
