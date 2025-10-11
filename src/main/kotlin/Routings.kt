@@ -25,7 +25,7 @@ import com.mongodb.MongoClientSettings
 import com.mongodb.ServerApi
 import com.mongodb.ServerApiVersion
 import com.mongodb.client.model.Filters
-import com.mongodb.client.model.FindOneAndUpdateOptions
+import com.mongodb.client.model.FindOneAndDeleteOptions
 import com.mongodb.client.model.IndexOptions
 import com.mongodb.client.model.Projections
 import com.mongodb.client.model.Sorts.descending
@@ -93,11 +93,9 @@ import kotlinx.serialization.encodeToByteArray
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.protobuf.ProtoBuf
 import org.bson.Document
-import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.insertIgnore
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
-import org.jetbrains.exposed.v1.jdbc.update
 import util.Benchmark
 import util.ZipUtil
 import java.security.KeyFactory
@@ -767,11 +765,6 @@ private fun Application.configureRoutingInternal() {
                         it[WorldsTable.data] = compressedBytes
                     }
 
-                    /* Mark the request as completed if present */
-                    RequestedCoordinatesTable.update({ RequestedCoordinatesTable.coordinate eq clusterCoordinate }) {
-                        it[RequestedCoordinatesTable.status] = RequestedCoordinateStatus.COMPLETED.name
-                    }
-
                     UploadsTable.insert {
 
                         it[UploadsTable.coordinate] = uploadMetadata.coordinate
@@ -957,10 +950,6 @@ private fun Application.configureRoutingInternal() {
                         it[FailedWorldGenReportsTable.fileHashesJson] =
                             strictJson.encodeToString(failedGenReport.fileHashes)
                     }
-
-                    RequestedCoordinatesTable.update({ RequestedCoordinatesTable.coordinate eq failedGenReport.coordinate }) {
-                        it[RequestedCoordinatesTable.status] = RequestedCoordinateStatus.FAILED.name
-                    }
                 }
 
                 /*
@@ -1057,7 +1046,6 @@ private fun Application.configureRoutingInternal() {
                             it[RequestedCoordinatesTable.steamId] = steamId
                             it[RequestedCoordinatesTable.date] = millis
                             it[RequestedCoordinatesTable.coordinate] = coordinate
-                            it[RequestedCoordinatesTable.status] = RequestedCoordinateStatus.REQUESTED.name
                         }
                     }
 
@@ -1189,13 +1177,9 @@ private suspend fun handleGetRequestedCoordinate(
          * First look for a coordinate the mod runner requested, so each contributor
          * fulfills his/her own requests with priority.
          */
-        var requestedCoordinate = requestedCoordinatesCollection.findOneAndUpdate(
+        var requestedCoordinate = requestedCoordinatesCollection.findOneAndDelete(
             Filters.and(
-                Filters.eq(
-                    RequestedCoordinate::status.name,
-                    RequestedCoordinateStatus.REQUESTED
-                ),
-                /* This is the important filter */
+                /* Prefer requests created by the same mod runner */
                 Filters.eq(
                     RequestedCoordinate::steamId.name,
                     steamId
@@ -1204,8 +1188,7 @@ private suspend fun handleGetRequestedCoordinate(
                     RequestedCoordinate::coordinate.name,
                     ClusterType.createRegexPattern(dlcs)
                 )
-            ),
-            Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.PROCESSING)
+            )
         )
 
         /*
@@ -1229,19 +1212,14 @@ private suspend fun handleGetRequestedCoordinate(
                 return
             }
 
-            requestedCoordinate = requestedCoordinatesCollection.findOneAndUpdate(
-                filter = Filters.and(
-                    Filters.eq(
-                        RequestedCoordinate::status.name,
-                        RequestedCoordinateStatus.REQUESTED
-                    ),
+            requestedCoordinate = requestedCoordinatesCollection.findOneAndDelete(
+                Filters.and(
                     Filters.regex(
                         RequestedCoordinate::coordinate.name,
                         ClusterType.createRegexPattern(dlcs)
                     )
                 ),
-                update = Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.PROCESSING),
-                options = FindOneAndUpdateOptions()
+                options = FindOneAndDeleteOptions()
                     .sort(descending(RequestedCoordinate::date.name))
             )
         }
@@ -1264,27 +1242,13 @@ private suspend fun handleGetRequestedCoordinate(
                 .find(Filters.eq("coordinate", coordinate)).firstOrNull()
 
             if (existingWorld != null) {
-
-                /* Mark the coordinate status as duplicated. */
-                requestedCoordinatesCollection.updateOne(
-                    Filters.eq(RequestedCoordinate::coordinate.name, coordinate),
-                    Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.DUPLICATED)
-                )
-
+                /* Already exists in DB; skip and try next request (the document was already removed). */
                 continue@findseed
             }
 
             log("[REQUEST] $coordinate requested by ${requestedCoordinate.steamId} delivered to $steamId")
 
             call.respond(HttpStatusCode.OK, coordinate)
-
-            /*
-             * Mark the coordinate as delivered to a mod for processing
-             */
-            requestedCoordinatesCollection.updateOne(
-                Filters.eq(RequestedCoordinate::coordinate.name, coordinate),
-                Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.DELIVERED)
-            )
 
             /* Stop execution as we delivered one seed to a mod. */
             break@findseed

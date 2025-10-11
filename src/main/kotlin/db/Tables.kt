@@ -98,7 +98,5 @@ object RequestedCoordinatesTable : Table("requested_coordinates") {
 
     val date = long("date")
 
-    val status = varchar("status", length = 32)
-
     override val primaryKey = PrimaryKey(coordinate)
 }
