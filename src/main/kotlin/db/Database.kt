@@ -51,5 +51,7 @@ object DatabaseFactory {
                 RequestedCoordinatesTable
             )
         }
+
+        println("[INIT] Connected to database.")
     }
 }
