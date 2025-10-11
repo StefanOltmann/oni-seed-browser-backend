@@ -18,6 +18,7 @@
  */
 package db
 
+import org.jetbrains.exposed.v1.core.StdOutSqlLogger
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.SchemaUtils
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -43,6 +44,9 @@ object DatabaseFactory {
         )
 
         transaction {
+
+            addLogger(StdOutSqlLogger)
+
             SchemaUtils.create(
                 WorldsTable,
                 SearchIndexTable,
