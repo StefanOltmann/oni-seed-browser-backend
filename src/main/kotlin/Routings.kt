@@ -93,6 +93,7 @@ import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.like
+import org.jetbrains.exposed.v1.core.match
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.insertIgnore
@@ -1133,7 +1134,7 @@ private suspend fun handleGetRequestedCoordinate(
     val token: String? = call.request.headers[TOKEN_HEADER_MOD]
 
     if (token.isNullOrBlank()) {
-        log("[UPLOAD] Missing steam auth token for $ipAddress.")
+        log("[REQUEST] Missing steam auth token for $ipAddress.")
         call.respond(HttpStatusCode.Unauthorized, "Missing steam auth token.")
         return
     }
@@ -1159,8 +1160,6 @@ private suspend fun handleGetRequestedCoordinate(
 
             val regexPattern = ClusterType.createRegexPattern(dlcs)
 
-            val likePattern = regexPattern.replace(".*", "%").replace(".", "_")
-
             val result = RequestedCoordinatesTable
                 .select(
                     RequestedCoordinatesTable.coordinate,
@@ -1169,7 +1168,7 @@ private suspend fun handleGetRequestedCoordinate(
                 )
                 .where {
                     (RequestedCoordinatesTable.steamId eq steamId) and
-                        RequestedCoordinatesTable.coordinate.like(likePattern)
+                        RequestedCoordinatesTable.coordinate.match(regexPattern)
                 }
                 .limit(1)
                 .firstOrNull()
@@ -1211,15 +1210,13 @@ private suspend fun handleGetRequestedCoordinate(
 
                 val regexPattern = ClusterType.createRegexPattern(dlcs)
 
-                val likePattern = regexPattern.replace(".*", "%").replace(".", "_")
-
                 val result = RequestedCoordinatesTable
                     .select(
                         RequestedCoordinatesTable.coordinate,
                         RequestedCoordinatesTable.steamId,
                         RequestedCoordinatesTable.date
                     )
-                    .where { RequestedCoordinatesTable.coordinate.like(likePattern) }
+                    .where { RequestedCoordinatesTable.coordinate.like(regexPattern) }
                     .orderBy(RequestedCoordinatesTable.date, SortOrder.DESC)
                     .limit(1)
                     .firstOrNull()
