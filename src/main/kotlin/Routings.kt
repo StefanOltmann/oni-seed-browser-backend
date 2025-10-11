@@ -1538,7 +1538,7 @@ private suspend fun populateDatabaseWorld() {
                             it[WorldsTable.clusterTypeId] = cluster.cluster.id.toInt()
                             it[WorldsTable.gameVersion] = cluster.gameVersion
                             it[WorldsTable.uploaderSteamIdHash] = cluster.uploaderSteamIdHash
-                            it[WorldsTable.uploadDate] = uploadDate
+                            it[WorldsTable.uploadDate] = cluster.uploadDate
                             it[WorldsTable.data] = compressedBytes
                         }
                     }
