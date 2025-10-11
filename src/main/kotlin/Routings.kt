@@ -25,7 +25,6 @@ import com.mongodb.MongoClientSettings
 import com.mongodb.ServerApi
 import com.mongodb.ServerApiVersion
 import com.mongodb.client.model.Filters
-import com.mongodb.client.model.FindOneAndDeleteOptions
 import com.mongodb.client.model.IndexOptions
 import com.mongodb.client.model.Projections
 import com.mongodb.client.model.Sorts.descending
@@ -82,7 +81,6 @@ import io.sentry.Sentry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
@@ -91,7 +89,11 @@ import kotlinx.serialization.encodeToByteArray
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.protobuf.ProtoBuf
 import org.bson.Document
+import org.jetbrains.exposed.v1.core.SortOrder
+import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.like
+import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.insertIgnore
 import org.jetbrains.exposed.v1.jdbc.select
@@ -1150,19 +1152,39 @@ private suspend fun handleGetRequestedCoordinate(
          * First look for a coordinate the mod runner requested, so each contributor
          * fulfills his/her own requests with priority.
          */
-        var requestedCoordinate = requestedCoordinatesCollection.findOneAndDelete(
-            Filters.and(
-                /* Prefer requests created by the same mod runner */
-                Filters.eq(
-                    RequestedCoordinate::steamId.name,
-                    steamId
-                ),
-                Filters.regex(
-                    RequestedCoordinate::coordinate.name,
-                    ClusterType.createRegexPattern(dlcs)
+        var requestedCoordinate: String? = null
+        var requestedSteamId: String? = null
+
+        transaction {
+
+            val regexPattern = ClusterType.createRegexPattern(dlcs)
+
+            val likePattern = regexPattern.replace(".*", "%").replace(".", "_")
+
+            val result = RequestedCoordinatesTable
+                .select(
+                    RequestedCoordinatesTable.coordinate,
+                    RequestedCoordinatesTable.steamId,
+                    RequestedCoordinatesTable.date
                 )
-            )
-        )
+                .where {
+                    (RequestedCoordinatesTable.steamId eq steamId) and
+                        RequestedCoordinatesTable.coordinate.like(likePattern)
+                }
+                .limit(1)
+                .firstOrNull()
+
+            if (result != null) {
+
+                val coordinate = result[RequestedCoordinatesTable.coordinate]
+                val foundSteamId = result[RequestedCoordinatesTable.steamId]
+
+                RequestedCoordinatesTable.deleteWhere { RequestedCoordinatesTable.coordinate eq coordinate }
+
+                requestedCoordinate = coordinate
+                requestedSteamId = foundSteamId
+            }
+        }
 
         /*
          * If the mod runner doesn't have an open request, we take a random one from someone else.
@@ -1185,16 +1207,34 @@ private suspend fun handleGetRequestedCoordinate(
                 return
             }
 
-            requestedCoordinate = requestedCoordinatesCollection.findOneAndDelete(
-                Filters.and(
-                    Filters.regex(
-                        RequestedCoordinate::coordinate.name,
-                        ClusterType.createRegexPattern(dlcs)
+            transaction {
+
+                val regexPattern = ClusterType.createRegexPattern(dlcs)
+
+                val likePattern = regexPattern.replace(".*", "%").replace(".", "_")
+
+                val result = RequestedCoordinatesTable
+                    .select(
+                        RequestedCoordinatesTable.coordinate,
+                        RequestedCoordinatesTable.steamId,
+                        RequestedCoordinatesTable.date
                     )
-                ),
-                options = FindOneAndDeleteOptions()
-                    .sort(descending(RequestedCoordinate::date.name))
-            )
+                    .where { RequestedCoordinatesTable.coordinate.like(likePattern) }
+                    .orderBy(RequestedCoordinatesTable.date, SortOrder.DESC)
+                    .limit(1)
+                    .firstOrNull()
+
+                if (result != null) {
+
+                    val coordinate = result[RequestedCoordinatesTable.coordinate]
+                    val foundSteamId = result[RequestedCoordinatesTable.steamId]
+
+                    RequestedCoordinatesTable.deleteWhere { RequestedCoordinatesTable.coordinate eq coordinate }
+
+                    requestedCoordinate = coordinate
+                    requestedSteamId = foundSteamId
+                }
+            }
         }
 
         if (requestedCoordinate == null) {
@@ -1209,19 +1249,23 @@ private suspend fun handleGetRequestedCoordinate(
 
         } else {
 
-            val coordinate = requestedCoordinate.coordinate
-
-            val existingWorld: Cluster? = clusterCollection
-                .find(Filters.eq("coordinate", coordinate)).firstOrNull()
+            val existingWorld = transaction {
+                WorldsTable
+                    .select(WorldsTable.coordinate)
+                    .where { WorldsTable.coordinate eq requestedCoordinate }
+                    .limit(1)
+                    .firstOrNull()
+            }
 
             if (existingWorld != null) {
-                /* Already exists in DB; skip and try next request (the document was already removed). */
+
+                /* Already exists in DB; skip and try the next request. */
                 continue@findseed
             }
 
-            log("[REQUEST] $coordinate requested by ${requestedCoordinate.steamId} delivered to $steamId")
+            log("[REQUEST] $requestedCoordinate requested by $requestedSteamId delivered to $steamId")
 
-            call.respond(HttpStatusCode.OK, coordinate)
+            call.respond(HttpStatusCode.OK, requestedCoordinate)
 
             /* Stop execution as we delivered one seed to a mod. */
             break@findseed
