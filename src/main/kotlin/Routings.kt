@@ -1534,7 +1534,24 @@ private suspend fun populateDatabaseWorld() {
                     .sort(descending(Cluster::uploadDate.name))
                     .batchSize(20000)
 
+                /* Prefetch all existing coordinates for this cluster type in one query */
+                val existingCoordinates = transaction {
+
+                    val set = HashSet<String>()
+
+                    exec("SELECT coordinate FROM worlds WHERE cluster_type_id = ${cluster.id.toInt()}") { rs ->
+
+                        while (rs.next())
+                            set.add(rs.getString(1))
+                    }
+
+                    set
+                }
+
                 clustersToIndex.collect { cluster ->
+
+                    if (existingCoordinates.contains(cluster.coordinate))
+                        return@collect
 
                     val protobufBytes = ProtoBuf.encodeToByteArray(cluster)
 
@@ -1587,7 +1604,24 @@ private suspend fun populateDatabaseSearchIndexes() {
                     .sort(descending(Cluster::uploadDate.name))
                     .batchSize(20000)
 
+                val existingCoordinates = transaction {
+
+                    val set = HashSet<String>()
+
+                    exec("SELECT coordinate FROM search_index WHERE cluster_type_id = ${cluster.id.toInt()}") { rs ->
+
+                        while (rs.next())
+                            set.add(rs.getString(1))
+                    }
+
+                    set
+                }
+
                 clustersToIndex.collect { cluster ->
+
+                    // Skip coordinates that already exist in the SQL search_index table.
+                    if (existingCoordinates.contains(cluster.coordinate))
+                        return@collect
 
                     val summary = ClusterSummaryCompact.create(cluster)
                     val summaryBytes = ProtoBuf.encodeToByteArray(summary)
