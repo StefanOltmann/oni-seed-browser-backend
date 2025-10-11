@@ -792,7 +792,7 @@ private fun Application.configureRoutingInternal() {
                         it[UploadsTable.ipAddress] = uploadMetadata.ipAddress
                         it[UploadsTable.uploadDate] = uploadMetadata.uploadDate
 
-                        it[UploadsTable.gameVersion] = uploadMetadata.gameVersion.toInt()
+                        it[UploadsTable.gameVersion] = uploadMetadata.gameVersion
                         it[UploadsTable.fileHashesJson] = strictJson.encodeToString(uploadMetadata.fileHashes)
                     }
 

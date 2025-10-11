@@ -62,7 +62,7 @@ object UploadsTable : Table("uploads") {
     val ipAddress = text("ip_address")
     val uploadDate = long("upload_date")
 
-    val gameVersion = integer("game_version")
+    val gameVersion = text("game_version")
     val fileHashesJson = text("file_hashes_json")
 
     override val primaryKey = PrimaryKey(coordinate)
