@@ -1079,6 +1079,7 @@ private suspend fun handleGetRequestedCoordinate(
 
             /*
              * Only answer every third random request (to avoid blocking runners with seed requests).
+             * To achieve this, every request that isn't dividable by three gets a "nothing to do" response.
              * Count this per requesting steam ID, so every runner runs an equal number of requested
              * seeds by others.
              */
@@ -1087,7 +1088,7 @@ private suspend fun handleGetRequestedCoordinate(
 
             seedRequestCounterMap[steamId] = seedRequestCounter
 
-            if (seedRequestCounter % 3L == 0L) {
+            if (seedRequestCounter % 3L != 0L) {
                 call.respond(HttpStatusCode.OK, "")
                 return
             }
