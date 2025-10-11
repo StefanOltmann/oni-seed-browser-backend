@@ -257,6 +257,8 @@ private fun Application.configureRoutingInternal() {
 
         populateDatabaseSearchIndexes()
 
+        populateDatabaseFailedWorldgens()
+
         populateDatabaseWorld()
     }
 
@@ -1621,6 +1623,68 @@ private suspend fun populateDatabaseSearchIndexes() {
         val duration = Clock.System.now().toEpochMilliseconds() - start
 
         log("[INDEX] Added missing databse search indexes in $duration ms.")
+
+    } catch (ex: Exception) {
+
+        log(ex)
+    }
+}
+
+@OptIn(ExperimentalSerializationApi::class, ExperimentalTime::class)
+private suspend fun populateDatabaseFailedWorldgens() {
+
+    log("[INDEX] Add failed worldgen to database ...")
+
+    val start = Clock.System.now().toEpochMilliseconds()
+
+    try {
+
+        val time = measureTime {
+
+            val failedReportsToMigrate = failedWorldGenReportsCollection
+                .find()
+                .batchSize(20000)
+
+            val existingCoordinates = transaction {
+
+                val set = HashSet<String>()
+
+                exec("SELECT coordinate FROM failed_world_gen_reports") { rs ->
+
+                    while (rs.next())
+                        set.add(rs.getString(1))
+                }
+
+                set
+            }
+
+            failedReportsToMigrate.collect { failedReport ->
+
+                if (existingCoordinates.contains(failedReport.coordinate))
+                    return@collect
+
+                transaction {
+
+                    FailedWorldGenReportsTable.insertIgnore {
+
+                        it[FailedWorldGenReportsTable.coordinate] = failedReport.coordinate
+                        it[FailedWorldGenReportsTable.steamId] = failedReport.userId
+                        it[FailedWorldGenReportsTable.installationId] = failedReport.installationId
+                        it[FailedWorldGenReportsTable.ipAddress] = failedReport.ipAddress
+                        it[FailedWorldGenReportsTable.reportDate] = failedReport.reportDate
+                        it[FailedWorldGenReportsTable.gameVersion] = failedReport.gameVersion
+                        it[FailedWorldGenReportsTable.fileHashesJson] =
+                            strictJson.encodeToString(failedReport.fileHashes)
+                    }
+                }
+            }
+        }
+
+        log("[INDEX] Processed failed worldgen reports in $time.")
+
+        val duration = Clock.System.now().toEpochMilliseconds() - start
+
+        log("[INDEX] Added missing database failed worldgen reports in $duration ms.")
 
     } catch (ex: Exception) {
 
