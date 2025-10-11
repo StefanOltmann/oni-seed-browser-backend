@@ -29,7 +29,6 @@ import com.mongodb.client.model.FindOneAndDeleteOptions
 import com.mongodb.client.model.IndexOptions
 import com.mongodb.client.model.Projections
 import com.mongodb.client.model.Sorts.descending
-import com.mongodb.client.model.Updates
 import com.mongodb.kotlin.client.coroutine.MongoClient
 import db.FailedWorldGenReportsTable
 import db.RequestedCoordinatesTable
@@ -46,7 +45,6 @@ import de.stefan_oltmann.oni.model.server.FailedGenReport
 import de.stefan_oltmann.oni.model.server.FailedGenReportCheckResult
 import de.stefan_oltmann.oni.model.server.FailedGenReportDatabase
 import de.stefan_oltmann.oni.model.server.RequestedCoordinate
-import de.stefan_oltmann.oni.model.server.RequestedCoordinateStatus
 import de.stefan_oltmann.oni.model.server.Upload
 import de.stefan_oltmann.oni.model.server.UploadCheckResult
 import de.stefan_oltmann.oni.model.server.upload.UploadMetadata
@@ -93,8 +91,10 @@ import kotlinx.serialization.encodeToByteArray
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.protobuf.ProtoBuf
 import org.bson.Document
+import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.insertIgnore
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import util.Benchmark
 import util.ZipUtil
@@ -802,13 +802,6 @@ private fun Application.configureRoutingInternal() {
 
                 clusterCollection.insertOne(optimizedCluster)
 
-                /* Mark any requested coordinates as completed */
-                requestedCoordinatesCollection
-                    .updateOne(
-                        Filters.eq(RequestedCoordinate::coordinate.name, upload.cluster.coordinate),
-                        Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.COMPLETED)
-                    )
-
                 /*
                  * S3 uploads
                  */
@@ -958,13 +951,6 @@ private fun Application.configureRoutingInternal() {
 
                 failedWorldGenReportsCollection.insertOne(failedGenReportDatabase)
 
-                /* Mark any requested coordinates as completed */
-                requestedCoordinatesCollection
-                    .updateOne(
-                        Filters.eq(RequestedCoordinate::coordinate.name, failedGenReportDatabase.coordinate),
-                        Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.FAILED)
-                    )
-
                 /*
                  * Finalize
                  */
@@ -1009,15 +995,11 @@ private fun Application.configureRoutingInternal() {
                     return@post
                 }
 
-                val exists = requestedCoordinatesCollection.countDocuments(
-                    Filters.eq(RequestedCoordinate::coordinate.name, coordinate)
-                ) > 0
-
-//                val exists = transaction {
-//                    RequestedCoordinatesTable.select(RequestedCoordinatesTable.coordinate)
-//                        .where { RequestedCoordinatesTable.coordinate eq coordinate }
-//                        .empty().not()
-//                }
+                val exists = transaction {
+                    RequestedCoordinatesTable.select(RequestedCoordinatesTable.coordinate)
+                        .where { RequestedCoordinatesTable.coordinate eq coordinate }
+                        .empty().not()
+                }
 
                 if (exists) {
 
@@ -1031,15 +1013,6 @@ private fun Application.configureRoutingInternal() {
                     log("[REQUEST] Requesting coordinate $coordinate (by $steamId)")
 
                     val millis = Clock.System.now().toEpochMilliseconds()
-
-                    requestedCoordinatesCollection.insertOne(
-                        RequestedCoordinate(
-                            steamId = steamId,
-                            date = millis,
-                            coordinate = coordinate,
-                            status = RequestedCoordinateStatus.REQUESTED
-                        )
-                    )
 
                     transaction {
                         RequestedCoordinatesTable.insert {
@@ -1284,9 +1257,6 @@ private suspend fun setMissingIndices() {
                 .createIndex(Document("coordinate", 1), uniqueIndexOptions)
 
             failedWorldGenReportsCollection
-                .createIndex(Document("coordinate", 1), uniqueIndexOptions)
-
-            requestedCoordinatesCollection
                 .createIndex(Document("coordinate", 1), uniqueIndexOptions)
 
             /*
