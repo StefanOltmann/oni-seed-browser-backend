@@ -26,15 +26,10 @@ import org.jetbrains.exposed.v1.core.Table
 object WorldsTable : Table("worlds") {
 
     val coordinate = text("coordinate")
-
     val clusterTypeId = integer("cluster_type_id")
-
-    val uploaderSteamIdHash = text("uploader_steam_id_hash")
-
     val gameVersion = integer("game_version")
-
+    val uploaderSteamIdHash = text("uploader_steam_id_hash")
     val uploadDate = long("upload_date")
-
     val data = binary("data")
 
     override val primaryKey = PrimaryKey(coordinate)
@@ -46,15 +41,10 @@ object WorldsTable : Table("worlds") {
 object SearchIndexTable : Table("search_index") {
 
     val coordinate = text("coordinate")
-
     val clusterTypeId = integer("cluster_type_id")
-
     val uploaderSteamIdHash = text("uploader_steam_id_hash")
-
     val gameVersion = integer("game_version")
-
     val uploadDate = long("upload_date")
-
     val data = binary("data")
 
     override val primaryKey = PrimaryKey(coordinate)
@@ -70,11 +60,9 @@ object UploadsTable : Table("uploads") {
     val steamId = text("steam_id")
     val installationId = text("installation_id")
     val ipAddress = text("ip_address")
-
     val uploadDate = long("upload_date")
 
     val gameVersion = integer("game_version")
-
     val fileHashesJson = text("file_hashes_json")
 
     override val primaryKey = PrimaryKey(coordinate)
@@ -90,7 +78,6 @@ object FailedWorldGenReportsTable : Table("failed_world_gen_reports") {
     val steamId = text("steam_id")
     val installationId = text("installation_id")
     val ipAddress = text("ip_address")
-
     val reportDate = long("report_date")
 
     val gameVersion = integer("game_version")

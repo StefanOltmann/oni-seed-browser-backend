@@ -31,10 +31,16 @@ import com.mongodb.client.model.Projections
 import com.mongodb.client.model.Sorts.descending
 import com.mongodb.client.model.Updates
 import com.mongodb.kotlin.client.coroutine.MongoClient
+import db.FailedWorldGenReportsTable
+import db.RequestedCoordinatesTable
+import db.SearchIndexTable
+import db.UploadsTable
+import db.WorldsTable
 import de.stefan_oltmann.oni.model.Cluster
 import de.stefan_oltmann.oni.model.ClusterExportCollection
 import de.stefan_oltmann.oni.model.ClusterType
 import de.stefan_oltmann.oni.model.Dlc
+import de.stefan_oltmann.oni.model.search.ClusterSummaryCompact
 import de.stefan_oltmann.oni.model.search.SearchIndex
 import de.stefan_oltmann.oni.model.server.FailedGenReport
 import de.stefan_oltmann.oni.model.server.FailedGenReportCheckResult
@@ -87,6 +93,11 @@ import kotlinx.serialization.encodeToByteArray
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.protobuf.ProtoBuf
 import org.bson.Document
+import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.insertIgnore
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import org.jetbrains.exposed.v1.jdbc.update
 import util.Benchmark
 import util.ZipUtil
 import java.security.KeyFactory
@@ -243,6 +254,8 @@ private fun Application.configureRoutingInternal() {
         // copyMapsToS3()
 
         // createSearchIndexes()
+
+        populateDatabaseSearchIndexes()
     }
 
     routing {
@@ -666,7 +679,7 @@ private fun Application.configureRoutingInternal() {
 
                 val originalData = call.receiveText()
 
-                /* Read the JSON data, and be strict. */
+                /* Read the JSON data and be strict. */
                 val upload = strictJson.decodeFromString<Upload>(originalData)
 
                 val uploadCheckResult = upload.check(
@@ -684,7 +697,7 @@ private fun Application.configureRoutingInternal() {
                 }
 
                 /*
-                 * Save the upload to database
+                 * Save the upload to the database
                  */
 
                 try {
@@ -729,6 +742,10 @@ private fun Application.configureRoutingInternal() {
                     uploadDate = uploadDate
                 )
 
+                /*
+                 * MongoDB updates
+                 */
+
                 clusterCollection.insertOne(optimizedCluster)
 
                 /* Mark any requested coordinates as completed */
@@ -738,9 +755,76 @@ private fun Application.configureRoutingInternal() {
                         Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.COMPLETED)
                     )
 
+                /*
+                 * Database updates
+                 */
+
+                transaction {
+
+                    val clusterCoordinate = upload.cluster.coordinate
+
+                    val protobufBytes = ProtoBuf.encodeToByteArray(optimizedCluster)
+
+                    val compressedBytes = ZipUtil.zipBytes(
+                        originalBytes = protobufBytes
+                    )
+
+                    WorldsTable.insert {
+                        it[WorldsTable.coordinate] = clusterCoordinate
+                        it[WorldsTable.clusterTypeId] = upload.cluster.cluster.id.toInt()
+                        it[WorldsTable.gameVersion] = upload.cluster.gameVersion
+                        it[WorldsTable.uploaderSteamIdHash] = uploaderSteamIdHash
+                        it[WorldsTable.uploadDate] = uploadDate
+                        it[WorldsTable.data] = compressedBytes
+                    }
+
+                    /* Mark the request as completed if present */
+                    RequestedCoordinatesTable.update({ RequestedCoordinatesTable.coordinate eq clusterCoordinate }) {
+                        it[RequestedCoordinatesTable.status] = RequestedCoordinateStatus.COMPLETED.name
+                    }
+
+                    UploadsTable.insert {
+
+                        it[UploadsTable.coordinate] = uploadMetadata.coordinate
+
+                        it[UploadsTable.steamId] = steamId
+                        it[UploadsTable.installationId] = uploadMetadata.installationId
+                        it[UploadsTable.ipAddress] = uploadMetadata.ipAddress
+                        it[UploadsTable.uploadDate] = uploadMetadata.uploadDate
+
+                        it[UploadsTable.gameVersion] = uploadMetadata.gameVersion.toInt()
+                        it[UploadsTable.fileHashesJson] = strictJson.encodeToString(uploadMetadata.fileHashes)
+                    }
+
+                    /*
+                     * Add to the search index
+                     */
+
+                    val summary = ClusterSummaryCompact.create(optimizedCluster)
+                    val summaryBytes = ProtoBuf.encodeToByteArray(summary)
+
+                    SearchIndexTable.insert {
+
+                        it[SearchIndexTable.coordinate] = clusterCoordinate
+                        it[SearchIndexTable.clusterTypeId] = upload.cluster.cluster.id.toInt()
+                        it[SearchIndexTable.uploaderSteamIdHash] = uploaderSteamIdHash
+                        it[SearchIndexTable.gameVersion] = upload.cluster.gameVersion
+                        it[SearchIndexTable.uploadDate] = uploadDate
+                        it[SearchIndexTable.data] = summaryBytes
+                    }
+                }
+
+                /*
+                 * S3 uploads
+                 */
+
                 uploadMapToS3(minioClient, optimizedCluster)
 
                 uploadMetadataToS3(minioClient, uploadMetadata)
+
+                /*
+                 * Finalize
+                 */
 
                 call.respond(HttpStatusCode.OK, "Data was saved.")
 
@@ -838,6 +922,10 @@ private fun Application.configureRoutingInternal() {
                     return@post
                 }
 
+                /*
+                 * MongoDB update
+                 */
+
                 val failedGenReportDatabase = FailedGenReportDatabase(
                     userId = failedGenReport.userId,
                     installationId = failedGenReport.installationId,
@@ -856,6 +944,35 @@ private fun Application.configureRoutingInternal() {
                         Filters.eq(RequestedCoordinate::coordinate.name, failedGenReportDatabase.coordinate),
                         Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.FAILED)
                     )
+
+                /*
+                 * Database update
+                 */
+
+                transaction {
+
+                    FailedWorldGenReportsTable.insert {
+
+                        it[FailedWorldGenReportsTable.coordinate] = failedGenReport.coordinate
+
+                        it[FailedWorldGenReportsTable.steamId] = steamId
+                        it[FailedWorldGenReportsTable.installationId] = failedGenReport.installationId
+                        it[FailedWorldGenReportsTable.ipAddress] = ipAddress
+                        it[FailedWorldGenReportsTable.reportDate] = System.currentTimeMillis()
+
+                        it[FailedWorldGenReportsTable.gameVersion] = failedGenReport.gameVersion.toInt()
+                        it[FailedWorldGenReportsTable.fileHashesJson] =
+                            strictJson.encodeToString(failedGenReport.fileHashes)
+                    }
+
+                    RequestedCoordinatesTable.update({ RequestedCoordinatesTable.coordinate eq failedGenReport.coordinate }) {
+                        it[RequestedCoordinatesTable.status] = RequestedCoordinateStatus.FAILED.name
+                    }
+                }
+
+                /*
+                 * Finalize
+                 */
 
                 call.respond(HttpStatusCode.OK, "Report was saved.")
 
@@ -901,6 +1018,12 @@ private fun Application.configureRoutingInternal() {
                     Filters.eq(RequestedCoordinate::coordinate.name, coordinate)
                 ) > 0
 
+//                val exists = transaction {
+//                    RequestedCoordinatesTable.select(RequestedCoordinatesTable.coordinate)
+//                        .where { RequestedCoordinatesTable.coordinate eq coordinate }
+//                        .empty().not()
+//                }
+
                 if (exists) {
 
                     log("[REQUEST] Ignoring already requested coordinate $coordinate (by $steamId)")
@@ -912,14 +1035,25 @@ private fun Application.configureRoutingInternal() {
 
                     log("[REQUEST] Requesting coordinate $coordinate (by $steamId)")
 
+                    val millis = Clock.System.now().toEpochMilliseconds()
+
                     requestedCoordinatesCollection.insertOne(
                         RequestedCoordinate(
                             steamId = steamId,
-                            date = Clock.System.now().toEpochMilliseconds(),
+                            date = millis,
                             coordinate = coordinate,
                             status = RequestedCoordinateStatus.REQUESTED
                         )
                     )
+
+                    transaction {
+                        RequestedCoordinatesTable.insert {
+                            it[RequestedCoordinatesTable.steamId] = steamId
+                            it[RequestedCoordinatesTable.date] = millis
+                            it[RequestedCoordinatesTable.coordinate] = coordinate
+                            it[RequestedCoordinatesTable.status] = RequestedCoordinateStatus.REQUESTED.name
+                        }
+                    }
 
                     /* Send OK status. */
                     call.respond(HttpStatusCode.OK, "Coordinate $coordinate requested.")
@@ -1369,6 +1503,57 @@ private suspend fun copyMapsToS3() {
         val duration = Clock.System.now().toEpochMilliseconds() - start
 
         log("[S3] Completed in $duration ms. Added $addedCount.")
+
+    } catch (ex: Exception) {
+
+        log(ex)
+    }
+}
+
+@OptIn(ExperimentalSerializationApi::class, ExperimentalTime::class)
+private suspend fun populateDatabaseSearchIndexes() {
+
+    log("[INDEX] Add search indexes to database ...")
+
+    val start = Clock.System.now().toEpochMilliseconds()
+
+    try {
+
+        for (cluster in ClusterType.entries) {
+
+            val time = measureTime {
+
+                val clustersToIndex = clusterCollection
+                    .find(Filters.eq(Cluster::cluster.name, cluster.prefix))
+                    .sort(descending(Cluster::uploadDate.name))
+                    .batchSize(20000)
+
+                clustersToIndex.collect { cluster ->
+
+                    val summary = ClusterSummaryCompact.create(cluster)
+                    val summaryBytes = ProtoBuf.encodeToByteArray(summary)
+
+                    transaction {
+
+                        SearchIndexTable.insertIgnore {
+
+                            it[SearchIndexTable.coordinate] = cluster.coordinate
+                            it[SearchIndexTable.clusterTypeId] = cluster.cluster.id.toInt()
+                            it[SearchIndexTable.uploaderSteamIdHash] = uploaderSteamIdHash
+                            it[SearchIndexTable.gameVersion] = cluster.gameVersion
+                            it[SearchIndexTable.uploadDate] = uploadDate
+                            it[SearchIndexTable.data] = summaryBytes
+                        }
+                    }
+                }
+            }
+
+            log("[INDEX] Processed ${cluster.prefix} in $time.")
+        }
+
+        val duration = Clock.System.now().toEpochMilliseconds() - start
+
+        log("[INDEX] Added missing databse search indexes in $duration ms.")
 
     } catch (ex: Exception) {
 
