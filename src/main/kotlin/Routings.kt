@@ -743,19 +743,6 @@ private fun Application.configureRoutingInternal() {
                 )
 
                 /*
-                 * MongoDB updates
-                 */
-
-                clusterCollection.insertOne(optimizedCluster)
-
-                /* Mark any requested coordinates as completed */
-                requestedCoordinatesCollection
-                    .updateOne(
-                        Filters.eq(RequestedCoordinate::coordinate.name, upload.cluster.coordinate),
-                        Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.COMPLETED)
-                    )
-
-                /*
                  * Database updates
                  */
 
@@ -813,6 +800,19 @@ private fun Application.configureRoutingInternal() {
                         it[SearchIndexTable.data] = summaryBytes
                     }
                 }
+
+                /*
+                 * MongoDB updates
+                 */
+
+                clusterCollection.insertOne(optimizedCluster)
+
+                /* Mark any requested coordinates as completed */
+                requestedCoordinatesCollection
+                    .updateOne(
+                        Filters.eq(RequestedCoordinate::coordinate.name, upload.cluster.coordinate),
+                        Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.COMPLETED)
+                    )
 
                 /*
                  * S3 uploads
@@ -936,15 +936,6 @@ private fun Application.configureRoutingInternal() {
                     coordinate = failedGenReport.coordinate
                 )
 
-                failedWorldGenReportsCollection.insertOne(failedGenReportDatabase)
-
-                /* Mark any requested coordinates as completed */
-                requestedCoordinatesCollection
-                    .updateOne(
-                        Filters.eq(RequestedCoordinate::coordinate.name, failedGenReportDatabase.coordinate),
-                        Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.FAILED)
-                    )
-
                 /*
                  * Database update
                  */
@@ -969,6 +960,19 @@ private fun Application.configureRoutingInternal() {
                         it[RequestedCoordinatesTable.status] = RequestedCoordinateStatus.FAILED.name
                     }
                 }
+
+                /*
+                 * MongoDB
+                 */
+
+                failedWorldGenReportsCollection.insertOne(failedGenReportDatabase)
+
+                /* Mark any requested coordinates as completed */
+                requestedCoordinatesCollection
+                    .updateOne(
+                        Filters.eq(RequestedCoordinate::coordinate.name, failedGenReportDatabase.coordinate),
+                        Updates.set(RequestedCoordinate::status.name, RequestedCoordinateStatus.FAILED)
+                    )
 
                 /*
                  * Finalize
