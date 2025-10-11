@@ -238,9 +238,7 @@ private fun Application.configureRoutingInternal() {
 
         // cleanMaps()
 
-        // createSearchIndexes()
-
-        populateDatabaseSearchIndexes()
+        createSearchIndexes()
 
         populateDatabaseWorld()
     }
@@ -1512,74 +1510,6 @@ private suspend fun populateDatabaseWorld() {
         val duration = Clock.System.now().toEpochMilliseconds() - start
 
         log("[TRANSFER] Added missing worlds in $duration ms.")
-
-    } catch (ex: Exception) {
-
-        log(ex)
-    }
-}
-
-@OptIn(ExperimentalSerializationApi::class, ExperimentalTime::class)
-private suspend fun populateDatabaseSearchIndexes() {
-
-    log("[INDEX] Add search indexes to database ...")
-
-    val start = Clock.System.now().toEpochMilliseconds()
-
-    try {
-
-        for (cluster in ClusterType.entries) {
-
-            val time = measureTime {
-
-                val clustersToIndex = clusterCollection
-                    .find(Filters.eq(Cluster::cluster.name, cluster.prefix))
-                    .sort(descending(Cluster::uploadDate.name))
-                    .batchSize(20000)
-
-                val existingCoordinates = transaction {
-
-                    val set = HashSet<String>()
-
-                    exec("SELECT coordinate FROM search_index WHERE cluster_type_id = ${cluster.id.toInt()}") { rs ->
-
-                        while (rs.next())
-                            set.add(rs.getString(1))
-                    }
-
-                    set
-                }
-
-                clustersToIndex.collect { cluster ->
-
-                    // Skip coordinates that already exist in the SQL search_index table.
-                    if (existingCoordinates.contains(cluster.coordinate))
-                        return@collect
-
-                    val summary = ClusterSummaryCompact.create(cluster)
-                    val summaryBytes = ProtoBuf.encodeToByteArray(summary)
-
-                    transaction {
-
-                        SearchIndexTable.insertIgnore {
-
-                            it[SearchIndexTable.coordinate] = cluster.coordinate
-                            it[SearchIndexTable.clusterTypeId] = cluster.cluster.id.toInt()
-                            it[SearchIndexTable.uploaderSteamIdHash] = cluster.uploaderSteamIdHash
-                            it[SearchIndexTable.gameVersion] = cluster.gameVersion
-                            it[SearchIndexTable.uploadDate] = cluster.uploadDate
-                            it[SearchIndexTable.data] = summaryBytes
-                        }
-                    }
-                }
-            }
-
-            log("[INDEX] Processed ${cluster.prefix} in $time.")
-        }
-
-        val duration = Clock.System.now().toEpochMilliseconds() - start
-
-        log("[INDEX] Added missing databse search indexes in $duration ms.")
 
     } catch (ex: Exception) {
 
