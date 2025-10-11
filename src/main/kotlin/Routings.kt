@@ -1540,7 +1540,8 @@ private suspend fun createSearchIndexes() {
                 transaction {
 
                     val resultRows = SearchIndexTable
-                        .select(SearchIndexTable.clusterTypeId eq cluster.id.toInt())
+                        .select(SearchIndexTable.uploaderSteamIdHash, SearchIndexTable.data)
+                        .where { SearchIndexTable.clusterTypeId eq cluster.id.toInt() }
                         .orderBy(SearchIndexTable.uploadDate to SortOrder.DESC)
                         .iterator()
 
