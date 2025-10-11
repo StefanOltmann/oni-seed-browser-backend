@@ -78,8 +78,10 @@ import io.sentry.Sentry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.encodeToByteArray
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.protobuf.ProtoBuf
@@ -1532,26 +1534,35 @@ private suspend fun createSearchIndexes() {
 
         for (cluster in ClusterType.entries) {
 
-            val searchIndex = SearchIndex(
-                clusterType = cluster,
-                timestamp = Clock.System.now().toEpochMilliseconds()
-            )
-
             val time = measureTime {
 
-                val clustersToIndex = clusterCollection
-                    .find(Filters.eq(Cluster::cluster.name, cluster.prefix))
-                    .sort(descending(Cluster::uploadDate.name))
-                    .batchSize(20000)
+                val resultRows = SearchIndexTable
+                    .select(SearchIndexTable.clusterTypeId eq cluster.id.toInt())
+                    .orderBy(SearchIndexTable.uploadDate to SortOrder.DESC)
+                    .asFlow()
 
-                clustersToIndex.collect { cluster ->
+                val summaries = mutableListOf<ClusterSummaryCompact>()
+
+                resultRows.collect { resultRow ->
+
+                    val uploaderSteamIdHash = resultRow[SearchIndexTable.uploaderSteamIdHash]
 
                     /* Increase count */
-                    countPerContributor[cluster.uploaderSteamIdHash] =
-                        (countPerContributor[cluster.uploaderSteamIdHash] ?: 0L) + 1
+                    countPerContributor[uploaderSteamIdHash] =
+                        (countPerContributor[uploaderSteamIdHash] ?: 0L) + 1
 
-                    searchIndex.add(cluster)
+                    val bytes = resultRow[SearchIndexTable.data]
+
+                    val summary = ProtoBuf.decodeFromByteArray<ClusterSummaryCompact>(bytes)
+
+                    summaries.add(summary)
                 }
+
+                val searchIndex = SearchIndex.create(
+                    clusterType = cluster,
+                    timestamp = Clock.System.now().toEpochMilliseconds(),
+                    summaries = summaries
+                )
 
                 val protobufBytes = ProtoBuf.encodeToByteArray(searchIndex)
 
@@ -1573,11 +1584,11 @@ private suspend fun createSearchIndexes() {
                         .stream(zippedProtobufBytes.inputStream(), zippedProtobufBytes.size.toLong(), -1)
                         .build()
                 )
+
+                count += searchIndex.summaries.size
             }
 
-            count += searchIndex.summaries.size
-
-            log("[INDEX] Processed ${cluster.prefix} with ${searchIndex.summaries.size} seeds in $time.")
+            log("[INDEX] Processed ${cluster.prefix} in $time.")
         }
 
         val countBytes = count.toString().encodeToByteArray()
