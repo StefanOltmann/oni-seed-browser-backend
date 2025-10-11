@@ -251,8 +251,6 @@ private fun Application.configureRoutingInternal() {
 
         // createContributorTable()
 
-        copyMapsToS3()
-
         // createSearchIndexes()
 
         populateDatabaseSearchIndexes()
