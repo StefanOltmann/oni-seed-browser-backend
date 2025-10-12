@@ -83,6 +83,7 @@ import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.regexp
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.insertIgnore
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import util.Benchmark
@@ -232,6 +233,8 @@ private fun Application.configureRoutingInternal() {
     launch {
 
         // cleanMaps()
+
+        regenerateSearchIndexTable()
 
         createSearchIndexes()
     }
@@ -391,9 +394,6 @@ private fun Application.configureRoutingInternal() {
                     return@get
                 }
 
-                val clustersToExport: List<ClusterType> = ClusterType.entries
-                    .filter { it.exportCollection == exportCollection }
-
                 call.response.header(
                     HttpHeaders.ContentDisposition,
                     ContentDisposition.Attachment.withParameter(
@@ -401,6 +401,9 @@ private fun Application.configureRoutingInternal() {
                         value = "data.zip"
                     ).toString()
                 )
+
+                val clustersToExport: List<ClusterType> = ClusterType.entries
+                    .filter { it.exportCollection == exportCollection }
 
                 /*
                  * Stream the response, so we can remove from memory what the client already received.
@@ -1374,6 +1377,74 @@ private fun deleteMapFromS3(
 //        log(ex)
 //    }
 //}
+
+@OptIn(ExperimentalSerializationApi::class, ExperimentalTime::class)
+private fun regenerateSearchIndexTable() {
+
+    log("[INDEX] Regenerating index...")
+
+    val start = Clock.System.now().toEpochMilliseconds()
+
+    try {
+
+        for (cluster in ClusterType.entries) {
+
+            val time = measureTime {
+
+                transaction(postgresDatabase) {
+
+                    var offset = 0
+
+                    do {
+
+                        val batchResults = WorldsTable
+                            .select(WorldsTable.coordinate, WorldsTable.clusterTypeId, WorldsTable.data)
+                            .orderBy(WorldsTable.coordinate to SortOrder.ASC)
+                            .limit(EXPORT_BATCH_SIZE)
+                            .offset(offset.toLong())
+                            .toList()
+
+                        for (row in batchResults) {
+
+                            val bytes = row[WorldsTable.data]
+
+                            val unzippedBytes = ZipUtil.unzipBytes(bytes)
+
+                            val cluster = ProtoBuf.decodeFromByteArray<Cluster>(unzippedBytes)
+
+                            val summary = ClusterSummaryCompact.create(cluster)
+
+                            val summaryBytes = ProtoBuf.encodeToByteArray(summary)
+
+                            SearchIndexTable.insertIgnore {
+
+                                it[SearchIndexTable.coordinate] = cluster.coordinate
+                                it[SearchIndexTable.clusterTypeId] = cluster.cluster.id.toInt()
+                                it[SearchIndexTable.uploaderSteamIdHash] = uploaderSteamIdHash
+                                it[SearchIndexTable.gameVersion] = cluster.gameVersion
+                                it[SearchIndexTable.uploadDate] = uploadDate
+                                it[SearchIndexTable.data] = summaryBytes
+                            }
+                        }
+
+                        offset += batchResults.size
+
+                    } while (batchResults.size > 0)
+                }
+            }
+
+            log("[INDEX] Processed ${cluster.prefix} in $time.")
+        }
+
+        val duration = Clock.System.now().toEpochMilliseconds() - start
+
+        log("[INDEX] Regenerated search indexes in $duration ms.")
+
+    } catch (ex: Exception) {
+
+        log(ex)
+    }
+}
 
 @OptIn(ExperimentalSerializationApi::class, ExperimentalTime::class)
 private fun createSearchIndexes() {
