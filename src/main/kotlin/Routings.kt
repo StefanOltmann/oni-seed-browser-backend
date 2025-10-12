@@ -1404,7 +1404,20 @@ private fun regenerateSearchIndexTable() {
                             .toList()
                     }
 
+                    val existingCoordinates = transaction(postgresDatabase) {
+                        SearchIndexTable
+                            .select(SearchIndexTable.coordinate)
+                            .where { SearchIndexTable.coordinate inList batchResults.map { it[WorldsTable.coordinate] } }
+                            .map { it[SearchIndexTable.coordinate] }
+                            .toSet()
+                    }
+
                     for (row in batchResults) {
+
+                        val coordinate = row[WorldsTable.coordinate]
+
+                        if (existingCoordinates.contains(coordinate))
+                            continue
 
                         val bytes = row[WorldsTable.data]
 
