@@ -70,7 +70,6 @@ import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
-import io.minio.ListObjectsArgs
 import io.minio.MinioClient
 import io.minio.PutObjectArgs
 import io.minio.RemoveObjectArgs
@@ -88,6 +87,7 @@ import org.bson.Document
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.regexp
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
@@ -313,46 +313,46 @@ private fun Application.configureRoutingInternal() {
             }
         }
 
-        get("/copy-maps-to-s3") {
-
-            try {
-
-                val ipAddress = call.getIpAddress()
-
-                val apiKey: String? = this.call.request.headers["API_KEY"]
-
-                if (apiKey != System.getenv(MNI_DATABASE_EXPORT_API_KEY)) {
-
-                    log("/copy-maps-to-s3 : Unauthorized API key used by ip address $ipAddress.")
-
-                    call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
-
-                    return@get
-                }
-
-                backgroundScope.launch {
-
-                    val start = Clock.System.now().toEpochMilliseconds()
-
-                    copyMapsToS3()
-
-                    val duration = Clock.System.now().toEpochMilliseconds() - start
-
-                    log("Copied maps in $duration ms.")
-
-                    /* Final extra cleanup */
-                    System.gc()
-                }
-
-                call.respond(HttpStatusCode.OK, "Copy maps triggered.")
-
-            } catch (ex: Exception) {
-
-                log(ex)
-
-                call.respond(HttpStatusCode.InternalServerError, "Error on map copy")
-            }
-        }
+//        get("/copy-maps-to-s3") {
+//
+//            try {
+//
+//                val ipAddress = call.getIpAddress()
+//
+//                val apiKey: String? = this.call.request.headers["API_KEY"]
+//
+//                if (apiKey != System.getenv(MNI_DATABASE_EXPORT_API_KEY)) {
+//
+//                    log("/copy-maps-to-s3 : Unauthorized API key used by ip address $ipAddress.")
+//
+//                    call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
+//
+//                    return@get
+//                }
+//
+//                backgroundScope.launch {
+//
+//                    val start = Clock.System.now().toEpochMilliseconds()
+//
+//                    copyMapsToS3()
+//
+//                    val duration = Clock.System.now().toEpochMilliseconds() - start
+//
+//                    log("Copied maps in $duration ms.")
+//
+//                    /* Final extra cleanup */
+//                    System.gc()
+//                }
+//
+//                call.respond(HttpStatusCode.OK, "Copy maps triggered.")
+//
+//            } catch (ex: Exception) {
+//
+//                log(ex)
+//
+//                call.respond(HttpStatusCode.InternalServerError, "Error on map copy")
+//            }
+//        }
 
         get("/export/{collection}") {
 
@@ -399,9 +399,8 @@ private fun Application.configureRoutingInternal() {
                     return@get
                 }
 
-                val clustersToExport: List<String> = ClusterType.entries
+                val clustersToExport: List<ClusterType> = ClusterType.entries
                     .filter { it.exportCollection == exportCollection }
-                    .map { it.prefix }
 
                 call.response.header(
                     HttpHeaders.ContentDisposition,
@@ -421,22 +420,28 @@ private fun Application.configureRoutingInternal() {
 
                     ZipOutputStream(this).use { zipOutputStream ->
 
-                        val cursor = clusterCollection
-                            .find(
-                                Filters.`in`(
-                                    Cluster::cluster.name,
-                                    clustersToExport
-                                )
-                            )
-                            .batchSize(1000)
+                        val cursor = transaction {
+                            WorldsTable
+                                .select(WorldsTable.coordinate, WorldsTable.clusterTypeId, WorldsTable.data)
+                                .where { WorldsTable.clusterTypeId inList clustersToExport.map { it.id.toInt() } }
+                                .orderBy(WorldsTable.uploadDate to SortOrder.DESC)
+                                .iterator()
+                        }
 
                         var batchNumber = 1
 
                         val batchMaps = mutableListOf<Cluster>()
 
-                        cursor.collect { document ->
+                        /* Collect results in batches */
+                        while (cursor.hasNext()) {
 
-                            batchMaps.add(document)
+                            val row = cursor.next()
+                            val bytes = row[WorldsTable.data]
+
+                            val unzippedBytes = ZipUtil.unzipBytes(bytes)
+                            val cluster = ProtoBuf.decodeFromByteArray<Cluster>(unzippedBytes)
+
+                            batchMaps.add(cluster)
 
                             if (batchMaps.size >= EXPORT_BATCH_SIZE) {
 
@@ -538,6 +543,12 @@ private fun Application.configureRoutingInternal() {
                     Filters.eq(Cluster::coordinate.name, coordinate)
                 )
 
+                transaction {
+                    WorldsTable.deleteWhere { WorldsTable.coordinate eq coordinate }
+                    UploadsTable.deleteWhere { UploadsTable.coordinate eq coordinate }
+                    SearchIndexTable.deleteWhere { SearchIndexTable.coordinate eq coordinate }
+                }
+
                 deleteMapFromS3(minioClient, coordinate)
 
                 log("[PURGE] Removed $coordinate")
@@ -565,8 +576,12 @@ private fun Application.configureRoutingInternal() {
                     return@get
                 }
 
-                val exists = clusterCollection
-                    .countDocuments(Filters.eq(Cluster::coordinate.name, coordinate)) > 0
+                val exists = transaction {
+                    WorldsTable
+                        .select(WorldsTable.coordinate)
+                        .where { WorldsTable.coordinate eq coordinate }
+                        .empty().not()
+                }
 
                 if (exists) {
 
@@ -1062,7 +1077,9 @@ private fun Application.configureRoutingInternal() {
             try {
 
                 /* Fast connection check */
-                clusterCollection.estimatedDocumentCount()
+                transaction {
+                    WorldsTable.select(WorldsTable.coordinate).limit(1).firstOrNull()
+                }
 
                 call.respond(HttpStatusCode.OK, "OK")
 
@@ -1284,34 +1301,6 @@ private suspend fun setMissingIndices() {
     }
 }
 
-@OptIn(ExperimentalSerializationApi::class, ExperimentalTime::class)
-private suspend fun cleanMaps() {
-
-    log("[CLEAN] Re-save maps...")
-
-    try {
-
-        val time = measureTime {
-
-            val clusters = clusterCollection.find().batchSize(10000)
-
-            clusters.collect { cluster ->
-
-                clusterCollection.replaceOne(
-                    Filters.eq("coordinate", cluster.coordinate),
-                    cluster
-                )
-            }
-        }
-
-        log("[CLEAN] Re-saved maps in $time")
-
-    } catch (ex: Exception) {
-
-        log(ex)
-    }
-}
-
 @OptIn(ExperimentalSerializationApi::class)
 private fun uploadMapToS3(
     minioClient: MinioClient,
@@ -1386,67 +1375,67 @@ private fun deleteMapFromS3(
     )
 }
 
-@OptIn(ExperimentalTime::class)
-private suspend fun copyMapsToS3() {
-
-    log("[S3] Transfer maps to S3...")
-
-    val start = Clock.System.now().toEpochMilliseconds()
-
-    try {
-
-        val objects = minioClient.listObjects(
-            ListObjectsArgs.builder()
-                .bucket(S3_WORLDS_BUCKET)
-                .build()
-        )
-
-        val existingNames = mutableSetOf<String>()
-
-        for (result in objects) {
-
-            val item = result.get()
-
-            existingNames.add(item.objectName())
-        }
-
-        val cursor = clusterCollection.find().batchSize(10000)
-
-        val existingClusterCoordinates = mutableSetOf<String>()
-
-        var addedCount = 0
-
-        cursor.collect { cluster ->
-
-            existingClusterCoordinates.add(cluster.coordinate)
-
-            if (existingNames.contains(cluster.coordinate))
-                return@collect
-
-            uploadMapToS3(minioClient, cluster)
-
-            addedCount++
-        }
-
-//        val coordinatesToDelete = existingNames.minus(existingClusterCoordinates)
+//@OptIn(ExperimentalTime::class)
+//private suspend fun copyMapsToS3() {
 //
-//        for (map in coordinatesToDelete) {
+//    log("[S3] Transfer maps to S3...")
 //
-//            println("Delete $map from S3...")
+//    val start = Clock.System.now().toEpochMilliseconds()
 //
-//            // deleteMapFromS3(localMinioClient, map)
-//            deleteMapFromS3(externalMinioClient, map)
+//    try {
+//
+//        val objects = minioClient.listObjects(
+//            ListObjectsArgs.builder()
+//                .bucket(S3_WORLDS_BUCKET)
+//                .build()
+//        )
+//
+//        val existingNames = mutableSetOf<String>()
+//
+//        for (result in objects) {
+//
+//            val item = result.get()
+//
+//            existingNames.add(item.objectName())
 //        }
-
-        val duration = Clock.System.now().toEpochMilliseconds() - start
-
-        log("[S3] Completed in $duration ms. Added $addedCount.")
-
-    } catch (ex: Exception) {
-
-        log(ex)
-    }
-}
+//
+//        val cursor = clusterCollection.find().batchSize(10000)
+//
+//        val existingClusterCoordinates = mutableSetOf<String>()
+//
+//        var addedCount = 0
+//
+//        cursor.collect { cluster ->
+//
+//            existingClusterCoordinates.add(cluster.coordinate)
+//
+//            if (existingNames.contains(cluster.coordinate))
+//                return@collect
+//
+//            uploadMapToS3(minioClient, cluster)
+//
+//            addedCount++
+//        }
+//
+////        val coordinatesToDelete = existingNames.minus(existingClusterCoordinates)
+////
+////        for (map in coordinatesToDelete) {
+////
+////            println("Delete $map from S3...")
+////
+////            // deleteMapFromS3(localMinioClient, map)
+////            deleteMapFromS3(externalMinioClient, map)
+////        }
+//
+//        val duration = Clock.System.now().toEpochMilliseconds() - start
+//
+//        log("[S3] Completed in $duration ms. Added $addedCount.")
+//
+//    } catch (ex: Exception) {
+//
+//        log(ex)
+//    }
+//}
 
 @OptIn(ExperimentalSerializationApi::class, ExperimentalTime::class)
 private suspend fun populateDatabaseWorld() {
@@ -1519,7 +1508,7 @@ private suspend fun populateDatabaseWorld() {
 }
 
 @OptIn(ExperimentalSerializationApi::class, ExperimentalTime::class)
-private suspend fun createSearchIndexes() {
+private fun createSearchIndexes() {
 
     log("[INDEX] Create search indexes from database ...")
 
