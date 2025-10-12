@@ -28,6 +28,7 @@ import com.mongodb.client.model.Filters
 import com.mongodb.client.model.IndexOptions
 import com.mongodb.client.model.Sorts.descending
 import com.mongodb.kotlin.client.coroutine.MongoClient
+import db.DatabaseFactory
 import db.FailedWorldGenReportsTable
 import db.RequestedCoordinatesTable
 import db.SearchIndexTable
@@ -181,6 +182,16 @@ private val backgroundScope = CoroutineScope(Dispatchers.Default)
 private val latestCoordinates = mutableListOf<String>()
 
 private val seedRequestCounterMap = mutableMapOf<String, Long>()
+
+private val postgresDatabase = DatabaseFactory.init(
+    url = System.getenv("MNI_DATABASE_URL")
+        ?: error("MNI_DATABASE_URL environment variable not set"),
+    driver = "org.postgresql.Driver",
+    username = System.getenv("MNI_DATABASE_USERNAME")
+        ?: error("MNI_DATABASE_USERNAME environment variable not set"),
+    password = System.getenv("MNI_DATABASE_PASSWORD")
+        ?: error("MNI_DATABASE_PASSWORD environment variable not set")
+)
 
 @OptIn(ExperimentalSerializationApi::class)
 fun Application.configureRouting() {
@@ -420,7 +431,7 @@ private fun Application.configureRoutingInternal() {
 
                     ZipOutputStream(this).use { zipOutputStream ->
 
-                        transaction {
+                        transaction(postgresDatabase) {
 
                             var batchNumber = 1
                             var offset = 0
@@ -545,7 +556,7 @@ private fun Application.configureRoutingInternal() {
                     Filters.eq(Cluster::coordinate.name, coordinate)
                 )
 
-                transaction {
+                transaction(postgresDatabase) {
                     WorldsTable.deleteWhere { WorldsTable.coordinate eq coordinate }
                     UploadsTable.deleteWhere { UploadsTable.coordinate eq coordinate }
                     SearchIndexTable.deleteWhere { SearchIndexTable.coordinate eq coordinate }
@@ -578,7 +589,7 @@ private fun Application.configureRoutingInternal() {
                     return@get
                 }
 
-                val exists = transaction {
+                val exists = transaction(postgresDatabase) {
                     WorldsTable
                         .select(WorldsTable.coordinate)
                         .where { WorldsTable.coordinate eq coordinate }
@@ -592,7 +603,7 @@ private fun Application.configureRoutingInternal() {
                     return@get
                 }
 
-                val isKnownFailedWorld = transaction {
+                val isKnownFailedWorld = transaction(postgresDatabase) {
                     FailedWorldGenReportsTable
                         .select(FailedWorldGenReportsTable.coordinate)
                         .where { FailedWorldGenReportsTable.coordinate eq coordinate }
@@ -753,7 +764,7 @@ private fun Application.configureRoutingInternal() {
                  * Database updates
                  */
 
-                transaction {
+                transaction(postgresDatabase) {
 
                     val clusterCoordinate = upload.cluster.coordinate
 
@@ -921,7 +932,7 @@ private fun Application.configureRoutingInternal() {
                  * Database update
                  */
 
-                transaction {
+                transaction(postgresDatabase) {
 
                     FailedWorldGenReportsTable.insert {
 
@@ -982,7 +993,7 @@ private fun Application.configureRoutingInternal() {
                     return@post
                 }
 
-                val exists = transaction {
+                val exists = transaction(postgresDatabase) {
                     RequestedCoordinatesTable.select(RequestedCoordinatesTable.coordinate)
                         .where { RequestedCoordinatesTable.coordinate eq coordinate }
                         .empty().not()
@@ -1001,7 +1012,7 @@ private fun Application.configureRoutingInternal() {
 
                     val millis = Clock.System.now().toEpochMilliseconds()
 
-                    transaction {
+                    transaction(postgresDatabase) {
                         RequestedCoordinatesTable.insert {
                             it[RequestedCoordinatesTable.steamId] = steamId
                             it[RequestedCoordinatesTable.date] = millis
@@ -1079,7 +1090,7 @@ private fun Application.configureRoutingInternal() {
             try {
 
                 /* Fast connection check */
-                transaction {
+                transaction(postgresDatabase) {
                     WorldsTable.select(WorldsTable.coordinate).limit(1).firstOrNull()
                 }
 
@@ -1142,7 +1153,7 @@ private suspend fun handleGetRequestedCoordinate(
         var requestedCoordinate: String? = null
         var requestedSteamId: String? = null
 
-        transaction {
+        transaction(postgresDatabase) {
 
             val regexPattern = ClusterType.createRegexPattern(dlcs)
 
@@ -1192,7 +1203,7 @@ private suspend fun handleGetRequestedCoordinate(
                 return
             }
 
-            transaction {
+            transaction(postgresDatabase) {
 
                 val regexPattern = ClusterType.createRegexPattern(dlcs)
 
@@ -1232,7 +1243,7 @@ private suspend fun handleGetRequestedCoordinate(
 
         } else {
 
-            val existingWorld = transaction {
+            val existingWorld = transaction(postgresDatabase) {
                 WorldsTable
                     .select(WorldsTable.coordinate)
                     .where { WorldsTable.coordinate eq requestedCoordinate }
@@ -1458,7 +1469,7 @@ private suspend fun populateDatabaseWorld() {
                     .batchSize(20000)
 
                 /* Prefetch all existing coordinates for this cluster type in one query */
-                val existingCoordinates = transaction {
+                val existingCoordinates = transaction(postgresDatabase) {
 
                     val set = HashSet<String>()
 
@@ -1482,7 +1493,7 @@ private suspend fun populateDatabaseWorld() {
                         originalBytes = protobufBytes
                     )
 
-                    transaction {
+                    transaction(postgresDatabase) {
 
                         WorldsTable.insertIgnore {
                             it[WorldsTable.coordinate] = cluster.coordinate
@@ -1528,7 +1539,7 @@ private fun createSearchIndexes() {
 
                 val summaries = mutableListOf<ClusterSummaryCompact>()
 
-                transaction {
+                transaction(postgresDatabase) {
 
                     val resultRows = SearchIndexTable
                         .select(SearchIndexTable.uploaderSteamIdHash, SearchIndexTable.data)
@@ -1640,7 +1651,7 @@ private fun createSearchIndexes() {
          * Also upload failed world gens
          */
 
-        val failedWorldGenReports = transaction {
+        val failedWorldGenReports = transaction(postgresDatabase) {
             FailedWorldGenReportsTable
                 .select(FailedWorldGenReportsTable.coordinate)
                 .map { it[FailedWorldGenReportsTable.coordinate] }
