@@ -28,7 +28,6 @@ object DatabaseFactory {
 
     fun init(
         url: String,
-        driver: String,
         username: String,
         password: String
     ): Database {
@@ -41,9 +40,14 @@ object DatabaseFactory {
                 dialect = SQLiteDialect.dialectName
             )
 
+            Database.registerJdbcDriver(
+                prefix = "jdbc:rqlite",
+                driverClassName = "io.rqlite.jdbc.L4Driver",
+                dialect = SQLiteDialect.dialectName
+            )
+
             val db = Database.connect(
                 url = url,
-                driver = driver,
                 user = username,
                 password = password
             )

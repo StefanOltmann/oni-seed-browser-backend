@@ -158,17 +158,22 @@ private val seedRequestCounterMap = mutableMapOf<String, Long>()
 private val postgresDatabase = DatabaseFactory.init(
     url = System.getenv("MNI_DATABASE_URL")
         ?: error("MNI_DATABASE_URL environment variable not set"),
-    driver = "org.postgresql.Driver",
     username = System.getenv("MNI_DATABASE_USERNAME")
         ?: error("MNI_DATABASE_USERNAME environment variable not set"),
     password = System.getenv("MNI_DATABASE_PASSWORD")
         ?: error("MNI_DATABASE_PASSWORD environment variable not set")
 )
 
+//private val rqliteDatabase = DatabaseFactory.init(
+//    url = System.getenv("MNI_RQLITE_DATABASE_URL")
+//        ?: error("MNI_RQLITE_DATABASE_URL environment variable not set"),
+//    username = "",
+//    password = ""
+//)
+
 //private val libsqlDatabase = DatabaseFactory.init(
 //    url = System.getenv("MNI_LIBSQL_DATABASE_URL")
 //        ?: error("MNI_LIBSQL_DATABASE_URL environment variable not set"),
-//    driver = "com.dbeaver.jdbc.driver.libsql.LibSqlDriver",
 //    username = "",
 //    password = ""
 //)
