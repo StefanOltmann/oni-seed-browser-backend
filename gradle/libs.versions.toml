@@ -11,6 +11,7 @@ oni-model = "fd18d13-SNAPSHOT"
 postgresql = "42.7.8"
 exposed = "1.0.0-rc-1"
 logback = "1.4.14"
+libsql = "1.0.4"
 
 [libraries]
 # ONI Model
@@ -38,6 +39,7 @@ mongodb-bson-kotlinx = { module = "org.mongodb:bson-kotlinx", version.ref = "mon
 
 # Database
 postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
+libsql = { module = "com.dbeaver.jdbc:com.dbeaver.jdbc.driver.libsql", version.ref = "libsql" }
 
 # JetBrains Exposed ORM
 exposed-core = { module = "org.jetbrains.exposed:exposed-core", version.ref = "exposed" }
