@@ -32,28 +32,37 @@ object DatabaseFactory {
         password: String
     ): Database {
 
-        val db = Database.connect(
-            url = url,
-            driver = driver,
-            user = username,
-            password = password
-        )
+        try {
 
-        transaction(db) {
-
-            addLogger(StdOutSqlLogger)
-
-            SchemaUtils.create(
-                WorldsTable,
-                SearchIndexTable,
-                UploadsTable,
-                FailedWorldGenReportsTable,
-                RequestedCoordinatesTable
+            val db = Database.connect(
+                url = url,
+                driver = driver,
+                user = username,
+                password = password
             )
+
+            transaction(db) {
+
+                addLogger(StdOutSqlLogger)
+
+                SchemaUtils.create(
+                    WorldsTable,
+                    SearchIndexTable,
+                    UploadsTable,
+                    FailedWorldGenReportsTable,
+                    RequestedCoordinatesTable
+                )
+            }
+
+            println("[INIT] Connected to database: $url")
+
+            return db
+
+        } catch (ex: Exception) {
+
+            ex.printStackTrace()
+
+            throw Exception("Failed to connect to database: $url", ex)
         }
-
-        println("[INIT] Connected to database: $url")
-
-        return db
     }
 }
