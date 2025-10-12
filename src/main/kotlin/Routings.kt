@@ -420,77 +420,81 @@ private fun Application.configureRoutingInternal() {
 
                     ZipOutputStream(this).use { zipOutputStream ->
 
-                        val cursor = transaction {
-                            WorldsTable
-                                .select(WorldsTable.coordinate, WorldsTable.clusterTypeId, WorldsTable.data)
-                                .where { WorldsTable.clusterTypeId inList clustersToExport.map { it.id.toInt() } }
-                                .orderBy(WorldsTable.uploadDate to SortOrder.DESC)
-                                .iterator()
-                        }
+                        transaction {
 
-                        var batchNumber = 1
+                            val cursor =
+                                WorldsTable
+                                    .select(WorldsTable.coordinate, WorldsTable.clusterTypeId, WorldsTable.data)
+                                    .where { WorldsTable.clusterTypeId inList clustersToExport.map { it.id.toInt() } }
+                                    .orderBy(WorldsTable.uploadDate to SortOrder.DESC)
+                                    .fetchBatchedResults(EXPORT_BATCH_SIZE)
 
-                        val batchMaps = mutableListOf<Cluster>()
+                            var batchNumber = 1
 
-                        /* Collect results in batches */
-                        while (cursor.hasNext()) {
+                            val batchMaps = mutableListOf<Cluster>()
 
-                            val row = cursor.next()
-                            val bytes = row[WorldsTable.data]
+                            for (batch in cursor) {
 
-                            val unzippedBytes = ZipUtil.unzipBytes(bytes)
-                            val cluster = ProtoBuf.decodeFromByteArray<Cluster>(unzippedBytes)
+                                /* Collect results in batches */
+                                for (row in batch) {
 
-                            batchMaps.add(cluster)
+                                    val bytes = row[WorldsTable.data]
 
-                            if (batchMaps.size >= EXPORT_BATCH_SIZE) {
+                                    val unzippedBytes = ZipUtil.unzipBytes(bytes)
+                                    val cluster = ProtoBuf.decodeFromByteArray<Cluster>(unzippedBytes)
 
-                                val paddedBatchNumber = batchNumber.toString().padStart(4, '0')
+                                    batchMaps.add(cluster)
 
-                                zipOutputStream.putNextEntry(
-                                    ZipEntry("${exportCollection.id}-data-$paddedBatchNumber.pb")
-                                )
+                                    if (batchMaps.size >= EXPORT_BATCH_SIZE) {
 
-                                ProtoBuf.encodeToByteArray(batchMaps).let { bytes ->
+                                        val paddedBatchNumber = batchNumber.toString().padStart(4, '0')
 
-                                    zipOutputStream.write(bytes)
+                                        zipOutputStream.putNextEntry(
+                                            ZipEntry("${exportCollection.id}-data-$paddedBatchNumber.pb")
+                                        )
 
-                                    zipOutputStream.flush()
+                                        ProtoBuf.encodeToByteArray(batchMaps).let { bytes ->
+
+                                            zipOutputStream.write(bytes)
+
+                                            zipOutputStream.flush()
+                                        }
+
+                                        zipOutputStream.closeEntry()
+
+                                        // Clear the batch, increment file number, and force GC
+                                        batchMaps.clear()
+                                        batchNumber++
+
+                                        /* Clean up to prevent out of memory. */
+                                        System.gc()
+                                    }
                                 }
 
-                                zipOutputStream.closeEntry()
+                                /* If any remaining documents after loop, save the last batch */
+                                if (batchMaps.isNotEmpty()) {
 
-                                // Clear the batch, increment file number, and force GC
-                                batchMaps.clear()
-                                batchNumber++
+                                    val paddedBatchNumber = batchNumber.toString().padStart(4, '0')
 
-                                /* Clean up to prevent out of memory. */
-                                System.gc()
+                                    zipOutputStream.putNextEntry(
+                                        ZipEntry("${exportCollection.id}-data-$paddedBatchNumber.pb")
+                                    )
+
+                                    ProtoBuf.encodeToByteArray(batchMaps).let { bytes ->
+
+                                        zipOutputStream.write(bytes)
+
+                                        zipOutputStream.flush()
+                                    }
+
+                                    zipOutputStream.closeEntry()
+
+                                    batchMaps.clear()
+
+                                    /* Clean up to prevent out of memory. */
+                                    System.gc()
+                                }
                             }
-                        }
-
-                        /* If any remaining documents after loop, save the last batch */
-                        if (batchMaps.isNotEmpty()) {
-
-                            val paddedBatchNumber = batchNumber.toString().padStart(4, '0')
-
-                            zipOutputStream.putNextEntry(
-                                ZipEntry("${exportCollection.id}-data-$paddedBatchNumber.pb")
-                            )
-
-                            ProtoBuf.encodeToByteArray(batchMaps).let { bytes ->
-
-                                zipOutputStream.write(bytes)
-
-                                zipOutputStream.flush()
-                            }
-
-                            zipOutputStream.closeEntry()
-
-                            batchMaps.clear()
-
-                            /* Clean up to prevent out of memory. */
-                            System.gc()
                         }
                     }
                 }
