@@ -426,8 +426,7 @@ private fun Application.configureRoutingInternal() {
                                 WorldsTable
                                     .select(WorldsTable.coordinate, WorldsTable.clusterTypeId, WorldsTable.data)
                                     .where { WorldsTable.clusterTypeId inList clustersToExport.map { it.id.toInt() } }
-                                    .orderBy(WorldsTable.uploadDate to SortOrder.DESC)
-                                    .fetchBatchedResults(EXPORT_BATCH_SIZE)
+                                    .fetchBatchedResults(batchSize = EXPORT_BATCH_SIZE)
 
                             var batchNumber = 1
 
