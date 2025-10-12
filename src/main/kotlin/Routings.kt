@@ -1420,9 +1420,9 @@ private fun regenerateSearchIndexTable() {
 
                                 it[SearchIndexTable.coordinate] = cluster.coordinate
                                 it[SearchIndexTable.clusterTypeId] = cluster.cluster.id.toInt()
-                                it[SearchIndexTable.uploaderSteamIdHash] = uploaderSteamIdHash
+                                it[SearchIndexTable.uploaderSteamIdHash] = cluster.uploaderSteamIdHash
                                 it[SearchIndexTable.gameVersion] = cluster.gameVersion
-                                it[SearchIndexTable.uploadDate] = uploadDate
+                                it[SearchIndexTable.uploadDate] = cluster.uploadDate
                                 it[SearchIndexTable.data] = summaryBytes
                             }
                         }
