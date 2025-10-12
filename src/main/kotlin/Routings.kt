@@ -1391,61 +1391,64 @@ private fun regenerateSearchIndexTable() {
 
             val time = measureTime {
 
-                var offset = 0
+                val worldsCoordinates = transaction(postgresDatabase) {
+                    WorldsTable
+                        .select(WorldsTable.coordinate)
+                        .where { WorldsTable.clusterTypeId eq cluster.id.toInt() }
+                        .map { it[WorldsTable.coordinate] }
+                        .toSet()
+                }
 
-                do {
+                val searchIndexCoordinates = transaction(postgresDatabase) {
+                    SearchIndexTable
+                        .select(SearchIndexTable.coordinate)
+                        .where { SearchIndexTable.clusterTypeId eq cluster.id.toInt() }
+                        .map { it[SearchIndexTable.coordinate] }
+                        .toSet()
+                }
 
-                    val batchResults = transaction(postgresDatabase) {
+                val missingCoordinates = worldsCoordinates - searchIndexCoordinates
+
+                log("[INDEX] Found ${missingCoordinates.size} missing coordinates for ${cluster.prefix}")
+
+                // Process only the missing coordinates
+                for (coordinate in missingCoordinates) {
+
+                    val worldData = transaction(postgresDatabase) {
                         WorldsTable
-                            .select(WorldsTable.coordinate, WorldsTable.clusterTypeId, WorldsTable.data)
-                            .orderBy(WorldsTable.coordinate to SortOrder.ASC)
-                            .limit(EXPORT_BATCH_SIZE)
-                            .offset(offset.toLong())
-                            .toList()
+                            .select(WorldsTable.data)
+                            .where { (WorldsTable.coordinate eq coordinate) and (WorldsTable.clusterTypeId eq cluster.id.toInt()) }
+                            .singleOrNull()
                     }
 
-                    val existingCoordinates = transaction(postgresDatabase) {
-                        SearchIndexTable
-                            .select(SearchIndexTable.coordinate)
-                            .where { SearchIndexTable.coordinate inList batchResults.map { it[WorldsTable.coordinate] } }
-                            .map { it[SearchIndexTable.coordinate] }
-                            .toSet()
+                    if (worldData == null) {
+                        log("[INDEX] Warning: Missing world data for coordinate $coordinate")
+                        continue
                     }
 
-                    for (row in batchResults) {
+                    val bytes = worldData[WorldsTable.data]
 
-                        val coordinate = row[WorldsTable.coordinate]
+                    val unzippedBytes = ZipUtil.unzipBytes(bytes)
 
-                        if (existingCoordinates.contains(coordinate))
-                            continue
+                    val clusterData = ProtoBuf.decodeFromByteArray<Cluster>(unzippedBytes)
 
-                        val bytes = row[WorldsTable.data]
+                    val summary = ClusterSummaryCompact.create(clusterData)
 
-                        val unzippedBytes = ZipUtil.unzipBytes(bytes)
+                    val summaryBytes = ProtoBuf.encodeToByteArray(summary)
 
-                        val cluster = ProtoBuf.decodeFromByteArray<Cluster>(unzippedBytes)
+                    transaction(postgresDatabase) {
 
-                        val summary = ClusterSummaryCompact.create(cluster)
+                        SearchIndexTable.insertIgnore {
 
-                        val summaryBytes = ProtoBuf.encodeToByteArray(summary)
-
-                        transaction(postgresDatabase) {
-
-                            SearchIndexTable.insertIgnore {
-
-                                it[SearchIndexTable.coordinate] = cluster.coordinate
-                                it[SearchIndexTable.clusterTypeId] = cluster.cluster.id.toInt()
-                                it[SearchIndexTable.uploaderSteamIdHash] = cluster.uploaderSteamIdHash
-                                it[SearchIndexTable.gameVersion] = cluster.gameVersion
-                                it[SearchIndexTable.uploadDate] = cluster.uploadDate
-                                it[SearchIndexTable.data] = summaryBytes
-                            }
+                            it[SearchIndexTable.coordinate] = clusterData.coordinate
+                            it[SearchIndexTable.clusterTypeId] = clusterData.cluster.id.toInt()
+                            it[SearchIndexTable.uploaderSteamIdHash] = clusterData.uploaderSteamIdHash
+                            it[SearchIndexTable.gameVersion] = clusterData.gameVersion
+                            it[SearchIndexTable.uploadDate] = clusterData.uploadDate
+                            it[SearchIndexTable.data] = summaryBytes
                         }
                     }
-
-                    offset += batchResults.size
-
-                } while (batchResults.size > 0)
+                }
             }
 
             log("[INDEX] Processed ${cluster.prefix} in $time.")
