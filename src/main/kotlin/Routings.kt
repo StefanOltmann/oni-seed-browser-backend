@@ -1391,30 +1391,32 @@ private fun regenerateSearchIndexTable() {
 
             val time = measureTime {
 
-                transaction(postgresDatabase) {
+                var offset = 0
 
-                    var offset = 0
+                do {
 
-                    do {
-
-                        val batchResults = WorldsTable
+                    val batchResults = transaction(postgresDatabase) {
+                        WorldsTable
                             .select(WorldsTable.coordinate, WorldsTable.clusterTypeId, WorldsTable.data)
                             .orderBy(WorldsTable.coordinate to SortOrder.ASC)
                             .limit(EXPORT_BATCH_SIZE)
                             .offset(offset.toLong())
                             .toList()
+                    }
 
-                        for (row in batchResults) {
+                    for (row in batchResults) {
 
-                            val bytes = row[WorldsTable.data]
+                        val bytes = row[WorldsTable.data]
 
-                            val unzippedBytes = ZipUtil.unzipBytes(bytes)
+                        val unzippedBytes = ZipUtil.unzipBytes(bytes)
 
-                            val cluster = ProtoBuf.decodeFromByteArray<Cluster>(unzippedBytes)
+                        val cluster = ProtoBuf.decodeFromByteArray<Cluster>(unzippedBytes)
 
-                            val summary = ClusterSummaryCompact.create(cluster)
+                        val summary = ClusterSummaryCompact.create(cluster)
 
-                            val summaryBytes = ProtoBuf.encodeToByteArray(summary)
+                        val summaryBytes = ProtoBuf.encodeToByteArray(summary)
+
+                        transaction(postgresDatabase) {
 
                             SearchIndexTable.insertIgnore {
 
@@ -1426,11 +1428,11 @@ private fun regenerateSearchIndexTable() {
                                 it[SearchIndexTable.data] = summaryBytes
                             }
                         }
+                    }
 
-                        offset += batchResults.size
+                    offset += batchResults.size
 
-                    } while (batchResults.size > 0)
-                }
+                } while (batchResults.size > 0)
             }
 
             log("[INDEX] Processed ${cluster.prefix} in $time.")
