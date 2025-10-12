@@ -18,7 +18,9 @@
  */
 package db
 
+import org.jetbrains.exposed.v1.core.DatabaseConfig
 import org.jetbrains.exposed.v1.core.StdOutSqlLogger
+import org.jetbrains.exposed.v1.core.vendors.SQLiteDialect
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.SchemaUtils
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -38,7 +40,13 @@ object DatabaseFactory {
                 url = url,
                 driver = driver,
                 user = username,
-                password = password
+                password = password,
+                databaseConfig = if (url.contains("libsql"))
+                    DatabaseConfig {
+                        explicitDialect = SQLiteDialect()
+                    }
+                else
+                    null
             )
 
             transaction(db) {

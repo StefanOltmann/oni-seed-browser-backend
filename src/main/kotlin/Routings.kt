@@ -193,6 +193,14 @@ private val postgresDatabase = DatabaseFactory.init(
         ?: error("MNI_DATABASE_PASSWORD environment variable not set")
 )
 
+//private val libsqlDatabase = DatabaseFactory.init(
+//    url = System.getenv("MNI_LIBSQL_DATABASE_URL")
+//        ?: error("MNI_LIBSQL_DATABASE_URL environment variable not set"),
+//    driver = "com.dbeaver.jdbc.driver.libsql.LibSqlDriver",
+//    username = "",
+//    password = ""
+//)
+
 @OptIn(ExperimentalSerializationApi::class)
 fun Application.configureRouting() {
 
