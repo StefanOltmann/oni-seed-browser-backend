@@ -18,7 +18,6 @@
  */
 package db
 
-import org.jetbrains.exposed.v1.core.DatabaseConfig
 import org.jetbrains.exposed.v1.core.StdOutSqlLogger
 import org.jetbrains.exposed.v1.core.vendors.SQLiteDialect
 import org.jetbrains.exposed.v1.jdbc.Database
@@ -36,17 +35,17 @@ object DatabaseFactory {
 
         try {
 
+            Database.registerJdbcDriver(
+                prefix = "jdbc:dbeaver:libsql",
+                driverClassName = "com.dbeaver.jdbc.driver.libsql.LibSqlDriver",
+                dialect = SQLiteDialect.dialectName
+            )
+
             val db = Database.connect(
                 url = url,
                 driver = driver,
                 user = username,
-                password = password,
-                databaseConfig = if (url.contains("libsql"))
-                    DatabaseConfig {
-                        explicitDialect = SQLiteDialect()
-                    }
-                else
-                    null
+                password = password
             )
 
             transaction(db) {
