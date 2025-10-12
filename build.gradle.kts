@@ -65,11 +65,6 @@ dependencies {
     implementation(libs.ktor.client.okhttp)
 
     /*
-     * MongoDB handling
-     */
-    implementation(libs.bundles.mongodb)
-
-    /*
      * Database
      */
     implementation(libs.postgresql)

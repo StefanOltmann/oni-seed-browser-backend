@@ -20,14 +20,6 @@ import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import com.auth0.jwt.exceptions.JWTVerificationException
 import com.auth0.jwt.interfaces.DecodedJWT
-import com.mongodb.ConnectionString
-import com.mongodb.MongoClientSettings
-import com.mongodb.ServerApi
-import com.mongodb.ServerApiVersion
-import com.mongodb.client.model.Filters
-import com.mongodb.client.model.IndexOptions
-import com.mongodb.client.model.Sorts.descending
-import com.mongodb.kotlin.client.coroutine.MongoClient
 import db.DatabaseFactory
 import db.FailedWorldGenReportsTable
 import db.RequestedCoordinatesTable
@@ -84,7 +76,6 @@ import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.encodeToByteArray
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.protobuf.ProtoBuf
-import org.bson.Document
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -92,7 +83,6 @@ import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.regexp
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.insertIgnore
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import util.Benchmark
@@ -122,8 +112,6 @@ const val S3_WORLDS_BUCKET = "oni-data.stefanoltmann.de"
 const val S3_SEARCH_BUCKET = "oni-search.stefanoltmann.de"
 const val S3_METADATA_BUCKET = "oni-upload-metadata"
 
-private val connectionString: String = System.getenv("MNI_MONGO_DB_CONNECTION_STRING") ?: ""
-
 private val purgeApiKey = System.getenv(MNI_PURGE_API_KEY)
     ?: error("Missing MNI_PURGE_API_KEY environment variable")
 
@@ -147,22 +135,6 @@ private val ecdsaAlgorithm = Algorithm.ECDSA256(publicKey)
 private val jwtVerifier = JWT
     .require(ecdsaAlgorithm)
     .build()
-
-private val serverApi = ServerApi.builder()
-    .version(ServerApiVersion.V1)
-    .build()
-
-private val mongoClientSettings = MongoClientSettings.builder()
-    .applyConnectionString(ConnectionString(connectionString))
-    .serverApi(serverApi)
-    .build()
-
-private val mongoClient = MongoClient.create(mongoClientSettings)
-
-private val database = mongoClient.getDatabase("oni")
-
-private val clusterCollection =
-    database.getCollection<Cluster>("worlds")
 
 private val strictJson = Json {
 
@@ -254,13 +226,9 @@ private fun Application.configureRoutingInternal() {
 
     launch {
 
-        setMissingIndices()
-
         // cleanMaps()
 
         createSearchIndexes()
-
-        populateDatabaseWorld()
     }
 
     routing {
@@ -560,10 +528,6 @@ private fun Application.configureRoutingInternal() {
                     return@delete
                 }
 
-                clusterCollection.deleteOne(
-                    Filters.eq(Cluster::coordinate.name, coordinate)
-                )
-
                 transaction(postgresDatabase) {
                     WorldsTable.deleteWhere { WorldsTable.coordinate eq coordinate }
                     UploadsTable.deleteWhere { UploadsTable.coordinate eq coordinate }
@@ -821,12 +785,6 @@ private fun Application.configureRoutingInternal() {
                         it[SearchIndexTable.data] = summaryBytes
                     }
                 }
-
-                /*
-                 * MongoDB updates
-                 */
-
-                clusterCollection.insertOne(optimizedCluster)
 
                 /*
                  * S3 uploads
@@ -1089,12 +1047,6 @@ private fun Application.configureRoutingInternal() {
 
         get("/health") {
 
-            if (connectionString.isBlank()) {
-                log("No connection string set.")
-                call.respond(HttpStatusCode.InternalServerError, "No connection string set.")
-                return@get
-            }
-
             try {
 
                 /* Fast connection check */
@@ -1282,46 +1234,6 @@ private fun ApplicationCall.getIpAddress(): String =
     request.headers["X-Forwarded-For"]?.split(",")?.firstOrNull()?.trim()
         ?: request.origin.remoteAddress
 
-private suspend fun setMissingIndices() {
-
-    /*
-     * Unique key indexes
-     */
-
-    try {
-
-        log("[INIT] Setting missing indices")
-
-        val time = measureTime {
-
-            val uniqueIndexOptions = IndexOptions().unique(true)
-
-            clusterCollection
-                .createIndex(Document("coordinate", 1), uniqueIndexOptions)
-
-            clusterCollection
-                .createIndex(Document("uploaderSteamIdHash", 1))
-
-            clusterCollection
-                .createIndex(Document("uploaderAuthenticated", 1))
-
-            clusterCollection
-                .createIndex(Document("uploadDate", 1))
-
-            clusterCollection
-                .createIndex(Document("cluster", 1))
-        }
-
-        log("[INIT] Missing indexes set in $time.")
-
-    } catch (ex: Exception) {
-
-        log("[INIT] Failed to set missing indices at start: ${ex.message}")
-
-        log(ex)
-    }
-}
-
 @OptIn(ExperimentalSerializationApi::class)
 private fun uploadMapToS3(
     minioClient: MinioClient,
@@ -1457,76 +1369,6 @@ private fun deleteMapFromS3(
 //        log(ex)
 //    }
 //}
-
-@OptIn(ExperimentalSerializationApi::class, ExperimentalTime::class)
-private suspend fun populateDatabaseWorld() {
-
-    log("[TRANSFER] Add worlds to database ...")
-
-    val start = Clock.System.now().toEpochMilliseconds()
-
-    try {
-
-        for (cluster in ClusterType.entries) {
-
-            val time = measureTime {
-
-                val clustersToIndex = clusterCollection
-                    .find(Filters.eq(Cluster::cluster.name, cluster.prefix))
-                    .sort(descending(Cluster::uploadDate.name))
-                    .batchSize(20000)
-
-                /* Prefetch all existing coordinates for this cluster type in one query */
-                val existingCoordinates = transaction(postgresDatabase) {
-
-                    val set = HashSet<String>()
-
-                    exec("SELECT coordinate FROM worlds WHERE cluster_type_id = ${cluster.id.toInt()}") { rs ->
-
-                        while (rs.next())
-                            set.add(rs.getString(1))
-                    }
-
-                    set
-                }
-
-                clustersToIndex.collect { cluster ->
-
-                    if (existingCoordinates.contains(cluster.coordinate))
-                        return@collect
-
-                    val protobufBytes = ProtoBuf.encodeToByteArray(cluster)
-
-                    val compressedBytes = ZipUtil.zipBytes(
-                        originalBytes = protobufBytes
-                    )
-
-                    transaction(postgresDatabase) {
-
-                        WorldsTable.insertIgnore {
-                            it[WorldsTable.coordinate] = cluster.coordinate
-                            it[WorldsTable.clusterTypeId] = cluster.cluster.id.toInt()
-                            it[WorldsTable.gameVersion] = cluster.gameVersion
-                            it[WorldsTable.uploaderSteamIdHash] = cluster.uploaderSteamIdHash
-                            it[WorldsTable.uploadDate] = cluster.uploadDate
-                            it[WorldsTable.data] = compressedBytes
-                        }
-                    }
-                }
-            }
-
-            log("[TRANSFER] Processed ${cluster.prefix} in $time.")
-        }
-
-        val duration = Clock.System.now().toEpochMilliseconds() - start
-
-        log("[TRANSFER] Added missing worlds in $duration ms.")
-
-    } catch (ex: Exception) {
-
-        log(ex)
-    }
-}
 
 @OptIn(ExperimentalSerializationApi::class, ExperimentalTime::class)
 private fun createSearchIndexes() {
