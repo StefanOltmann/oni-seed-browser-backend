@@ -102,7 +102,7 @@ import kotlin.uuid.ExperimentalUuidApi
 const val LATEST_MAPS_LIMIT = 100
 const val EXPORT_BATCH_SIZE = 5000
 
-const val QUEUE_REQUEST_LIMIT_PER_USER = 15
+const val QUEUE_REQUEST_LIMIT_PER_USER = 10
 
 const val TOKEN_HEADER_WEBPAGE = "token"
 const val TOKEN_HEADER_MOD = "MNI_TOKEN"
