@@ -102,6 +102,8 @@ import kotlin.uuid.ExperimentalUuidApi
 const val LATEST_MAPS_LIMIT = 100
 const val EXPORT_BATCH_SIZE = 5000
 
+const val QUEUE_REQUEST_LIMIT_PER_USER = 15
+
 const val TOKEN_HEADER_WEBPAGE = "token"
 const val TOKEN_HEADER_MOD = "MNI_TOKEN"
 
@@ -980,23 +982,46 @@ private fun Application.configureRoutingInternal() {
                     /* Send info that the coordinate already exists. */
                     call.respond(HttpStatusCode.Conflict, "Coordinate $coordinate was already requested.")
 
-                } else {
-
-                    log("[REQUEST] Requesting coordinate $coordinate (by $steamId)")
-
-                    val millis = Clock.System.now().toEpochMilliseconds()
-
-                    transaction(postgresDatabase) {
-                        RequestedCoordinatesTable.insert {
-                            it[RequestedCoordinatesTable.steamId] = steamId
-                            it[RequestedCoordinatesTable.date] = millis
-                            it[RequestedCoordinatesTable.coordinate] = coordinate
-                        }
-                    }
-
-                    /* Send OK status. */
-                    call.respond(HttpStatusCode.OK, "Coordinate $coordinate requested.")
+                    return@post
                 }
+
+                val userRequestCount = transaction(postgresDatabase) {
+                    RequestedCoordinatesTable.select(RequestedCoordinatesTable.coordinate)
+                        .where { RequestedCoordinatesTable.steamId eq steamId }
+                        .count()
+                }
+
+                /*
+                 * Enforce a rate limit to make it fair for all users.
+                 */
+                if (userRequestCount >= QUEUE_REQUEST_LIMIT_PER_USER) {
+
+                    log("[REQUEST] Rate limit exceeded for user $steamId: $userRequestCount requests in queue")
+
+                    call.respond(
+                        status = HttpStatusCode.TooManyRequests,
+                        message = "You're being rate limited. " +
+                            "You have $userRequestCount requests in queue. " +
+                            "Maximum allowed is $QUEUE_REQUEST_LIMIT_PER_USER."
+                    )
+
+                    return@post
+                }
+
+                log("[REQUEST] Requesting coordinate $coordinate by $steamId ($userRequestCount requests in queue)")
+
+                val millis = Clock.System.now().toEpochMilliseconds()
+
+                transaction(postgresDatabase) {
+                    RequestedCoordinatesTable.insert {
+                        it[RequestedCoordinatesTable.steamId] = steamId
+                        it[RequestedCoordinatesTable.date] = millis
+                        it[RequestedCoordinatesTable.coordinate] = coordinate
+                    }
+                }
+
+                /* Send OK status. */
+                call.respond(HttpStatusCode.OK, "Coordinate $coordinate requested.")
 
             } catch (ex: JWTVerificationException) {
 
