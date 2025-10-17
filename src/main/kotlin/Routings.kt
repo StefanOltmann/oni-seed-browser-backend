@@ -81,6 +81,7 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.regexp
+import org.jetbrains.exposed.v1.core.statements.api.ExposedBlob
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.insertIgnore
@@ -427,7 +428,7 @@ private fun Application.configureRoutingInternal() {
 
                                 for (row in batchResults) {
 
-                                    val bytes = row[WorldsTable.data]
+                                    val bytes = row[WorldsTable.data].bytes
 
                                     val unzippedBytes = ZipUtil.unzipBytes(bytes)
 
@@ -754,7 +755,7 @@ private fun Application.configureRoutingInternal() {
                         it[WorldsTable.gameVersion] = upload.cluster.gameVersion
                         it[WorldsTable.uploaderSteamIdHash] = uploaderSteamIdHash
                         it[WorldsTable.uploadDate] = uploadDate
-                        it[WorldsTable.data] = compressedBytes
+                        it[WorldsTable.data] = ExposedBlob(compressedBytes)
                     }
 
                     UploadsTable.insert {
@@ -784,7 +785,7 @@ private fun Application.configureRoutingInternal() {
                         it[SearchIndexTable.uploaderSteamIdHash] = uploaderSteamIdHash
                         it[SearchIndexTable.gameVersion] = upload.cluster.gameVersion
                         it[SearchIndexTable.uploadDate] = uploadDate
-                        it[SearchIndexTable.data] = summaryBytes
+                        it[SearchIndexTable.data] = ExposedBlob(summaryBytes)
                     }
                 }
 
@@ -1443,7 +1444,7 @@ private fun regenerateSearchIndexTable() {
                         continue
                     }
 
-                    val bytes = worldData[WorldsTable.data]
+                    val bytes = worldData[WorldsTable.data].bytes
 
                     val unzippedBytes = ZipUtil.unzipBytes(bytes)
 
@@ -1462,7 +1463,7 @@ private fun regenerateSearchIndexTable() {
                             it[SearchIndexTable.uploaderSteamIdHash] = clusterData.uploaderSteamIdHash
                             it[SearchIndexTable.gameVersion] = clusterData.gameVersion
                             it[SearchIndexTable.uploadDate] = clusterData.uploadDate
-                            it[SearchIndexTable.data] = summaryBytes
+                            it[SearchIndexTable.data] = ExposedBlob(summaryBytes)
                         }
                     }
                 }
@@ -1518,7 +1519,7 @@ private fun createSearchIndexes() {
                         countPerContributor[uploaderSteamIdHash] =
                             (countPerContributor[uploaderSteamIdHash] ?: 0L) + 1
 
-                        val bytes = resultRow[SearchIndexTable.data]
+                        val bytes = resultRow[SearchIndexTable.data].bytes
 
                         val summary = ProtoBuf.decodeFromByteArray<ClusterSummaryCompact>(bytes)
 

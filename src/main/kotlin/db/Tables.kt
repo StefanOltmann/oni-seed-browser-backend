@@ -25,12 +25,12 @@ import org.jetbrains.exposed.v1.core.Table
  */
 object WorldsTable : Table("worlds") {
 
-    val coordinate = text("coordinate")
+    val coordinate = varchar("coordinate", 50)
     val clusterTypeId = integer("cluster_type_id")
     val gameVersion = integer("game_version")
-    val uploaderSteamIdHash = text("uploader_steam_id_hash")
+    val uploaderSteamIdHash = varchar("uploader_steam_id_hash", 80)
     val uploadDate = long("upload_date")
-    val data = binary("data")
+    val data = blob("data")
 
     override val primaryKey = PrimaryKey(coordinate)
 }
@@ -40,12 +40,12 @@ object WorldsTable : Table("worlds") {
  */
 object SearchIndexTable : Table("search_index") {
 
-    val coordinate = text("coordinate")
+    val coordinate = varchar("coordinate", 50)
     val clusterTypeId = integer("cluster_type_id")
-    val uploaderSteamIdHash = text("uploader_steam_id_hash")
+    val uploaderSteamIdHash = varchar("uploader_steam_id_hash", 80)
     val gameVersion = integer("game_version")
     val uploadDate = long("upload_date")
-    val data = binary("data")
+    val data = blob("data")
 
     override val primaryKey = PrimaryKey(coordinate)
 }
@@ -55,14 +55,14 @@ object SearchIndexTable : Table("search_index") {
  */
 object UploadsTable : Table("uploads") {
 
-    val coordinate = text("coordinate")
+    val coordinate = varchar("coordinate", 50)
 
-    val steamId = text("steam_id")
-    val installationId = text("installation_id")
-    val ipAddress = text("ip_address")
+    val steamId = varchar("steam_id", 17)
+    val installationId = varchar("installation_id", 36)
+    val ipAddress = varchar("ip_address", 50)
     val uploadDate = long("upload_date")
 
-    val gameVersion = text("game_version")
+    val gameVersion = varchar("game_version", 20)
     val fileHashesJson = text("file_hashes_json")
 
     override val primaryKey = PrimaryKey(coordinate)
@@ -73,15 +73,14 @@ object UploadsTable : Table("uploads") {
  */
 object FailedWorldGenReportsTable : Table("failed_world_gen_reports") {
 
-    val coordinate = text("coordinate")
+    val coordinate = varchar("coordinate", 50)
 
-    val steamId = text("steam_id")
-    val installationId = text("installation_id")
-    val ipAddress = text("ip_address")
-    val reportDate = long("report_date")
+    val steamId = varchar("steam_id", 17)
+    val installationId = varchar("installation_id", 36)
+    val ipAddress = varchar("ip_address", 50)
+    val reportDate = long("upload_date")
 
-    val gameVersion = text("game_version")
-
+    val gameVersion = varchar("game_version", 20)
     val fileHashesJson = text("file_hashes_json")
 
     override val primaryKey = PrimaryKey(coordinate)
@@ -92,9 +91,9 @@ object FailedWorldGenReportsTable : Table("failed_world_gen_reports") {
  */
 object RequestedCoordinatesTable : Table("requested_coordinates") {
 
-    val coordinate = text("coordinate")
+    val coordinate = varchar("coordinate", 50)
 
-    val steamId = text("steam_id")
+    val steamId = varchar("steam_id", 17)
 
     val date = long("date")
 
