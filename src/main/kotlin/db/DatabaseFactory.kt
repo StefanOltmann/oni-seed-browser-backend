@@ -18,9 +18,13 @@
  */
 package db
 
+import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.StdOutSqlLogger
+import org.jetbrains.exposed.v1.core.statements.api.ExposedBlob
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.SchemaUtils
+import org.jetbrains.exposed.v1.jdbc.insertIgnore
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 object DatabaseFactory {
@@ -62,5 +66,261 @@ object DatabaseFactory {
 
             throw Exception("Failed to connect to database: $url", ex)
         }
+    }
+
+    /**
+     * Copy missing rows from Postgres to MySQL for all tables.
+     * Only rows not yet present (by primary key/coordinate) are transferred.
+     */
+    fun copyMissingFromPostgresToMysql(
+        postgres: Database,
+        mysql: Database,
+        batchSize: Int = 1000
+    ) {
+
+        fun copyWorlds() {
+
+            println("[MIGRATE] Copying worlds ...")
+
+            // Build a set of existing coordinates in MySQL to skip them quickly
+            val existingInMysql: Set<String> = transaction(mysql) {
+                WorldsTable
+                    .select(WorldsTable.coordinate)
+                    .orderBy(WorldsTable.coordinate to SortOrder.ASC)
+                    .map { it[WorldsTable.coordinate] }
+                    .toSet()
+            }
+
+            var offset = 0
+            var copied = 0
+
+            do {
+
+                val chunk = transaction(postgres) {
+                    WorldsTable
+                        .select(
+                            WorldsTable.coordinate,
+                            WorldsTable.clusterTypeId,
+                            WorldsTable.gameVersion,
+                            WorldsTable.uploaderSteamIdHash,
+                            WorldsTable.uploadDate,
+                            WorldsTable.data
+                        )
+                        .orderBy(WorldsTable.coordinate to SortOrder.ASC)
+                        .limit(batchSize)
+                        .offset(offset.toLong())
+                        .toList()
+                }
+
+                transaction(mysql) {
+
+                    for (row in chunk) {
+
+                        val coord = row[WorldsTable.coordinate]
+                        if (existingInMysql.contains(coord)) continue
+
+                        WorldsTable.insertIgnore {
+                            it[coordinate] = row[WorldsTable.coordinate]
+                            it[clusterTypeId] = row[WorldsTable.clusterTypeId]
+                            it[gameVersion] = row[WorldsTable.gameVersion]
+                            it[uploaderSteamIdHash] = row[WorldsTable.uploaderSteamIdHash]
+                            it[uploadDate] = row[WorldsTable.uploadDate]
+                            it[data] = ExposedBlob(row[WorldsTable.data].bytes)
+                        }
+                        copied++
+                    }
+                }
+
+                offset += chunk.size
+
+            } while (chunk.size == batchSize)
+
+            println("[MIGRATE] worlds copied: $copied")
+        }
+
+        fun copySearchIndex() {
+
+            println("[MIGRATE] Copying search_index ...")
+
+            val existingInMysql: Set<String> = transaction(mysql) {
+                SearchIndexTable
+                    .select(SearchIndexTable.coordinate)
+                    .orderBy(SearchIndexTable.coordinate to SortOrder.ASC)
+                    .map { it[SearchIndexTable.coordinate] }
+                    .toSet()
+            }
+
+            var offset = 0
+            var copied = 0
+
+            do {
+                val chunk = transaction(postgres) {
+                    SearchIndexTable
+                        .select(
+                            SearchIndexTable.coordinate,
+                            SearchIndexTable.clusterTypeId,
+                            SearchIndexTable.uploaderSteamIdHash,
+                            SearchIndexTable.gameVersion,
+                            SearchIndexTable.uploadDate,
+                            SearchIndexTable.data
+                        )
+                        .orderBy(SearchIndexTable.coordinate to SortOrder.ASC)
+                        .limit(batchSize)
+                        .offset(offset.toLong())
+                        .toList()
+                }
+
+                transaction(mysql) {
+
+                    for (row in chunk) {
+
+                        val coord = row[SearchIndexTable.coordinate]
+                        if (existingInMysql.contains(coord)) continue
+
+                        SearchIndexTable.insertIgnore {
+                            it[coordinate] = row[SearchIndexTable.coordinate]
+                            it[clusterTypeId] = row[SearchIndexTable.clusterTypeId]
+                            it[uploaderSteamIdHash] = row[SearchIndexTable.uploaderSteamIdHash]
+                            it[gameVersion] = row[SearchIndexTable.gameVersion]
+                            it[uploadDate] = row[SearchIndexTable.uploadDate]
+                            it[data] = ExposedBlob(row[SearchIndexTable.data].bytes)
+                        }
+                        copied++
+                    }
+                }
+
+                offset += chunk.size
+
+            } while (chunk.size == batchSize)
+
+            println("[MIGRATE] search_index copied: $copied")
+        }
+
+        fun copyUploads() {
+
+            println("[MIGRATE] Copying uploads ...")
+
+            val existingInMysql: Set<String> = transaction(mysql) {
+                UploadsTable
+                    .select(UploadsTable.coordinate)
+                    .orderBy(UploadsTable.coordinate to SortOrder.ASC)
+                    .map { it[UploadsTable.coordinate] }
+                    .toSet()
+            }
+
+            var offset = 0
+            var copied = 0
+
+            do {
+
+                val chunk = transaction(postgres) {
+
+                    UploadsTable
+                        .select(
+                            UploadsTable.coordinate,
+                            UploadsTable.steamId,
+                            UploadsTable.installationId,
+                            UploadsTable.ipAddress,
+                            UploadsTable.uploadDate,
+                            UploadsTable.gameVersion,
+                            UploadsTable.fileHashesJson
+                        )
+                        .orderBy(UploadsTable.coordinate to SortOrder.ASC)
+                        .limit(batchSize)
+                        .offset(offset.toLong())
+                        .toList()
+                }
+
+                transaction(mysql) {
+
+                    for (row in chunk) {
+
+                        val coord = row[UploadsTable.coordinate]
+                        if (existingInMysql.contains(coord)) continue
+
+                        UploadsTable.insertIgnore {
+                            it[coordinate] = row[UploadsTable.coordinate]
+                            it[steamId] = row[UploadsTable.steamId]
+                            it[installationId] = row[UploadsTable.installationId]
+                            it[ipAddress] = row[UploadsTable.ipAddress]
+                            it[uploadDate] = row[UploadsTable.uploadDate]
+                            it[gameVersion] = row[UploadsTable.gameVersion]
+                            it[fileHashesJson] = row[UploadsTable.fileHashesJson]
+                        }
+                        copied++
+                    }
+                }
+
+                offset += chunk.size
+
+            } while (chunk.size == batchSize)
+
+            println("[MIGRATE] uploads copied: $copied")
+        }
+
+        fun copyFailedReports() {
+
+            println("[MIGRATE] Copying failed_world_gen_reports ...")
+
+            val existingInMysql: Set<String> = transaction(mysql) {
+                FailedWorldGenReportsTable
+                    .select(FailedWorldGenReportsTable.coordinate)
+                    .orderBy(FailedWorldGenReportsTable.coordinate to SortOrder.ASC)
+                    .map { it[FailedWorldGenReportsTable.coordinate] }
+                    .toSet()
+            }
+
+            var offset = 0
+            var copied = 0
+
+            do {
+                val chunk = transaction(postgres) {
+                    FailedWorldGenReportsTable
+                        .select(
+                            FailedWorldGenReportsTable.coordinate,
+                            FailedWorldGenReportsTable.steamId,
+                            FailedWorldGenReportsTable.installationId,
+                            FailedWorldGenReportsTable.ipAddress,
+                            FailedWorldGenReportsTable.reportDate,
+                            FailedWorldGenReportsTable.gameVersion,
+                            FailedWorldGenReportsTable.fileHashesJson
+                        )
+                        .orderBy(FailedWorldGenReportsTable.coordinate to SortOrder.ASC)
+                        .limit(batchSize)
+                        .offset(offset.toLong())
+                        .toList()
+                }
+
+                transaction(mysql) {
+                    for (row in chunk) {
+                        val coord = row[FailedWorldGenReportsTable.coordinate]
+                        if (existingInMysql.contains(coord)) continue
+
+                        FailedWorldGenReportsTable.insertIgnore {
+                            it[coordinate] = row[FailedWorldGenReportsTable.coordinate]
+                            it[steamId] = row[FailedWorldGenReportsTable.steamId]
+                            it[installationId] = row[FailedWorldGenReportsTable.installationId]
+                            it[ipAddress] = row[FailedWorldGenReportsTable.ipAddress]
+                            it[reportDate] = row[FailedWorldGenReportsTable.reportDate]
+                            it[gameVersion] = row[FailedWorldGenReportsTable.gameVersion]
+                            it[fileHashesJson] = row[FailedWorldGenReportsTable.fileHashesJson]
+                        }
+                        copied++
+                    }
+                }
+
+                offset += chunk.size
+
+            } while (chunk.size == batchSize)
+
+            println("[MIGRATE] failed_world_gen_reports copied: $copied")
+        }
+
+        copyWorlds()
+        copySearchIndex()
+        copyUploads()
+        copyFailedReports()
+
+        println("[MIGRATE] Copy completed.")
     }
 }
