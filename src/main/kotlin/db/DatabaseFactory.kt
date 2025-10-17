@@ -18,8 +18,8 @@
  */
 package db
 
-import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.StdOutSqlLogger
+import org.jetbrains.exposed.v1.core.inList
 import org.jetbrains.exposed.v1.core.statements.api.ExposedBlob
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.SchemaUtils
@@ -82,21 +82,33 @@ object DatabaseFactory {
 
             println("[MIGRATE] Copying worlds ...")
 
-            // Build a set of existing coordinates in MySQL to skip them quickly
-            val existingInMysql: Set<String> = transaction(mysql) {
-                WorldsTable
-                    .select(WorldsTable.coordinate)
-                    .orderBy(WorldsTable.coordinate to SortOrder.ASC)
+            // Load coordinate sets from both DBs
+            val mysqlCoords: Set<String> = transaction(mysql) {
+                WorldsTable.select(WorldsTable.coordinate)
+                    .map { it[WorldsTable.coordinate] }
+                    .toSet()
+            }
+            val postgresCoords: Set<String> = transaction(postgres) {
+                WorldsTable.select(WorldsTable.coordinate)
                     .map { it[WorldsTable.coordinate] }
                     .toSet()
             }
 
-            var offset = 0
+            val missing = (postgresCoords - mysqlCoords).sorted()
+            println("[MIGRATE] worlds missing: ${missing.size}")
+
+            if (missing.isEmpty()) {
+                println("[MIGRATE] worlds copied: 0")
+                return
+            }
+
             var copied = 0
+            var processed = 0
 
-            while (true) {
+            while (processed < missing.size) {
+                val batch = missing.subList(processed, kotlin.math.min(processed + batchSize, missing.size))
 
-                val chunk = transaction(postgres) {
+                val rows = transaction(postgres) {
                     WorldsTable
                         .select(
                             WorldsTable.coordinate,
@@ -106,21 +118,12 @@ object DatabaseFactory {
                             WorldsTable.uploadDate,
                             WorldsTable.data
                         )
-                        .orderBy(WorldsTable.coordinate to SortOrder.ASC)
-                        .limit(batchSize)
-                        .offset(offset.toLong())
+                        .where { WorldsTable.coordinate inList batch }
                         .toList()
                 }
 
-                if (chunk.isEmpty()) break
-
                 transaction(mysql) {
-
-                    for (row in chunk) {
-
-                        val coord = row[WorldsTable.coordinate]
-                        if (existingInMysql.contains(coord)) continue
-
+                    for (row in rows) {
                         WorldsTable.insertIgnore {
                             it[coordinate] = row[WorldsTable.coordinate]
                             it[clusterTypeId] = row[WorldsTable.clusterTypeId]
@@ -130,18 +133,13 @@ object DatabaseFactory {
                             it[data] = ExposedBlob(row[WorldsTable.data].bytes)
                         }
                         copied++
-                        if (copied % 100_000 == 0) {
-                            println("[MIGRATE] worlds copied so far: $copied (offset=$offset)")
+                        if (copied % 10_000 == 0) {
+                            println("[MIGRATE] worlds copied so far: $copied (processed=${processed + batch.size})")
                         }
                     }
                 }
 
-                val prevOffset = offset
-                offset += chunk.size
-                if (offset == prevOffset) {
-                    // Defensive break to avoid potential infinite loop
-                    break
-                }
+                processed += batch.size
             }
 
             println("[MIGRATE] worlds copied: $copied")
@@ -151,19 +149,32 @@ object DatabaseFactory {
 
             println("[MIGRATE] Copying search_index ...")
 
-            val existingInMysql: Set<String> = transaction(mysql) {
-                SearchIndexTable
-                    .select(SearchIndexTable.coordinate)
-                    .orderBy(SearchIndexTable.coordinate to SortOrder.ASC)
+            val mysqlCoords: Set<String> = transaction(mysql) {
+                SearchIndexTable.select(SearchIndexTable.coordinate)
+                    .map { it[SearchIndexTable.coordinate] }
+                    .toSet()
+            }
+            val postgresCoords: Set<String> = transaction(postgres) {
+                SearchIndexTable.select(SearchIndexTable.coordinate)
                     .map { it[SearchIndexTable.coordinate] }
                     .toSet()
             }
 
-            var offset = 0
-            var copied = 0
+            val missing = (postgresCoords - mysqlCoords).sorted()
+            println("[MIGRATE] search_index missing: ${missing.size}")
 
-            while (true) {
-                val chunk = transaction(postgres) {
+            if (missing.isEmpty()) {
+                println("[MIGRATE] search_index copied: 0")
+                return
+            }
+
+            var copied = 0
+            var processed = 0
+
+            while (processed < missing.size) {
+                val batch = missing.subList(processed, kotlin.math.min(processed + batchSize, missing.size))
+
+                val rows = transaction(postgres) {
                     SearchIndexTable
                         .select(
                             SearchIndexTable.coordinate,
@@ -173,21 +184,12 @@ object DatabaseFactory {
                             SearchIndexTable.uploadDate,
                             SearchIndexTable.data
                         )
-                        .orderBy(SearchIndexTable.coordinate to SortOrder.ASC)
-                        .limit(batchSize)
-                        .offset(offset.toLong())
+                        .where { SearchIndexTable.coordinate inList batch }
                         .toList()
                 }
 
-                if (chunk.isEmpty()) break
-
                 transaction(mysql) {
-
-                    for (row in chunk) {
-
-                        val coord = row[SearchIndexTable.coordinate]
-                        if (existingInMysql.contains(coord)) continue
-
+                    for (row in rows) {
                         SearchIndexTable.insertIgnore {
                             it[coordinate] = row[SearchIndexTable.coordinate]
                             it[clusterTypeId] = row[SearchIndexTable.clusterTypeId]
@@ -197,17 +199,13 @@ object DatabaseFactory {
                             it[data] = ExposedBlob(row[SearchIndexTable.data].bytes)
                         }
                         copied++
-                        if (copied % 100_000 == 0) {
-                            println("[MIGRATE] search_index copied so far: $copied (offset=$offset)")
+                        if (copied % 10_000 == 0) {
+                            println("[MIGRATE] search_index copied so far: $copied (processed=${processed + batch.size})")
                         }
                     }
                 }
 
-                val prevOffset = offset
-                offset += chunk.size
-                if (offset == prevOffset) {
-                    break
-                }
+                processed += batch.size
             }
 
             println("[MIGRATE] search_index copied: $copied")
@@ -217,21 +215,32 @@ object DatabaseFactory {
 
             println("[MIGRATE] Copying uploads ...")
 
-            val existingInMysql: Set<String> = transaction(mysql) {
-                UploadsTable
-                    .select(UploadsTable.coordinate)
-                    .orderBy(UploadsTable.coordinate to SortOrder.ASC)
+            val mysqlCoords: Set<String> = transaction(mysql) {
+                UploadsTable.select(UploadsTable.coordinate)
+                    .map { it[UploadsTable.coordinate] }
+                    .toSet()
+            }
+            val postgresCoords: Set<String> = transaction(postgres) {
+                UploadsTable.select(UploadsTable.coordinate)
                     .map { it[UploadsTable.coordinate] }
                     .toSet()
             }
 
-            var offset = 0
+            val missing = (postgresCoords - mysqlCoords).sorted()
+            println("[MIGRATE] uploads missing: ${missing.size}")
+
+            if (missing.isEmpty()) {
+                println("[MIGRATE] uploads copied: 0")
+                return
+            }
+
             var copied = 0
+            var processed = 0
 
-            while (true) {
+            while (processed < missing.size) {
+                val batch = missing.subList(processed, kotlin.math.min(processed + batchSize, missing.size))
 
-                val chunk = transaction(postgres) {
-
+                val rows = transaction(postgres) {
                     UploadsTable
                         .select(
                             UploadsTable.coordinate,
@@ -242,21 +251,12 @@ object DatabaseFactory {
                             UploadsTable.gameVersion,
                             UploadsTable.fileHashesJson
                         )
-                        .orderBy(UploadsTable.coordinate to SortOrder.ASC)
-                        .limit(batchSize)
-                        .offset(offset.toLong())
+                        .where { UploadsTable.coordinate inList batch }
                         .toList()
                 }
 
-                if (chunk.isEmpty()) break
-
                 transaction(mysql) {
-
-                    for (row in chunk) {
-
-                        val coord = row[UploadsTable.coordinate]
-                        if (existingInMysql.contains(coord)) continue
-
+                    for (row in rows) {
                         UploadsTable.insertIgnore {
                             it[coordinate] = row[UploadsTable.coordinate]
                             it[steamId] = row[UploadsTable.steamId]
@@ -267,16 +267,13 @@ object DatabaseFactory {
                             it[fileHashesJson] = row[UploadsTable.fileHashesJson]
                         }
                         copied++
-                        if (copied % 100_000 == 0) {
-                            println("[MIGRATE] uploads copied so far: $copied (offset=$offset)")
+                        if (copied % 10_000 == 0) {
+                            println("[MIGRATE] uploads copied so far: $copied (processed=${processed + batch.size})")
                         }
                     }
                 }
 
-                val prevOffset = offset
-                offset += chunk.size
-                if (offset == prevOffset) break
-
+                processed += batch.size
             }
 
             println("[MIGRATE] uploads copied: $copied")
@@ -286,19 +283,32 @@ object DatabaseFactory {
 
             println("[MIGRATE] Copying failed_world_gen_reports ...")
 
-            val existingInMysql: Set<String> = transaction(mysql) {
-                FailedWorldGenReportsTable
-                    .select(FailedWorldGenReportsTable.coordinate)
-                    .orderBy(FailedWorldGenReportsTable.coordinate to SortOrder.ASC)
+            val mysqlCoords: Set<String> = transaction(mysql) {
+                FailedWorldGenReportsTable.select(FailedWorldGenReportsTable.coordinate)
+                    .map { it[FailedWorldGenReportsTable.coordinate] }
+                    .toSet()
+            }
+            val postgresCoords: Set<String> = transaction(postgres) {
+                FailedWorldGenReportsTable.select(FailedWorldGenReportsTable.coordinate)
                     .map { it[FailedWorldGenReportsTable.coordinate] }
                     .toSet()
             }
 
-            var offset = 0
-            var copied = 0
+            val missing = (postgresCoords - mysqlCoords).sorted()
+            println("[MIGRATE] failed_world_gen_reports missing: ${missing.size}")
 
-            while (true) {
-                val chunk = transaction(postgres) {
+            if (missing.isEmpty()) {
+                println("[MIGRATE] failed_world_gen_reports copied: 0")
+                return
+            }
+
+            var copied = 0
+            var processed = 0
+
+            while (processed < missing.size) {
+                val batch = missing.subList(processed, kotlin.math.min(processed + batchSize, missing.size))
+
+                val rows = transaction(postgres) {
                     FailedWorldGenReportsTable
                         .select(
                             FailedWorldGenReportsTable.coordinate,
@@ -309,19 +319,12 @@ object DatabaseFactory {
                             FailedWorldGenReportsTable.gameVersion,
                             FailedWorldGenReportsTable.fileHashesJson
                         )
-                        .orderBy(FailedWorldGenReportsTable.coordinate to SortOrder.ASC)
-                        .limit(batchSize)
-                        .offset(offset.toLong())
+                        .where { FailedWorldGenReportsTable.coordinate inList batch }
                         .toList()
                 }
 
-                if (chunk.isEmpty()) break
-
                 transaction(mysql) {
-                    for (row in chunk) {
-                        val coord = row[FailedWorldGenReportsTable.coordinate]
-                        if (existingInMysql.contains(coord)) continue
-
+                    for (row in rows) {
                         FailedWorldGenReportsTable.insertIgnore {
                             it[coordinate] = row[FailedWorldGenReportsTable.coordinate]
                             it[steamId] = row[FailedWorldGenReportsTable.steamId]
@@ -332,16 +335,13 @@ object DatabaseFactory {
                             it[fileHashesJson] = row[FailedWorldGenReportsTable.fileHashesJson]
                         }
                         copied++
-                        if (copied % 100_000 == 0) {
-                            println("[MIGRATE] failed_world_gen_reports copied so far: $copied (offset=$offset)")
+                        if (copied % 10_000 == 0) {
+                            println("[MIGRATE] failed_world_gen_reports copied so far: $copied (processed=${processed + batch.size})")
                         }
                     }
                 }
 
-                val prevOffset = offset
-                offset += chunk.size
-                if (offset == prevOffset) break
-
+                processed += batch.size
             }
 
             println("[MIGRATE] failed_world_gen_reports copied: $copied")
