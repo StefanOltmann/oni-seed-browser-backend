@@ -160,19 +160,19 @@ private val latestCoordinates = mutableListOf<String>()
 
 private val seedRequestCounterMap = mutableMapOf<String, Long>()
 
-private val postgresDatabase = DatabaseFactory.init(
-    url = System.getenv("MNI_DATABASE_URL")
-        ?: error("MNI_DATABASE_URL environment variable not set"),
-    username = System.getenv("MNI_DATABASE_USERNAME")
-        ?: error("MNI_DATABASE_USERNAME environment variable not set"),
-    password = System.getenv("MNI_DATABASE_PASSWORD")
-        ?: error("MNI_DATABASE_PASSWORD environment variable not set")
-)
-
-private val mysqlDatabase = DatabaseFactory.init(
+private val localDatabase = DatabaseFactory.init(
     url = "jdbc:mysql://10.147.20.24:3306/oni",
     username = "myuser",
     password = "mypassword"
+)
+
+private val externalDatabase = DatabaseFactory.init(
+    url = System.getenv("MNI_EXTERNAL_DATABASE_URL")
+        ?: error("MNI_EXTERNAL_DATABASE_URL environment variable not set"),
+    username = System.getenv("MNI_EXTERNAL_DATABASE_USERNAME")
+        ?: error("MNI_EXTERNAL_DATABASE_USERNAME environment variable not set"),
+    password = System.getenv("MNI_EXTERNAL_DATABASE_PASSWORD")
+        ?: error("MNI_EXTERNAL_DATABASE_PASSWORD environment variable not set")
 )
 
 @OptIn(ExperimentalSerializationApi::class)
@@ -231,8 +231,8 @@ private fun Application.configureRoutingInternal() {
         // cleanMaps()
 
         copyDatabase(
-            postgresDatabase,
-            mysqlDatabase
+            localDatabase,
+            externalDatabase
         )
 
         regenerateSearchIndexTable()
@@ -416,7 +416,7 @@ private fun Application.configureRoutingInternal() {
 
                     ZipOutputStream(this).use { zipOutputStream ->
 
-                        transaction(postgresDatabase) {
+                        transaction(localDatabase) {
 
                             var batchNumber = 1
                             var offset = 0
@@ -537,7 +537,7 @@ private fun Application.configureRoutingInternal() {
                     return@delete
                 }
 
-                transaction(postgresDatabase) {
+                transaction(localDatabase) {
                     WorldsTable.deleteWhere { WorldsTable.coordinate eq coordinate }
                     UploadsTable.deleteWhere { UploadsTable.coordinate eq coordinate }
                     SearchIndexTable.deleteWhere { SearchIndexTable.coordinate eq coordinate }
@@ -570,7 +570,7 @@ private fun Application.configureRoutingInternal() {
                     return@get
                 }
 
-                val exists = transaction(postgresDatabase) {
+                val exists = transaction(localDatabase) {
                     WorldsTable
                         .select(WorldsTable.coordinate)
                         .where { WorldsTable.coordinate eq coordinate }
@@ -584,7 +584,7 @@ private fun Application.configureRoutingInternal() {
                     return@get
                 }
 
-                val isKnownFailedWorld = transaction(postgresDatabase) {
+                val isKnownFailedWorld = transaction(localDatabase) {
                     FailedWorldGenReportsTable
                         .select(FailedWorldGenReportsTable.coordinate)
                         .where { FailedWorldGenReportsTable.coordinate eq coordinate }
@@ -745,7 +745,7 @@ private fun Application.configureRoutingInternal() {
                  * Database updates
                  */
 
-                transaction(postgresDatabase) {
+                transaction(localDatabase) {
 
                     val clusterCoordinate = upload.cluster.coordinate
 
@@ -795,7 +795,7 @@ private fun Application.configureRoutingInternal() {
                     }
                 }
 
-                transaction(mysqlDatabase) {
+                transaction(externalDatabase) {
 
                     val clusterCoordinate = upload.cluster.coordinate
 
@@ -957,7 +957,7 @@ private fun Application.configureRoutingInternal() {
                  * Database update
                  */
 
-                transaction(postgresDatabase) {
+                transaction(localDatabase) {
 
                     FailedWorldGenReportsTable.insert {
 
@@ -974,7 +974,7 @@ private fun Application.configureRoutingInternal() {
                     }
                 }
 
-                transaction(mysqlDatabase) {
+                transaction(externalDatabase) {
 
                     FailedWorldGenReportsTable.insert {
 
@@ -1035,7 +1035,7 @@ private fun Application.configureRoutingInternal() {
                     return@post
                 }
 
-                val exists = transaction(postgresDatabase) {
+                val exists = transaction(localDatabase) {
                     RequestedCoordinatesTable.select(RequestedCoordinatesTable.coordinate)
                         .where { RequestedCoordinatesTable.coordinate eq coordinate }
                         .empty().not()
@@ -1051,7 +1051,7 @@ private fun Application.configureRoutingInternal() {
                     return@post
                 }
 
-                val userRequestCount = transaction(postgresDatabase) {
+                val userRequestCount = transaction(localDatabase) {
                     RequestedCoordinatesTable.select(RequestedCoordinatesTable.coordinate)
                         .where { RequestedCoordinatesTable.steamId eq steamId }
                         .count()
@@ -1078,7 +1078,7 @@ private fun Application.configureRoutingInternal() {
 
                 val millis = Clock.System.now().toEpochMilliseconds()
 
-                transaction(postgresDatabase) {
+                transaction(localDatabase) {
                     RequestedCoordinatesTable.insert {
                         it[RequestedCoordinatesTable.steamId] = steamId
                         it[RequestedCoordinatesTable.date] = millis
@@ -1149,7 +1149,7 @@ private fun Application.configureRoutingInternal() {
             try {
 
                 /* Fast connection check */
-                transaction(postgresDatabase) {
+                transaction(localDatabase) {
                     WorldsTable.select(WorldsTable.coordinate).limit(1).firstOrNull()
                 }
 
@@ -1212,7 +1212,7 @@ private suspend fun handleGetRequestedCoordinate(
         var requestedCoordinate: String? = null
         var requestedSteamId: String? = null
 
-        transaction(postgresDatabase) {
+        transaction(localDatabase) {
 
             val regexPattern = ClusterType.createRegexPattern(dlcs)
 
@@ -1262,7 +1262,7 @@ private suspend fun handleGetRequestedCoordinate(
                 return
             }
 
-            transaction(postgresDatabase) {
+            transaction(localDatabase) {
 
                 val regexPattern = ClusterType.createRegexPattern(dlcs)
 
@@ -1302,7 +1302,7 @@ private suspend fun handleGetRequestedCoordinate(
 
         } else {
 
-            val existingWorld = transaction(postgresDatabase) {
+            val existingWorld = transaction(localDatabase) {
                 WorldsTable
                     .select(WorldsTable.coordinate)
                     .where { WorldsTable.coordinate eq requestedCoordinate }
@@ -1482,7 +1482,7 @@ private fun regenerateSearchIndexTable() {
 
             val time = measureTime {
 
-                val worldsCoordinates = transaction(postgresDatabase) {
+                val worldsCoordinates = transaction(localDatabase) {
                     WorldsTable
                         .select(WorldsTable.coordinate)
                         .where { WorldsTable.clusterTypeId eq cluster.id.toInt() }
@@ -1490,7 +1490,7 @@ private fun regenerateSearchIndexTable() {
                         .toSet()
                 }
 
-                val searchIndexCoordinates = transaction(postgresDatabase) {
+                val searchIndexCoordinates = transaction(localDatabase) {
                     SearchIndexTable
                         .select(SearchIndexTable.coordinate)
                         .where { SearchIndexTable.clusterTypeId eq cluster.id.toInt() }
@@ -1505,7 +1505,7 @@ private fun regenerateSearchIndexTable() {
                 // Process only the missing coordinates
                 for (coordinate in missingCoordinates) {
 
-                    val worldData = transaction(postgresDatabase) {
+                    val worldData = transaction(localDatabase) {
                         WorldsTable
                             .select(WorldsTable.data)
                             .where { (WorldsTable.coordinate eq coordinate) and (WorldsTable.clusterTypeId eq cluster.id.toInt()) }
@@ -1527,7 +1527,7 @@ private fun regenerateSearchIndexTable() {
 
                     val summaryBytes = ProtoBuf.encodeToByteArray(summary)
 
-                    transaction(postgresDatabase) {
+                    transaction(localDatabase) {
 
                         SearchIndexTable.insertIgnore {
 
@@ -1574,7 +1574,7 @@ private fun createSearchIndexes() {
 
                 val summaries = mutableListOf<ClusterSummaryCompact>()
 
-                transaction(postgresDatabase) {
+                transaction(localDatabase) {
 
                     val resultRows = SearchIndexTable
                         .select(SearchIndexTable.uploaderSteamIdHash, SearchIndexTable.data)
@@ -1686,7 +1686,7 @@ private fun createSearchIndexes() {
          * Also upload failed world gens
          */
 
-        val failedWorldGenReports = transaction(postgresDatabase) {
+        val failedWorldGenReports = transaction(localDatabase) {
             FailedWorldGenReportsTable
                 .select(FailedWorldGenReportsTable.coordinate)
                 .map { it[FailedWorldGenReportsTable.coordinate] }

@@ -67,7 +67,6 @@ dependencies {
     /*
      * Database
      */
-    implementation(libs.postgresql)
     implementation(libs.mysql)
 
     /*

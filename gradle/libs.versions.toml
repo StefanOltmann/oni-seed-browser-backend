@@ -7,7 +7,6 @@ minio = "8.5.17"
 git-versioning = "6.4.4"
 sentry = "5.3.0"
 oni-model = "fd18d13-SNAPSHOT"
-postgresql = "42.7.8"
 mysql = "9.4.0"
 exposed = "1.0.0-rc-2"
 logback = "1.4.14"
@@ -33,7 +32,6 @@ logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "lo
 ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
 
 # Database
-postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
 mysql = { module = "com.mysql:mysql-connector-j", version.ref = "mysql" }
 
 # JetBrains Exposed ORM
