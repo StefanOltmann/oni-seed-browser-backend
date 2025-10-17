@@ -78,7 +78,7 @@ object FailedWorldGenReportsTable : Table("failed_world_gen_reports") {
     val steamId = varchar("steam_id", 17)
     val installationId = varchar("installation_id", 36)
     val ipAddress = varchar("ip_address", 50)
-    val reportDate = long("upload_date")
+    val reportDate = long("report_date")
 
     val gameVersion = varchar("game_version", 20)
     val fileHashesJson = text("file_hashes_json")
