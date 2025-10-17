@@ -8,10 +8,9 @@ git-versioning = "6.4.4"
 sentry = "5.3.0"
 oni-model = "fd18d13-SNAPSHOT"
 postgresql = "42.7.8"
+mysql = "9.4.0"
 exposed = "1.0.0-rc-2"
 logback = "1.4.14"
-libsql = "1.0.4"
-rqlite = "8.42.0.3"
 
 [libraries]
 # ONI Model
@@ -35,8 +34,7 @@ ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "kto
 
 # Database
 postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
-libsql = { module = "com.dbeaver.jdbc:com.dbeaver.jdbc.driver.libsql", version.ref = "libsql" }
-rqlite = { module = "io.rqlite:rqlite-jdbc", version.ref = "rqlite" }
+mysql = { module = "com.mysql:mysql-connector-j", version.ref = "mysql" }
 
 # JetBrains Exposed ORM
 exposed-core = { module = "org.jetbrains.exposed:exposed-core", version.ref = "exposed" }

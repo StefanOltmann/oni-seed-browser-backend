@@ -19,7 +19,6 @@
 package db
 
 import org.jetbrains.exposed.v1.core.StdOutSqlLogger
-import org.jetbrains.exposed.v1.core.vendors.SQLiteDialect
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.SchemaUtils
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
@@ -33,18 +32,6 @@ object DatabaseFactory {
     ): Database {
 
         try {
-
-            Database.registerJdbcDriver(
-                prefix = "jdbc:dbeaver:libsql",
-                driverClassName = "com.dbeaver.jdbc.driver.libsql.LibSqlDriver",
-                dialect = SQLiteDialect.dialectName
-            )
-
-            Database.registerJdbcDriver(
-                prefix = "jdbc:rqlite",
-                driverClassName = "io.rqlite.jdbc.L4Driver",
-                dialect = SQLiteDialect.dialectName
-            )
 
             val db = Database.connect(
                 url = url,

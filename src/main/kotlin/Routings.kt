@@ -167,19 +167,11 @@ private val postgresDatabase = DatabaseFactory.init(
         ?: error("MNI_DATABASE_PASSWORD environment variable not set")
 )
 
-//private val rqliteDatabase = DatabaseFactory.init(
-//    url = System.getenv("MNI_RQLITE_DATABASE_URL")
-//        ?: error("MNI_RQLITE_DATABASE_URL environment variable not set"),
-//    username = "",
-//    password = ""
-//)
-
-//private val libsqlDatabase = DatabaseFactory.init(
-//    url = System.getenv("MNI_LIBSQL_DATABASE_URL")
-//        ?: error("MNI_LIBSQL_DATABASE_URL environment variable not set"),
-//    username = "",
-//    password = ""
-//)
+private val mysqlDatabase = DatabaseFactory.init(
+    url = "jdbc:mysql://10.147.20.24:3306/oni",
+    username = "myuser",
+    password = "mypassword"
+)
 
 @OptIn(ExperimentalSerializationApi::class)
 fun Application.configureRouting() {

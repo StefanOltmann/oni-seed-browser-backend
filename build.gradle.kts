@@ -68,8 +68,7 @@ dependencies {
      * Database
      */
     implementation(libs.postgresql)
-    implementation(libs.libsql)
-    implementation(libs.rqlite)
+    implementation(libs.mysql)
 
     /*
      * JetBrains Exposed ORM
