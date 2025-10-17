@@ -795,6 +795,56 @@ private fun Application.configureRoutingInternal() {
                     }
                 }
 
+                transaction(mysqlDatabase) {
+
+                    val clusterCoordinate = upload.cluster.coordinate
+
+                    val protobufBytes = ProtoBuf.encodeToByteArray(optimizedCluster)
+
+                    val compressedBytes = ZipUtil.zipBytes(
+                        originalBytes = protobufBytes
+                    )
+
+                    WorldsTable.insert {
+                        it[WorldsTable.coordinate] = clusterCoordinate
+                        it[WorldsTable.clusterTypeId] = upload.cluster.cluster.id.toInt()
+                        it[WorldsTable.gameVersion] = upload.cluster.gameVersion
+                        it[WorldsTable.uploaderSteamIdHash] = uploaderSteamIdHash
+                        it[WorldsTable.uploadDate] = uploadDate
+                        it[WorldsTable.data] = ExposedBlob(compressedBytes)
+                    }
+
+                    UploadsTable.insert {
+
+                        it[UploadsTable.coordinate] = uploadMetadata.coordinate
+
+                        it[UploadsTable.steamId] = steamId
+                        it[UploadsTable.installationId] = uploadMetadata.installationId
+                        it[UploadsTable.ipAddress] = uploadMetadata.ipAddress
+                        it[UploadsTable.uploadDate] = uploadMetadata.uploadDate
+
+                        it[UploadsTable.gameVersion] = uploadMetadata.gameVersion
+                        it[UploadsTable.fileHashesJson] = strictJson.encodeToString(uploadMetadata.fileHashes)
+                    }
+
+                    /*
+                     * Add to the search index
+                     */
+
+                    val summary = ClusterSummaryCompact.create(optimizedCluster)
+                    val summaryBytes = ProtoBuf.encodeToByteArray(summary)
+
+                    SearchIndexTable.insert {
+
+                        it[SearchIndexTable.coordinate] = clusterCoordinate
+                        it[SearchIndexTable.clusterTypeId] = upload.cluster.cluster.id.toInt()
+                        it[SearchIndexTable.uploaderSteamIdHash] = uploaderSteamIdHash
+                        it[SearchIndexTable.gameVersion] = upload.cluster.gameVersion
+                        it[SearchIndexTable.uploadDate] = uploadDate
+                        it[SearchIndexTable.data] = ExposedBlob(summaryBytes)
+                    }
+                }
+
                 /*
                  * S3 uploads
                  */
@@ -908,6 +958,23 @@ private fun Application.configureRoutingInternal() {
                  */
 
                 transaction(postgresDatabase) {
+
+                    FailedWorldGenReportsTable.insert {
+
+                        it[FailedWorldGenReportsTable.coordinate] = failedGenReport.coordinate
+
+                        it[FailedWorldGenReportsTable.steamId] = steamId
+                        it[FailedWorldGenReportsTable.installationId] = failedGenReport.installationId
+                        it[FailedWorldGenReportsTable.ipAddress] = ipAddress
+                        it[FailedWorldGenReportsTable.reportDate] = System.currentTimeMillis()
+
+                        it[FailedWorldGenReportsTable.gameVersion] = failedGenReport.gameVersion
+                        it[FailedWorldGenReportsTable.fileHashesJson] =
+                            strictJson.encodeToString(failedGenReport.fileHashes)
+                    }
+                }
+
+                transaction(mysqlDatabase) {
 
                     FailedWorldGenReportsTable.insert {
 
