@@ -94,7 +94,7 @@ object DatabaseFactory {
             var offset = 0
             var copied = 0
 
-            do {
+            while (true) {
 
                 val chunk = transaction(postgres) {
                     WorldsTable
@@ -111,6 +111,8 @@ object DatabaseFactory {
                         .offset(offset.toLong())
                         .toList()
                 }
+
+                if (chunk.isEmpty()) break
 
                 transaction(mysql) {
 
@@ -131,9 +133,13 @@ object DatabaseFactory {
                     }
                 }
 
+                val prevOffset = offset
                 offset += chunk.size
-
-            } while (chunk.size == batchSize)
+                if (offset == prevOffset) {
+                    // Defensive break to avoid potential infinite loop
+                    break
+                }
+            }
 
             println("[MIGRATE] worlds copied: $copied")
         }
@@ -153,7 +159,7 @@ object DatabaseFactory {
             var offset = 0
             var copied = 0
 
-            do {
+            while (true) {
                 val chunk = transaction(postgres) {
                     SearchIndexTable
                         .select(
@@ -169,6 +175,8 @@ object DatabaseFactory {
                         .offset(offset.toLong())
                         .toList()
                 }
+
+                if (chunk.isEmpty()) break
 
                 transaction(mysql) {
 
@@ -189,9 +197,12 @@ object DatabaseFactory {
                     }
                 }
 
+                val prevOffset = offset
                 offset += chunk.size
-
-            } while (chunk.size == batchSize)
+                if (offset == prevOffset) {
+                    break
+                }
+            }
 
             println("[MIGRATE] search_index copied: $copied")
         }
@@ -211,7 +222,7 @@ object DatabaseFactory {
             var offset = 0
             var copied = 0
 
-            do {
+            while (true) {
 
                 val chunk = transaction(postgres) {
 
@@ -230,6 +241,8 @@ object DatabaseFactory {
                         .offset(offset.toLong())
                         .toList()
                 }
+
+                if (chunk.isEmpty()) break
 
                 transaction(mysql) {
 
@@ -251,9 +264,11 @@ object DatabaseFactory {
                     }
                 }
 
+                val prevOffset = offset
                 offset += chunk.size
+                if (offset == prevOffset) break
 
-            } while (chunk.size == batchSize)
+            }
 
             println("[MIGRATE] uploads copied: $copied")
         }
@@ -273,7 +288,7 @@ object DatabaseFactory {
             var offset = 0
             var copied = 0
 
-            do {
+            while (true) {
                 val chunk = transaction(postgres) {
                     FailedWorldGenReportsTable
                         .select(
@@ -290,6 +305,8 @@ object DatabaseFactory {
                         .offset(offset.toLong())
                         .toList()
                 }
+
+                if (chunk.isEmpty()) break
 
                 transaction(mysql) {
                     for (row in chunk) {
@@ -309,9 +326,11 @@ object DatabaseFactory {
                     }
                 }
 
+                val prevOffset = offset
                 offset += chunk.size
+                if (offset == prevOffset) break
 
-            } while (chunk.size == batchSize)
+            }
 
             println("[MIGRATE] failed_world_gen_reports copied: $copied")
         }
