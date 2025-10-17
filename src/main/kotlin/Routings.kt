@@ -21,7 +21,7 @@ import com.auth0.jwt.algorithms.Algorithm
 import com.auth0.jwt.exceptions.JWTVerificationException
 import com.auth0.jwt.interfaces.DecodedJWT
 import db.DatabaseFactory
-import db.DatabaseFactory.copyMissingFromPostgresToMysql
+import db.DatabaseFactory.copyDatabase
 import db.FailedWorldGenReportsTable
 import db.RequestedCoordinatesTable
 import db.SearchIndexTable
@@ -230,7 +230,7 @@ private fun Application.configureRoutingInternal() {
 
         // cleanMaps()
 
-        copyMissingFromPostgresToMysql(
+        copyDatabase(
             postgresDatabase,
             mysqlDatabase
         )
