@@ -130,6 +130,9 @@ object DatabaseFactory {
                             it[data] = ExposedBlob(row[WorldsTable.data].bytes)
                         }
                         copied++
+                        if (copied % 100_000 == 0) {
+                            println("[MIGRATE] worlds copied so far: $copied (offset=$offset)")
+                        }
                     }
                 }
 
@@ -194,6 +197,9 @@ object DatabaseFactory {
                             it[data] = ExposedBlob(row[SearchIndexTable.data].bytes)
                         }
                         copied++
+                        if (copied % 100_000 == 0) {
+                            println("[MIGRATE] search_index copied so far: $copied (offset=$offset)")
+                        }
                     }
                 }
 
@@ -261,6 +267,9 @@ object DatabaseFactory {
                             it[fileHashesJson] = row[UploadsTable.fileHashesJson]
                         }
                         copied++
+                        if (copied % 100_000 == 0) {
+                            println("[MIGRATE] uploads copied so far: $copied (offset=$offset)")
+                        }
                     }
                 }
 
@@ -323,6 +332,9 @@ object DatabaseFactory {
                             it[fileHashesJson] = row[FailedWorldGenReportsTable.fileHashesJson]
                         }
                         copied++
+                        if (copied % 100_000 == 0) {
+                            println("[MIGRATE] failed_world_gen_reports copied so far: $copied (offset=$offset)")
+                        }
                     }
                 }
 
