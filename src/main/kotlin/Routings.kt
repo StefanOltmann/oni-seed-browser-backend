@@ -21,7 +21,6 @@ import com.auth0.jwt.algorithms.Algorithm
 import com.auth0.jwt.exceptions.JWTVerificationException
 import com.auth0.jwt.interfaces.DecodedJWT
 import db.DatabaseFactory
-import db.DatabaseFactory.copyDatabase
 import db.FailedWorldGenReportsTable
 import db.RequestedCoordinatesTable
 import db.SearchIndexTable
@@ -166,14 +165,14 @@ private val localDatabase = DatabaseFactory.init(
     password = "mypassword"
 )
 
-private val externalDatabase = DatabaseFactory.init(
-    url = System.getenv("MNI_EXTERNAL_DATABASE_URL")
-        ?: error("MNI_EXTERNAL_DATABASE_URL environment variable not set"),
-    username = System.getenv("MNI_EXTERNAL_DATABASE_USERNAME")
-        ?: error("MNI_EXTERNAL_DATABASE_USERNAME environment variable not set"),
-    password = System.getenv("MNI_EXTERNAL_DATABASE_PASSWORD")
-        ?: error("MNI_EXTERNAL_DATABASE_PASSWORD environment variable not set")
-)
+//private val externalDatabase = DatabaseFactory.init(
+//    url = System.getenv("MNI_EXTERNAL_DATABASE_URL")
+//        ?: error("MNI_EXTERNAL_DATABASE_URL environment variable not set"),
+//    username = System.getenv("MNI_EXTERNAL_DATABASE_USERNAME")
+//        ?: error("MNI_EXTERNAL_DATABASE_USERNAME environment variable not set"),
+//    password = System.getenv("MNI_EXTERNAL_DATABASE_PASSWORD")
+//        ?: error("MNI_EXTERNAL_DATABASE_PASSWORD environment variable not set")
+//)
 
 @OptIn(ExperimentalSerializationApi::class)
 fun Application.configureRouting() {
@@ -230,10 +229,10 @@ private fun Application.configureRoutingInternal() {
 
         // cleanMaps()
 
-        copyDatabase(
-            localDatabase,
-            externalDatabase
-        )
+//        copyDatabase(
+//            localDatabase,
+//            externalDatabase
+//        )
 
         regenerateSearchIndexTable()
 
@@ -795,55 +794,55 @@ private fun Application.configureRoutingInternal() {
                     }
                 }
 
-                transaction(externalDatabase) {
-
-                    val clusterCoordinate = upload.cluster.coordinate
-
-                    val protobufBytes = ProtoBuf.encodeToByteArray(optimizedCluster)
-
-                    val compressedBytes = ZipUtil.zipBytes(
-                        originalBytes = protobufBytes
-                    )
-
-                    WorldsTable.insert {
-                        it[WorldsTable.coordinate] = clusterCoordinate
-                        it[WorldsTable.clusterTypeId] = upload.cluster.cluster.id.toInt()
-                        it[WorldsTable.gameVersion] = upload.cluster.gameVersion
-                        it[WorldsTable.uploaderSteamIdHash] = uploaderSteamIdHash
-                        it[WorldsTable.uploadDate] = uploadDate
-                        it[WorldsTable.data] = ExposedBlob(compressedBytes)
-                    }
-
-                    UploadsTable.insert {
-
-                        it[UploadsTable.coordinate] = uploadMetadata.coordinate
-
-                        it[UploadsTable.steamId] = steamId
-                        it[UploadsTable.installationId] = uploadMetadata.installationId
-                        it[UploadsTable.ipAddress] = uploadMetadata.ipAddress
-                        it[UploadsTable.uploadDate] = uploadMetadata.uploadDate
-
-                        it[UploadsTable.gameVersion] = uploadMetadata.gameVersion
-                        it[UploadsTable.fileHashesJson] = strictJson.encodeToString(uploadMetadata.fileHashes)
-                    }
-
-                    /*
-                     * Add to the search index
-                     */
-
-                    val summary = ClusterSummaryCompact.create(optimizedCluster)
-                    val summaryBytes = ProtoBuf.encodeToByteArray(summary)
-
-                    SearchIndexTable.insert {
-
-                        it[SearchIndexTable.coordinate] = clusterCoordinate
-                        it[SearchIndexTable.clusterTypeId] = upload.cluster.cluster.id.toInt()
-                        it[SearchIndexTable.uploaderSteamIdHash] = uploaderSteamIdHash
-                        it[SearchIndexTable.gameVersion] = upload.cluster.gameVersion
-                        it[SearchIndexTable.uploadDate] = uploadDate
-                        it[SearchIndexTable.data] = ExposedBlob(summaryBytes)
-                    }
-                }
+//                transaction(externalDatabase) {
+//
+//                    val clusterCoordinate = upload.cluster.coordinate
+//
+//                    val protobufBytes = ProtoBuf.encodeToByteArray(optimizedCluster)
+//
+//                    val compressedBytes = ZipUtil.zipBytes(
+//                        originalBytes = protobufBytes
+//                    )
+//
+//                    WorldsTable.insert {
+//                        it[WorldsTable.coordinate] = clusterCoordinate
+//                        it[WorldsTable.clusterTypeId] = upload.cluster.cluster.id.toInt()
+//                        it[WorldsTable.gameVersion] = upload.cluster.gameVersion
+//                        it[WorldsTable.uploaderSteamIdHash] = uploaderSteamIdHash
+//                        it[WorldsTable.uploadDate] = uploadDate
+//                        it[WorldsTable.data] = ExposedBlob(compressedBytes)
+//                    }
+//
+//                    UploadsTable.insert {
+//
+//                        it[UploadsTable.coordinate] = uploadMetadata.coordinate
+//
+//                        it[UploadsTable.steamId] = steamId
+//                        it[UploadsTable.installationId] = uploadMetadata.installationId
+//                        it[UploadsTable.ipAddress] = uploadMetadata.ipAddress
+//                        it[UploadsTable.uploadDate] = uploadMetadata.uploadDate
+//
+//                        it[UploadsTable.gameVersion] = uploadMetadata.gameVersion
+//                        it[UploadsTable.fileHashesJson] = strictJson.encodeToString(uploadMetadata.fileHashes)
+//                    }
+//
+//                    /*
+//                     * Add to the search index
+//                     */
+//
+//                    val summary = ClusterSummaryCompact.create(optimizedCluster)
+//                    val summaryBytes = ProtoBuf.encodeToByteArray(summary)
+//
+//                    SearchIndexTable.insert {
+//
+//                        it[SearchIndexTable.coordinate] = clusterCoordinate
+//                        it[SearchIndexTable.clusterTypeId] = upload.cluster.cluster.id.toInt()
+//                        it[SearchIndexTable.uploaderSteamIdHash] = uploaderSteamIdHash
+//                        it[SearchIndexTable.gameVersion] = upload.cluster.gameVersion
+//                        it[SearchIndexTable.uploadDate] = uploadDate
+//                        it[SearchIndexTable.data] = ExposedBlob(summaryBytes)
+//                    }
+//                }
 
                 /*
                  * S3 uploads
@@ -974,22 +973,22 @@ private fun Application.configureRoutingInternal() {
                     }
                 }
 
-                transaction(externalDatabase) {
-
-                    FailedWorldGenReportsTable.insert {
-
-                        it[FailedWorldGenReportsTable.coordinate] = failedGenReport.coordinate
-
-                        it[FailedWorldGenReportsTable.steamId] = steamId
-                        it[FailedWorldGenReportsTable.installationId] = failedGenReport.installationId
-                        it[FailedWorldGenReportsTable.ipAddress] = ipAddress
-                        it[FailedWorldGenReportsTable.reportDate] = System.currentTimeMillis()
-
-                        it[FailedWorldGenReportsTable.gameVersion] = failedGenReport.gameVersion
-                        it[FailedWorldGenReportsTable.fileHashesJson] =
-                            strictJson.encodeToString(failedGenReport.fileHashes)
-                    }
-                }
+//                transaction(externalDatabase) {
+//
+//                    FailedWorldGenReportsTable.insert {
+//
+//                        it[FailedWorldGenReportsTable.coordinate] = failedGenReport.coordinate
+//
+//                        it[FailedWorldGenReportsTable.steamId] = steamId
+//                        it[FailedWorldGenReportsTable.installationId] = failedGenReport.installationId
+//                        it[FailedWorldGenReportsTable.ipAddress] = ipAddress
+//                        it[FailedWorldGenReportsTable.reportDate] = System.currentTimeMillis()
+//
+//                        it[FailedWorldGenReportsTable.gameVersion] = failedGenReport.gameVersion
+//                        it[FailedWorldGenReportsTable.fileHashesJson] =
+//                            strictJson.encodeToString(failedGenReport.fileHashes)
+//                    }
+//                }
 
                 /*
                  * Finalize
