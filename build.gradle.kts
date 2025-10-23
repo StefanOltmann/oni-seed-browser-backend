@@ -68,6 +68,7 @@ dependencies {
      * Database
      */
     implementation(libs.mysql)
+    implementation(libs.sqlite)
 
     /*
      * JetBrains Exposed ORM
