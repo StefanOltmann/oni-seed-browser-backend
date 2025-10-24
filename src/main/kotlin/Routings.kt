@@ -84,7 +84,6 @@ import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.inList
-import org.jetbrains.exposed.v1.core.regexp
 import org.jetbrains.exposed.v1.core.statements.api.ExposedBlob
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
@@ -1345,19 +1344,20 @@ private suspend fun handleGetRequestedCoordinate(
         var requestedCoordinate: String? = null
         var requestedSteamId: String? = null
 
-        transaction(localDatabase) {
+        val clustersThatThisRunnerCanProcess = ClusterType.createClusterPrefixesList(dlcs)
 
-            val regexPattern = ClusterType.createRegexPattern(dlcs)
+        transaction(localDatabase) {
 
             val result = RequestedCoordinatesTable
                 .select(
                     RequestedCoordinatesTable.coordinate,
+                    RequestedCoordinatesTable.clusterType,
                     RequestedCoordinatesTable.steamId,
                     RequestedCoordinatesTable.date
                 )
                 .where {
                     (RequestedCoordinatesTable.steamId eq steamId) and
-                        RequestedCoordinatesTable.coordinate.regexp(regexPattern)
+                        RequestedCoordinatesTable.clusterType.inList(clustersThatThisRunnerCanProcess)
                 }
                 .limit(1)
                 .firstOrNull()
@@ -1397,15 +1397,14 @@ private suspend fun handleGetRequestedCoordinate(
 
             transaction(localDatabase) {
 
-                val regexPattern = ClusterType.createRegexPattern(dlcs)
-
                 val result = RequestedCoordinatesTable
                     .select(
                         RequestedCoordinatesTable.coordinate,
+                        RequestedCoordinatesTable.clusterType,
                         RequestedCoordinatesTable.steamId,
                         RequestedCoordinatesTable.date
                     )
-                    .where { RequestedCoordinatesTable.coordinate.regexp(regexPattern) }
+                    .where { RequestedCoordinatesTable.clusterType.inList(clustersThatThisRunnerCanProcess) }
                     .orderBy(RequestedCoordinatesTable.date, SortOrder.DESC)
                     .limit(1)
                     .firstOrNull()
