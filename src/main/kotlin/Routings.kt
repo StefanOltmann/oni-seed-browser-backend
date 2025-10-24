@@ -71,6 +71,7 @@ import io.minio.RemoveObjectArgs
 import io.sentry.Sentry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -177,6 +178,8 @@ private val sqliteDatabase = DatabaseFactory.init(
     password = ""
 )
 
+private var currentBackupJob: Job? = null
+
 @OptIn(ExperimentalSerializationApi::class)
 fun Application.configureRouting() {
 
@@ -273,7 +276,7 @@ private fun Application.configureRoutingInternal() {
             call.respondText("util.Benchmark started.")
         }
 
-        get("/downloaddb") {
+        get("/createbackup") {
 
             val apiKey: String? = this.call.request.headers["API_KEY"]
 
@@ -282,48 +285,71 @@ private fun Application.configureRoutingInternal() {
                 return@get
             }
 
-            val duration = measureTime {
-
-                val backupFile = File(dataDir, "oni.db.bak")
-
-                try {
-
-                    val dbFile = File(dataDir, "oni.db")
-
-                    val srcUrl = "jdbc:sqlite:${dbFile.absolutePath}"
-
-                    DriverManager.getConnection(srcUrl).use { conn ->
-
-                        /* Ensure no transaction */
-                        conn.autoCommit = true
-
-                        conn.createStatement().use { st ->
-
-                            /* Optional: wait a bit if the DB is busy */
-                            st.execute("PRAGMA busy_timeout=5000")
-
-                            /* Important on Windows: escape backslashes in SQL literal */
-                            val dstPath = backupFile.absolutePath.replace("\\", "\\\\")
-
-                            st.execute("BACKUP TO '$dstPath'")
-                        }
-                    }
-
-                    call.respondFile(dataDir, backupFile.name)
-
-                } catch (ex: Exception) {
-
-                    log("Error on DB export")
-                    log(ex)
-
-                    call.respond(HttpStatusCode.InternalServerError, "Error on export: $ex")
-
-                } finally {
-                    backupFile.delete()
-                }
+            if (currentBackupJob != null) {
+                call.respond(HttpStatusCode.BadRequest, "Backup job is already running")
+                return@get
             }
 
-            log("Database export took $duration.")
+            currentBackupJob = launch {
+
+                log("Backup creation triggered...")
+
+                val duration = measureTime {
+
+                    val backupFile = File(dataDir, "oni.db.bak")
+
+                    backupFile.delete()
+
+                    try {
+
+                        val dbFile = File(dataDir, "oni.db")
+
+                        val srcUrl = "jdbc:sqlite:${dbFile.absolutePath}"
+
+                        DriverManager.getConnection(srcUrl).use { conn ->
+
+                            /* Ensure no transaction */
+                            conn.autoCommit = true
+
+                            conn.createStatement().use { st ->
+
+                                /* Optional: wait a bit if the DB is busy */
+                                st.execute("PRAGMA busy_timeout = 5000")
+
+                                /* Important on Windows: escape backslashes in SQL literal */
+                                val dstPath = backupFile.absolutePath.replace("\\", "\\\\")
+
+                                st.execute("BACKUP TO '$dstPath'")
+                            }
+                        }
+
+                    } catch (ex: Exception) {
+
+                        log("Error on DB export")
+                        log(ex)
+
+                    } finally {
+
+                        currentBackupJob = null
+                    }
+                }
+
+                log("Database export took $duration.")
+            }
+
+            call.respond(HttpStatusCode.OK, "Backup job started.")
+        }
+
+        get("/downloadbackup") {
+
+            val apiKey: String? = this.call.request.headers["API_KEY"]
+
+            if (apiKey != System.getenv(MNI_DATABASE_EXPORT_API_KEY)) {
+                call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
+                return@get
+            }
+
+            call.respondFile(dataDir, "oni.db.bak")
         }
 
         get("/generate-search-indexes") {
