@@ -272,8 +272,7 @@ object DatabaseFactory {
                             UploadsTable.installationId,
                             UploadsTable.ipAddress,
                             UploadsTable.uploadDate,
-                            UploadsTable.gameVersion,
-                            UploadsTable.fileHashesJson
+                            UploadsTable.gameVersion
                         )
                         .where { UploadsTable.coordinate inList batch }
                         .toList()
@@ -289,7 +288,6 @@ object DatabaseFactory {
                             it[ipAddress] = row[UploadsTable.ipAddress]
                             it[uploadDate] = row[UploadsTable.uploadDate]
                             it[gameVersion] = row[UploadsTable.gameVersion]
-                            it[fileHashesJson] = row[UploadsTable.fileHashesJson]
                         }
 
                         copied++
@@ -344,8 +342,7 @@ object DatabaseFactory {
                             FailedWorldGenReportsTable.installationId,
                             FailedWorldGenReportsTable.ipAddress,
                             FailedWorldGenReportsTable.reportDate,
-                            FailedWorldGenReportsTable.gameVersion,
-                            FailedWorldGenReportsTable.fileHashesJson
+                            FailedWorldGenReportsTable.gameVersion
                         )
                         .where { FailedWorldGenReportsTable.coordinate inList batch }
                         .toList()
@@ -361,7 +358,6 @@ object DatabaseFactory {
                             it[ipAddress] = row[FailedWorldGenReportsTable.ipAddress]
                             it[reportDate] = row[FailedWorldGenReportsTable.reportDate]
                             it[gameVersion] = row[FailedWorldGenReportsTable.gameVersion]
-                            it[fileHashesJson] = row[FailedWorldGenReportsTable.fileHashesJson]
                         }
 
                         copied++

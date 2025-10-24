@@ -176,7 +176,7 @@ private val localDatabase = DatabaseFactory.init(
 private val dataDir: File = File("/data")
 
 private val sqliteDatabase = DatabaseFactory.init(
-    url = "jdbc:sqlite:/data/oni.db?journal_mode=WAL",
+    url = "jdbc:sqlite:/data/oni-data.db?journal_mode=WAL",
     username = "",
     password = ""
 )
@@ -309,7 +309,7 @@ private fun Application.configureRoutingInternal() {
 
                     val creationDuration = measureTime {
 
-                        val dbFile = File(dataDir, "oni.db")
+                        val dbFile = File(dataDir, "oni-data.db")
 
                         val srcUrl = "jdbc:sqlite:${dbFile.absolutePath}"
 
@@ -899,7 +899,6 @@ private fun Application.configureRoutingInternal() {
                         it[UploadsTable.uploadDate] = uploadMetadata.uploadDate
 
                         it[UploadsTable.gameVersion] = uploadMetadata.gameVersion
-                        it[UploadsTable.fileHashesJson] = strictJson.encodeToString(uploadMetadata.fileHashes)
                     }
 
                     /*
@@ -949,7 +948,6 @@ private fun Application.configureRoutingInternal() {
                         it[UploadsTable.uploadDate] = uploadMetadata.uploadDate
 
                         it[UploadsTable.gameVersion] = uploadMetadata.gameVersion
-                        it[UploadsTable.fileHashesJson] = strictJson.encodeToString(uploadMetadata.fileHashes)
                     }
 
                     /*
@@ -1094,8 +1092,6 @@ private fun Application.configureRoutingInternal() {
                         it[FailedWorldGenReportsTable.reportDate] = System.currentTimeMillis()
 
                         it[FailedWorldGenReportsTable.gameVersion] = failedGenReport.gameVersion
-                        it[FailedWorldGenReportsTable.fileHashesJson] =
-                            strictJson.encodeToString(failedGenReport.fileHashes)
                     }
                 }
 
@@ -1111,8 +1107,6 @@ private fun Application.configureRoutingInternal() {
                         it[FailedWorldGenReportsTable.reportDate] = System.currentTimeMillis()
 
                         it[FailedWorldGenReportsTable.gameVersion] = failedGenReport.gameVersion
-                        it[FailedWorldGenReportsTable.fileHashesJson] =
-                            strictJson.encodeToString(failedGenReport.fileHashes)
                     }
                 }
 
@@ -1203,11 +1197,25 @@ private fun Application.configureRoutingInternal() {
 
                 val millis = Clock.System.now().toEpochMilliseconds()
 
+                val clusterType = ClusterType.entries.find {
+                    coordinate.startsWith(it.prefix)
+                }
+
+                if (clusterType == null) {
+
+                    log("[REQUEST] Ignoring invalid coordinate $coordinate (by $steamId)")
+
+                    call.respond(HttpStatusCode.BadRequest, "Invalid coordinate '$coordinate'")
+
+                    return@post
+                }
+
                 transaction(localDatabase) {
                     RequestedCoordinatesTable.insert {
                         it[RequestedCoordinatesTable.steamId] = steamId
                         it[RequestedCoordinatesTable.date] = millis
                         it[RequestedCoordinatesTable.coordinate] = coordinate
+                        it[RequestedCoordinatesTable.clusterType] = clusterType.prefix
                     }
                 }
 

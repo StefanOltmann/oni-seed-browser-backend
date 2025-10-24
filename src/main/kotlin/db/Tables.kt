@@ -63,7 +63,6 @@ object UploadsTable : Table("uploads") {
     val uploadDate = long("upload_date")
 
     val gameVersion = varchar("game_version", 20)
-    val fileHashesJson = text("file_hashes_json")
 
     override val primaryKey = PrimaryKey(coordinate)
 }
@@ -81,7 +80,6 @@ object FailedWorldGenReportsTable : Table("failed_world_gen_reports") {
     val reportDate = long("report_date")
 
     val gameVersion = varchar("game_version", 20)
-    val fileHashesJson = text("file_hashes_json")
 
     override val primaryKey = PrimaryKey(coordinate)
 }
@@ -91,11 +89,13 @@ object FailedWorldGenReportsTable : Table("failed_world_gen_reports") {
  */
 object RequestedCoordinatesTable : Table("requested_coordinates") {
 
-    val coordinate = varchar("coordinate", 50)
-
     val steamId = varchar("steam_id", 17)
 
     val date = long("date")
+
+    val coordinate = varchar("coordinate", 50)
+
+    val clusterType = varchar("cluster_type", 10)
 
     override val primaryKey = PrimaryKey(coordinate)
 }
