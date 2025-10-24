@@ -98,6 +98,7 @@ import java.security.KeyFactory
 import java.security.interfaces.ECPublicKey
 import java.security.spec.X509EncodedKeySpec
 import java.sql.DriverManager
+import java.util.zip.GZIPOutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import kotlin.io.encoding.Base64
@@ -120,6 +121,7 @@ const val MNI_DATABASE_EXPORT_API_KEY = "MNI_DATABASE_EXPORT_API_KEY"
 
 const val S3_WORLDS_BUCKET = "oni-data.stefanoltmann.de"
 const val S3_SEARCH_BUCKET = "oni-search.stefanoltmann.de"
+const val S3_BACKUP_BUCKET = "oni-backup.stefanoltmann.de"
 const val S3_METADATA_BUCKET = "oni-upload-metadata"
 
 private val purgeApiKey = System.getenv(MNI_PURGE_API_KEY)
@@ -295,15 +297,17 @@ private fun Application.configureRoutingInternal() {
 
             currentBackupJob = launch {
 
-                log("Backup creation triggered...")
+                log("[BACKUP] Backup creation triggered...")
 
-                val duration = measureTime {
+                val backupFile = File(dataDir, "oni-backup.db")
+                val backupFileZipped = File(dataDir, "oni-backup.db.gz")
 
-                    val backupFile = File(dataDir, "oni.db.bak")
+                backupFile.delete()
+                backupFileZipped.delete()
 
-                    backupFile.delete()
+                try {
 
-                    try {
+                    val creationDuration = measureTime {
 
                         val dbFile = File(dataDir, "oni.db")
 
@@ -325,19 +329,53 @@ private fun Application.configureRoutingInternal() {
                                 st.execute("BACKUP TO '$dstPath'")
                             }
                         }
-
-                    } catch (ex: Exception) {
-
-                        log("Error on DB export")
-                        log(ex)
-
-                    } finally {
-
-                        currentBackupJob = null
                     }
-                }
 
-                log("Database export took $duration.")
+                    log("[BACKUP] Database export took $creationDuration. File size: ${backupFile.length() / 1024 / 1024} MB")
+
+                    val compressionDuration = measureTime {
+
+                        backupFile.inputStream().use { inputStream ->
+
+                            GZIPOutputStream(backupFileZipped.outputStream(), true).use { gzipStream ->
+                                inputStream.copyTo(gzipStream)
+                            }
+                        }
+                    }
+
+                    log("[BACKUP] Compression took $compressionDuration. File size: ${backupFileZipped.length() / 1024 / 1024} MB")
+
+                    val uploadDuration = measureTime {
+
+                        minioClient.putObject(
+                            PutObjectArgs
+                                .builder()
+                                .bucket(S3_BACKUP_BUCKET)
+                                .`object`(backupFileZipped.name)
+                                .headers(
+                                    mapOf(
+                                        "Content-Type" to " application/x-sqlite3",
+                                        "Content-Encoding" to "gzip",
+                                        /* Cache for 10 years; we manually purge caches. */
+                                        "Cache-Control" to "public, max-age=315360000, immutable"
+                                    )
+                                )
+                                .stream(backupFileZipped.inputStream(), backupFileZipped.length(), -1)
+                                .build()
+                        )
+                    }
+
+                    log("[BACKUP] Uploading to S3 took $uploadDuration.")
+
+                } catch (ex: Exception) {
+
+                    log("[BACKUP] Error on DB export: ${ex.message}")
+                    log(ex)
+
+                } finally {
+
+                    currentBackupJob = null
+                }
             }
 
             call.respond(HttpStatusCode.OK, "Backup job started.")
@@ -352,7 +390,7 @@ private fun Application.configureRoutingInternal() {
                 return@get
             }
 
-            call.respondFile(dataDir, "oni.db.bak")
+            call.respondFile(dataDir, "oni-backup.db.gz")
         }
 
         get("/generate-search-indexes") {
