@@ -305,7 +305,7 @@ private fun Application.configureRoutingInternal() {
                             /* Important on Windows: escape backslashes in SQL literal */
                             val dstPath = backupFile.absolutePath.replace("\\", "\\\\")
 
-                            st.execute("VACUUM INTO '$dstPath'")
+                            st.execute("BACKUP TO '$dstPath'")
                         }
                     }
 
