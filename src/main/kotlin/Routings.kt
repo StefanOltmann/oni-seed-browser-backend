@@ -21,7 +21,6 @@ import com.auth0.jwt.algorithms.Algorithm
 import com.auth0.jwt.exceptions.JWTVerificationException
 import com.auth0.jwt.interfaces.DecodedJWT
 import db.DatabaseFactory
-import db.DatabaseFactory.copyDatabase
 import db.FailedWorldGenReportsTable
 import db.RequestedCoordinatesTable
 import db.SearchIndexTable
@@ -166,11 +165,11 @@ private val latestCoordinates = mutableListOf<String>()
 
 private val seedRequestCounterMap = mutableMapOf<String, Long>()
 
-private val localDatabase = DatabaseFactory.init(
-    url = "jdbc:mysql://10.147.20.24:3306/oni",
-    username = "myuser",
-    password = "mypassword"
-)
+//private val localDatabase = DatabaseFactory.init(
+//    url = "jdbc:mysql://10.147.20.24:3306/oni",
+//    username = "myuser",
+//    password = "mypassword"
+//)
 
 private val dataDir: File = File("/data")
 
@@ -240,12 +239,12 @@ private fun Application.configureRoutingInternal() {
 
         // cleanMaps()
 
-        copyDatabase(
-            localDatabase,
-            sqliteDatabase
-        )
+//        copyDatabase(
+//            localDatabase,
+//            sqliteDatabase
+//        )
 
-        copyMapsToS3()
+        // copyMapsToS3()
 
 //        regenerateSearchIndexTable()
 //
@@ -540,7 +539,7 @@ private fun Application.configureRoutingInternal() {
 
                     ZipOutputStream(this).use { zipOutputStream ->
 
-                        transaction(localDatabase) {
+                        transaction(sqliteDatabase) {
 
                             var batchNumber = 1
                             var offset = 0
@@ -661,7 +660,7 @@ private fun Application.configureRoutingInternal() {
                     return@delete
                 }
 
-                transaction(localDatabase) {
+                transaction(sqliteDatabase) {
                     WorldsTable.deleteWhere { WorldsTable.coordinate eq coordinate }
                     UploadsTable.deleteWhere { UploadsTable.coordinate eq coordinate }
                     SearchIndexTable.deleteWhere { SearchIndexTable.coordinate eq coordinate }
@@ -694,7 +693,7 @@ private fun Application.configureRoutingInternal() {
                     return@get
                 }
 
-                val exists = transaction(localDatabase) {
+                val exists = transaction(sqliteDatabase) {
                     WorldsTable
                         .select(WorldsTable.coordinate)
                         .where { WorldsTable.coordinate eq coordinate }
@@ -708,7 +707,7 @@ private fun Application.configureRoutingInternal() {
                     return@get
                 }
 
-                val isKnownFailedWorld = transaction(localDatabase) {
+                val isKnownFailedWorld = transaction(sqliteDatabase) {
                     FailedWorldGenReportsTable
                         .select(FailedWorldGenReportsTable.coordinate)
                         .where { FailedWorldGenReportsTable.coordinate eq coordinate }
@@ -868,55 +867,6 @@ private fun Application.configureRoutingInternal() {
                 /*
                  * Database updates
                  */
-
-                transaction(localDatabase) {
-
-                    val clusterCoordinate = upload.cluster.coordinate
-
-                    val protobufBytes = ProtoBuf.encodeToByteArray(optimizedCluster)
-
-                    val compressedBytes = ZipUtil.zipBytes(
-                        originalBytes = protobufBytes
-                    )
-
-                    WorldsTable.insert {
-                        it[WorldsTable.coordinate] = clusterCoordinate
-                        it[WorldsTable.clusterTypeId] = upload.cluster.cluster.id.toInt()
-                        it[WorldsTable.gameVersion] = upload.cluster.gameVersion
-                        it[WorldsTable.uploaderSteamIdHash] = uploaderSteamIdHash
-                        it[WorldsTable.uploadDate] = uploadDate
-                        it[WorldsTable.data] = ExposedBlob(compressedBytes)
-                    }
-
-                    UploadsTable.insert {
-
-                        it[UploadsTable.coordinate] = uploadMetadata.coordinate
-
-                        it[UploadsTable.steamId] = steamId
-                        it[UploadsTable.installationId] = uploadMetadata.installationId
-                        it[UploadsTable.ipAddress] = uploadMetadata.ipAddress
-                        it[UploadsTable.uploadDate] = uploadMetadata.uploadDate
-
-                        it[UploadsTable.gameVersion] = uploadMetadata.gameVersion
-                    }
-
-                    /*
-                     * Add to the search index
-                     */
-
-                    val summary = ClusterSummaryCompact.create(optimizedCluster)
-                    val summaryBytes = ProtoBuf.encodeToByteArray(summary)
-
-                    SearchIndexTable.insert {
-
-                        it[SearchIndexTable.coordinate] = clusterCoordinate
-                        it[SearchIndexTable.clusterTypeId] = upload.cluster.cluster.id.toInt()
-                        it[SearchIndexTable.uploaderSteamIdHash] = uploaderSteamIdHash
-                        it[SearchIndexTable.gameVersion] = upload.cluster.gameVersion
-                        it[SearchIndexTable.uploadDate] = uploadDate
-                        it[SearchIndexTable.data] = ExposedBlob(summaryBytes)
-                    }
-                }
 
                 transaction(sqliteDatabase) {
 
@@ -1079,21 +1029,6 @@ private fun Application.configureRoutingInternal() {
                  * Database update
                  */
 
-                transaction(localDatabase) {
-
-                    FailedWorldGenReportsTable.insert {
-
-                        it[FailedWorldGenReportsTable.coordinate] = failedGenReport.coordinate
-
-                        it[FailedWorldGenReportsTable.steamId] = steamId
-                        it[FailedWorldGenReportsTable.installationId] = failedGenReport.installationId
-                        it[FailedWorldGenReportsTable.ipAddress] = ipAddress
-                        it[FailedWorldGenReportsTable.reportDate] = System.currentTimeMillis()
-
-                        it[FailedWorldGenReportsTable.gameVersion] = failedGenReport.gameVersion
-                    }
-                }
-
                 transaction(sqliteDatabase) {
 
                     FailedWorldGenReportsTable.insert {
@@ -1153,7 +1088,7 @@ private fun Application.configureRoutingInternal() {
                     return@post
                 }
 
-                val exists = transaction(localDatabase) {
+                val exists = transaction(sqliteDatabase) {
                     RequestedCoordinatesTable.select(RequestedCoordinatesTable.coordinate)
                         .where { RequestedCoordinatesTable.coordinate eq coordinate }
                         .empty().not()
@@ -1169,7 +1104,7 @@ private fun Application.configureRoutingInternal() {
                     return@post
                 }
 
-                val userRequestCount = transaction(localDatabase) {
+                val userRequestCount = transaction(sqliteDatabase) {
                     RequestedCoordinatesTable.select(RequestedCoordinatesTable.coordinate)
                         .where { RequestedCoordinatesTable.steamId eq steamId }
                         .count()
@@ -1209,7 +1144,7 @@ private fun Application.configureRoutingInternal() {
                     return@post
                 }
 
-                transaction(localDatabase) {
+                transaction(sqliteDatabase) {
                     RequestedCoordinatesTable.insert {
                         it[RequestedCoordinatesTable.steamId] = steamId
                         it[RequestedCoordinatesTable.date] = millis
@@ -1281,7 +1216,7 @@ private fun Application.configureRoutingInternal() {
             try {
 
                 /* Fast connection check */
-                transaction(localDatabase) {
+                transaction(sqliteDatabase) {
                     WorldsTable.select(WorldsTable.coordinate).limit(1).firstOrNull()
                 }
 
@@ -1346,7 +1281,7 @@ private suspend fun handleGetRequestedCoordinate(
 
         val clustersThatThisRunnerCanProcess = ClusterType.createClusterPrefixesList(dlcs)
 
-        transaction(localDatabase) {
+        transaction(sqliteDatabase) {
 
             val result = RequestedCoordinatesTable
                 .select(
@@ -1395,7 +1330,7 @@ private suspend fun handleGetRequestedCoordinate(
                 return
             }
 
-            transaction(localDatabase) {
+            transaction(sqliteDatabase) {
 
                 val result = RequestedCoordinatesTable
                     .select(
@@ -1434,7 +1369,7 @@ private suspend fun handleGetRequestedCoordinate(
 
         } else {
 
-            val existingWorld = transaction(localDatabase) {
+            val existingWorld = transaction(sqliteDatabase) {
                 WorldsTable
                     .select(WorldsTable.coordinate)
                     .where { WorldsTable.coordinate eq requestedCoordinate }
@@ -1563,7 +1498,7 @@ private fun copyMapsToS3() {
 
         var addedCount = 0
 
-        transaction(localDatabase) {
+        transaction(sqliteDatabase) {
 
             var offset = 0
             val batchSize = 10000
@@ -1627,7 +1562,7 @@ private fun regenerateSearchIndexTable() {
 
             val time = measureTime {
 
-                val worldsCoordinates = transaction(localDatabase) {
+                val worldsCoordinates = transaction(sqliteDatabase) {
                     WorldsTable
                         .select(WorldsTable.coordinate)
                         .where { WorldsTable.clusterTypeId eq cluster.id.toInt() }
@@ -1635,7 +1570,7 @@ private fun regenerateSearchIndexTable() {
                         .toSet()
                 }
 
-                val searchIndexCoordinates = transaction(localDatabase) {
+                val searchIndexCoordinates = transaction(sqliteDatabase) {
                     SearchIndexTable
                         .select(SearchIndexTable.coordinate)
                         .where { SearchIndexTable.clusterTypeId eq cluster.id.toInt() }
@@ -1650,7 +1585,7 @@ private fun regenerateSearchIndexTable() {
                 // Process only the missing coordinates
                 for (coordinate in missingCoordinates) {
 
-                    val worldData = transaction(localDatabase) {
+                    val worldData = transaction(sqliteDatabase) {
                         WorldsTable
                             .select(WorldsTable.data)
                             .where { (WorldsTable.coordinate eq coordinate) and (WorldsTable.clusterTypeId eq cluster.id.toInt()) }
@@ -1672,7 +1607,7 @@ private fun regenerateSearchIndexTable() {
 
                     val summaryBytes = ProtoBuf.encodeToByteArray(summary)
 
-                    transaction(localDatabase) {
+                    transaction(sqliteDatabase) {
 
                         SearchIndexTable.insertIgnore {
 
@@ -1719,7 +1654,7 @@ private fun createSearchIndexes() {
 
                 val summaries = mutableListOf<ClusterSummaryCompact>()
 
-                transaction(localDatabase) {
+                transaction(sqliteDatabase) {
 
                     val resultRows = SearchIndexTable
                         .select(SearchIndexTable.uploaderSteamIdHash, SearchIndexTable.data)
@@ -1831,7 +1766,7 @@ private fun createSearchIndexes() {
          * Also upload failed world gens
          */
 
-        val failedWorldGenReports = transaction(localDatabase) {
+        val failedWorldGenReports = transaction(sqliteDatabase) {
             FailedWorldGenReportsTable
                 .select(FailedWorldGenReportsTable.coordinate)
                 .map { it[FailedWorldGenReportsTable.coordinate] }
