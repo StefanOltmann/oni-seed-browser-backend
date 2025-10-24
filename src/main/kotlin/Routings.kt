@@ -172,7 +172,7 @@ private val localDatabase = DatabaseFactory.init(
 private val dataDir: File = File("/data")
 
 private val sqliteDatabase = DatabaseFactory.init(
-    url = "jdbc:sqlite:/data/oni.db",
+    url = "jdbc:sqlite:/data/oni.db?journal_mode=WAL",
     username = "",
     password = ""
 )
@@ -300,7 +300,7 @@ private fun Application.configureRoutingInternal() {
                         conn.createStatement().use { st ->
 
                             /* Optional: wait a bit if the DB is busy */
-                            st.execute("PRAGMA busy_timeout=10000")
+                            st.execute("PRAGMA busy_timeout=5000")
 
                             /* Important on Windows: escape backslashes in SQL literal */
                             val dstPath = backupFile.absolutePath.replace("\\", "\\\\")

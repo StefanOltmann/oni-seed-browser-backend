@@ -40,7 +40,27 @@ object DatabaseFactory {
             val db = Database.connect(
                 url = url,
                 user = username,
-                password = password
+                password = password,
+                setupConnection = { connection ->
+
+                    if (url.contains("sqlite", ignoreCase = true)) {
+
+                        /* Don't immediately fail on short locks */
+                        connection.createStatement().execute("PRAGMA busy_timeout = 5000;")
+
+                        /* Enable foreign keys */
+                        connection.createStatement().execute("PRAGMA foreign_keys = ON;")
+
+                        /* Enable auto-vacuum (takes effect after VACUUM) */
+                        connection.createStatement().execute("PRAGMA auto_vacuum = FULL;")
+
+                        /* Speeds up temporary indexes */
+                        connection.createStatement().execute("PRAGMA temp_store = MEMORY;")
+
+                        /* ~20 MB page cache */
+                        connection.createStatement().execute("PRAGMA cache_size = -20000;")
+                    }
+                }
             )
 
             transaction(db) {
