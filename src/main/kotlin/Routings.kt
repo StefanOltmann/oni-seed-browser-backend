@@ -65,6 +65,7 @@ import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
+import io.minio.ListObjectsArgs
 import io.minio.MinioClient
 import io.minio.PutObjectArgs
 import io.minio.RemoveObjectArgs
@@ -242,6 +243,8 @@ private fun Application.configureRoutingInternal() {
             localDatabase,
             sqliteDatabase
         )
+
+        copyMapsToS3()
 
 //        regenerateSearchIndexTable()
 //
@@ -1491,67 +1494,80 @@ private fun deleteMapFromS3(
     )
 }
 
-//@OptIn(ExperimentalTime::class)
-//private suspend fun copyMapsToS3() {
-//
-//    log("[S3] Transfer maps to S3...")
-//
-//    val start = Clock.System.now().toEpochMilliseconds()
-//
-//    try {
-//
-//        val objects = minioClient.listObjects(
-//            ListObjectsArgs.builder()
-//                .bucket(S3_WORLDS_BUCKET)
-//                .build()
-//        )
-//
-//        val existingNames = mutableSetOf<String>()
-//
-//        for (result in objects) {
-//
-//            val item = result.get()
-//
-//            existingNames.add(item.objectName())
-//        }
-//
-//        val cursor = clusterCollection.find().batchSize(10000)
-//
-//        val existingClusterCoordinates = mutableSetOf<String>()
-//
-//        var addedCount = 0
-//
-//        cursor.collect { cluster ->
-//
-//            existingClusterCoordinates.add(cluster.coordinate)
-//
-//            if (existingNames.contains(cluster.coordinate))
-//                return@collect
-//
-//            uploadMapToS3(minioClient, cluster)
-//
-//            addedCount++
-//        }
-//
-////        val coordinatesToDelete = existingNames.minus(existingClusterCoordinates)
-////
-////        for (map in coordinatesToDelete) {
-////
-////            println("Delete $map from S3...")
-////
-////            // deleteMapFromS3(localMinioClient, map)
-////            deleteMapFromS3(externalMinioClient, map)
-////        }
-//
-//        val duration = Clock.System.now().toEpochMilliseconds() - start
-//
-//        log("[S3] Completed in $duration ms. Added $addedCount.")
-//
-//    } catch (ex: Exception) {
-//
-//        log(ex)
-//    }
-//}
+@OptIn(ExperimentalTime::class)
+private fun copyMapsToS3() {
+
+    log("[S3] Transfer maps to S3...")
+
+    val start = Clock.System.now().toEpochMilliseconds()
+
+    try {
+
+        val objects = minioClient.listObjects(
+            ListObjectsArgs.builder()
+                .bucket(S3_WORLDS_BUCKET)
+                .build()
+        )
+
+        val existingNames = mutableSetOf<String>()
+
+        for (result in objects) {
+            val item = result.get()
+            existingNames.add(item.objectName())
+        }
+
+        var addedCount = 0
+
+        transaction(localDatabase) {
+
+            var offset = 0
+            val batchSize = 10000
+
+            while (true) {
+
+                val worlds = WorldsTable
+                    .select(WorldsTable.coordinate, WorldsTable.data)
+                    .orderBy(WorldsTable.coordinate)
+                    .limit(batchSize)
+                    .offset(offset.toLong())
+                    .toList()
+
+                if (worlds.isEmpty())
+                    break
+
+                for (row in worlds) {
+
+                    val coordinate = row[WorldsTable.coordinate]
+
+                    if (existingNames.contains(coordinate))
+                        continue
+
+                    val bytes = row[WorldsTable.data].bytes
+
+                    val unzippedBytes = ZipUtil.unzipBytes(bytes)
+
+                    val cluster = ProtoBuf.decodeFromByteArray<Cluster>(unzippedBytes)
+
+                    uploadMapToS3(minioClient, cluster)
+
+                    addedCount++
+                }
+
+                offset += worlds.size
+
+                if (worlds.size < batchSize)
+                    break
+            }
+        }
+
+        val duration = Clock.System.now().toEpochMilliseconds() - start
+
+        log("[S3] Completed in $duration ms. Added $addedCount.")
+
+    } catch (ex: Exception) {
+        log(ex)
+    }
+}
 
 @OptIn(ExperimentalSerializationApi::class, ExperimentalTime::class)
 private fun regenerateSearchIndexTable() {
