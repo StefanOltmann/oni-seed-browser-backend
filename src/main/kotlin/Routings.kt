@@ -1222,11 +1222,12 @@ private fun Application.configureRoutingInternal() {
                             RequestedCoordinatesTable.date
                         )
                         .orderBy(RequestedCoordinatesTable.date to SortOrder.DESC)
-                        .map { row ->
-                            mapOf(
-                                "coordinate" to row[RequestedCoordinatesTable.coordinate],
-                                "date" to row[RequestedCoordinatesTable.date]
-                            )
+                        .joinToString("\\n") { row ->
+
+                            val coordinate = row[RequestedCoordinatesTable.coordinate]
+                            val date = row[RequestedCoordinatesTable.date]
+
+                            "$coordinate @ $date"
                         }
                 }
 
