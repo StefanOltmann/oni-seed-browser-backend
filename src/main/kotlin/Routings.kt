@@ -1211,6 +1211,35 @@ private fun Application.configureRoutingInternal() {
             }
         }
 
+        get("/requested-coordinates-queue") {
+
+            try {
+
+                val requestedCoordinates = transaction(sqliteDatabase) {
+                    RequestedCoordinatesTable
+                        .select(
+                            RequestedCoordinatesTable.coordinate,
+                            RequestedCoordinatesTable.date
+                        )
+                        .orderBy(RequestedCoordinatesTable.date to SortOrder.DESC)
+                        .map { row ->
+                            mapOf(
+                                "coordinate" to row[RequestedCoordinatesTable.coordinate],
+                                "date" to row[RequestedCoordinatesTable.date]
+                            )
+                        }
+                }
+
+                call.respond(requestedCoordinates)
+
+            } catch (ex: Exception) {
+
+                log(ex)
+
+                call.respond(HttpStatusCode.InternalServerError)
+            }
+        }
+
         get("/health") {
 
             try {
