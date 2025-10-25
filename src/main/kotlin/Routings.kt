@@ -36,7 +36,6 @@ import de.stefan_oltmann.oni.model.server.FailedGenReport
 import de.stefan_oltmann.oni.model.server.FailedGenReportCheckResult
 import de.stefan_oltmann.oni.model.server.Upload
 import de.stefan_oltmann.oni.model.server.UploadCheckResult
-import de.stefan_oltmann.oni.model.server.upload.UploadMetadata
 import io.ktor.http.ContentDisposition
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
@@ -847,16 +846,6 @@ private fun Application.configureRoutingInternal() {
 
                 val uploadDate: Long = Clock.System.now().toEpochMilliseconds()
 
-                val uploadMetadata = UploadMetadata(
-                    userId = upload.userId,
-                    installationId = upload.installationId,
-                    gameVersion = upload.gameVersion,
-                    fileHashes = upload.fileHashes,
-                    uploadDate = uploadDate,
-                    ipAddress = ipAddress,
-                    coordinate = upload.cluster.coordinate
-                )
-
                 val optimizedCluster = UploadClusterConverter.convert(
                     uploadCluster = upload.cluster,
                     uploaderSteamIdHash = uploaderSteamIdHash,
@@ -889,14 +878,14 @@ private fun Application.configureRoutingInternal() {
 
                     UploadsTable.insert {
 
-                        it[UploadsTable.coordinate] = uploadMetadata.coordinate
+                        it[UploadsTable.coordinate] = upload.cluster.coordinate
 
                         it[UploadsTable.steamId] = steamId
-                        it[UploadsTable.installationId] = uploadMetadata.installationId
-                        it[UploadsTable.ipAddress] = uploadMetadata.ipAddress
-                        it[UploadsTable.uploadDate] = uploadMetadata.uploadDate
+                        it[UploadsTable.installationId] = upload.installationId
+                        it[UploadsTable.ipAddress] = ipAddress
+                        it[UploadsTable.uploadDate] = uploadDate
 
-                        it[UploadsTable.gameVersion] = uploadMetadata.gameVersion
+                        it[UploadsTable.gameVersion] = upload.gameVersion.toString()
                     }
 
                     /*
@@ -922,8 +911,6 @@ private fun Application.configureRoutingInternal() {
                  */
 
                 uploadMapToS3(minioClient, optimizedCluster)
-
-                uploadMetadataToS3(minioClient, uploadMetadata)
 
                 /*
                  * Finalize
@@ -1040,7 +1027,7 @@ private fun Application.configureRoutingInternal() {
                         it[FailedWorldGenReportsTable.ipAddress] = ipAddress
                         it[FailedWorldGenReportsTable.reportDate] = System.currentTimeMillis()
 
-                        it[FailedWorldGenReportsTable.gameVersion] = failedGenReport.gameVersion
+                        it[FailedWorldGenReportsTable.gameVersion] = failedGenReport.gameVersion.toString()
                     }
                 }
 
@@ -1447,36 +1434,6 @@ private fun uploadMapToS3(
             .builder()
             .bucket(S3_WORLDS_BUCKET)
             .`object`(cluster.coordinate)
-            .headers(
-                mapOf(
-                    "Content-Type" to " application/protobuf",
-                    "Content-Encoding" to "gzip",
-                    /* Cache for 10 years; we manually purge caches. */
-                    "Cache-Control" to "public, max-age=315360000, immutable"
-                )
-            )
-            .stream(compressedBytes.inputStream(), compressedBytes.size.toLong(), -1)
-            .build()
-    )
-}
-
-@OptIn(ExperimentalSerializationApi::class)
-private fun uploadMetadataToS3(
-    minioClient: MinioClient,
-    uploadMetadata: UploadMetadata
-) {
-
-    val protobufBytes = ProtoBuf.encodeToByteArray(uploadMetadata)
-
-    val compressedBytes = ZipUtil.zipBytes(
-        originalBytes = protobufBytes
-    )
-
-    minioClient.putObject(
-        PutObjectArgs
-            .builder()
-            .bucket(S3_METADATA_BUCKET)
-            .`object`(uploadMetadata.coordinate)
             .headers(
                 mapOf(
                     "Content-Type" to " application/protobuf",
