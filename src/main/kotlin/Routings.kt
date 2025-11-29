@@ -116,8 +116,8 @@ const val MNI_API_KEY = "MNI_API_KEY"
 const val MNI_PURGE_API_KEY = "MNI_PURGE_API_KEY"
 const val MNI_DATABASE_EXPORT_API_KEY = "MNI_DATABASE_EXPORT_API_KEY"
 
-const val S3_WORLDS_BUCKET = "oni-data.stefanoltmann.de"
-const val S3_SEARCH_BUCKET = "oni-search.stefanoltmann.de"
+const val S3_WORLDS_BUCKET = "oni-data"
+const val S3_SEARCH_BUCKET = "oni-search"
 const val S3_BACKUP_BUCKET = "oni-backup.stefanoltmann.de"
 const val S3_METADATA_BUCKET = "oni-upload-metadata"
 
@@ -243,7 +243,7 @@ private fun Application.configureRoutingInternal() {
 //            sqliteDatabase
 //        )
 
-        // copyMapsToS3()
+        copyMapsToS3()
 
 //        regenerateSearchIndexTable()
 //
