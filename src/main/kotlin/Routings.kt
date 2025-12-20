@@ -67,7 +67,6 @@ import io.minio.ListObjectsArgs
 import io.minio.MinioClient
 import io.minio.PutObjectArgs
 import io.minio.RemoveObjectArgs
-import io.sentry.Sentry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -1794,16 +1793,8 @@ private fun createSearchIndexes() {
 private val DecodedJWT.steamId: String
     get() = this.subject ?: this.getClaim("steamId").asString()
 
-private fun log(message: String) {
-
+private fun log(message: String) =
     println(message)
 
-    Sentry.addBreadcrumb(message)
-}
-
-private fun log(ex: Throwable) {
-
+private fun log(ex: Throwable) =
     ex.printStackTrace()
-
-    Sentry.captureException(ex)
-}

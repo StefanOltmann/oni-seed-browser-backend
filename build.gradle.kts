@@ -4,7 +4,6 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ktor)
     alias(libs.plugins.git.versioning)
-    alias(libs.plugins.sentry)
 }
 
 group = "org.mapsnotincluded"

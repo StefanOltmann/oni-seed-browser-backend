@@ -19,16 +19,8 @@
 import io.ktor.server.application.Application
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
-import io.sentry.Sentry
-
-private val sentryDsn: String = System.getenv("MNI_SENTRY_DSN") ?: ""
 
 fun main() {
-
-    if (sentryDsn.isNotBlank())
-        Sentry.init { options ->
-            options.dsn = sentryDsn
-        }
 
     embeddedServer(
         factory = Netty,
