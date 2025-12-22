@@ -72,7 +72,8 @@ object DatabaseFactory {
                     SearchIndexTable,
                     UploadsTable,
                     FailedWorldGenReportsTable,
-                    RequestedCoordinatesTable
+                    RequestedCoordinatesTable,
+                    UsernamesTable
                 )
             }
 

@@ -25,6 +25,7 @@ import db.FailedWorldGenReportsTable
 import db.RequestedCoordinatesTable
 import db.SearchIndexTable
 import db.UploadsTable
+import db.UsernamesTable
 import db.WorldsTable
 import de.stefan_oltmann.oni.model.Cluster
 import de.stefan_oltmann.oni.model.ClusterExportCollection
@@ -62,6 +63,7 @@ import io.ktor.server.response.respondText
 import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
+import io.ktor.server.routing.put
 import io.ktor.server.routing.routing
 import io.minio.ListObjectsArgs
 import io.minio.MinioClient
@@ -86,6 +88,8 @@ import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.insertIgnore
 import org.jetbrains.exposed.v1.jdbc.select
+import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.upsert
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import util.Benchmark
 import util.ZipUtil
@@ -1237,6 +1241,147 @@ private fun Application.configureRoutingInternal() {
                 }
 
                 call.respond(HttpStatusCode.OK, "OK")
+
+            } catch (ex: Exception) {
+
+                log(ex)
+
+                call.respond(HttpStatusCode.InternalServerError, "Server error")
+            }
+        }
+
+        get("/usernames") {
+
+            try {
+
+                val usernameMap = transaction(sqliteDatabase) {
+                    UsernamesTable.selectAll()
+                        .associate { it[UsernamesTable.steamIdHash] to it[UsernamesTable.username] }
+                }
+
+                call.respond(usernameMap)
+
+            } catch (ex: Exception) {
+
+                log(ex)
+
+                call.respond(HttpStatusCode.InternalServerError, "Server error")
+            }
+        }
+
+        put("/username") {
+
+            try {
+
+                val token: String? = this.call.request.headers[TOKEN_HEADER_WEBPAGE]
+                    ?: this.call.request.headers[TOKEN_HEADER_MOD]
+
+                if (token.isNullOrBlank()) {
+                    call.respond(HttpStatusCode.Unauthorized, "Missing token")
+                    return@put
+                }
+
+                val jwt = jwtVerifier.verify(token)
+
+                val steamIdHash = jwt.claims["hash"]?.asString()
+
+                if (steamIdHash == null) {
+                    call.respond(HttpStatusCode.Unauthorized, "Invalid token")
+                    return@put
+                }
+
+                val username: String = call.receiveText().trim()
+
+                if (username.isBlank()) {
+                    call.respond(HttpStatusCode.BadRequest, "Missing username")
+                    return@put
+                }
+
+                /*
+                 * Check if username is already taken by someone else
+                 */
+                val existingOwner = transaction(sqliteDatabase) {
+                    UsernamesTable.select(UsernamesTable.steamIdHash)
+                        .where { UsernamesTable.username eq username }
+                        .firstOrNull()?.get(UsernamesTable.steamIdHash)
+                }
+
+                if (existingOwner != null && existingOwner != steamIdHash) {
+                    call.respond(HttpStatusCode.Conflict, "Username '$username' is already taken")
+                    return@put
+                }
+
+                /*
+                 * Insert or update username in the database
+                 */
+                transaction(sqliteDatabase) {
+                    UsernamesTable.upsert {
+                        it[UsernamesTable.steamIdHash] = steamIdHash
+                        it[UsernamesTable.username] = username
+                    }
+                }
+
+                call.respond(HttpStatusCode.OK, "Username update successful! You are now known as '$username'.")
+
+            } catch (ex: JWTVerificationException) {
+
+                log("Invalid token used for username update: ${ex.message}")
+
+                call.respond(HttpStatusCode.Unauthorized, "Invalid token")
+
+            } catch (ex: Exception) {
+
+                log(ex)
+
+                call.respond(HttpStatusCode.InternalServerError, "Server error")
+            }
+        }
+
+        delete("/username") {
+
+            try {
+
+                val token: String? = this.call.request.headers[TOKEN_HEADER_WEBPAGE]
+                    ?: this.call.request.headers[TOKEN_HEADER_MOD]
+
+                if (token.isNullOrBlank()) {
+                    call.respond(HttpStatusCode.Unauthorized, "Missing token")
+                    return@delete
+                }
+
+                val jwt = jwtVerifier.verify(token)
+
+                val steamIdHash = jwt.claims["hash"]?.asString()
+
+                if (steamIdHash == null) {
+                    call.respond(HttpStatusCode.Unauthorized, "Invalid token")
+                    return@delete
+                }
+
+                /* Check if user has a username to delete */
+                val existingUsername = transaction(sqliteDatabase) {
+                    UsernamesTable.select(UsernamesTable.username)
+                        .where { UsernamesTable.steamIdHash eq steamIdHash }
+                        .firstOrNull()?.get(UsernamesTable.username)
+                }
+
+                if (existingUsername == null) {
+                    call.respond(HttpStatusCode.NotFound, "No username to remove")
+                    return@delete
+                }
+
+                /* Delete the username from the database */
+                transaction(sqliteDatabase) {
+                    UsernamesTable.deleteWhere { UsernamesTable.steamIdHash eq steamIdHash }
+                }
+
+                call.respond(HttpStatusCode.OK, "Username removal successful! Your entry '$existingUsername' was removed from the index.")
+
+            } catch (ex: JWTVerificationException) {
+
+                log("Invalid token used for username removal: ${ex.message}")
+
+                call.respond(HttpStatusCode.Unauthorized, "Invalid token")
 
             } catch (ex: Exception) {
 

@@ -99,3 +99,14 @@ object RequestedCoordinatesTable : Table("requested_coordinates") {
 
     override val primaryKey = PrimaryKey(coordinate)
 }
+
+/*
+ * Usernames for steam ID hashes
+ */
+object UsernamesTable : Table("usernames") {
+
+    val steamIdHash = varchar("steam_id_hash", 80)
+    val username = varchar("username", 100)
+
+    override val primaryKey = PrimaryKey(steamIdHash)
+}
