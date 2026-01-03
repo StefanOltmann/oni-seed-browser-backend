@@ -880,7 +880,6 @@ private fun Application.configureRoutingInternal() {
 
                         it[UploadsTable.steamId] = steamId
                         it[UploadsTable.installationId] = upload.installationId
-                        it[UploadsTable.ipAddress] = ipAddress
                         it[UploadsTable.uploadDate] = uploadDate
 
                         it[UploadsTable.gameVersion] = upload.gameVersion.toString()
@@ -1022,7 +1021,6 @@ private fun Application.configureRoutingInternal() {
 
                         it[FailedWorldGenReportsTable.steamId] = steamId
                         it[FailedWorldGenReportsTable.installationId] = failedGenReport.installationId
-                        it[FailedWorldGenReportsTable.ipAddress] = ipAddress
                         it[FailedWorldGenReportsTable.reportDate] = System.currentTimeMillis()
 
                         it[FailedWorldGenReportsTable.gameVersion] = failedGenReport.gameVersion.toString()

@@ -271,7 +271,6 @@ object DatabaseFactory {
                             UploadsTable.coordinate,
                             UploadsTable.steamId,
                             UploadsTable.installationId,
-                            UploadsTable.ipAddress,
                             UploadsTable.uploadDate,
                             UploadsTable.gameVersion
                         )
@@ -286,7 +285,6 @@ object DatabaseFactory {
                             it[coordinate] = row[UploadsTable.coordinate]
                             it[steamId] = row[UploadsTable.steamId]
                             it[installationId] = row[UploadsTable.installationId]
-                            it[ipAddress] = row[UploadsTable.ipAddress]
                             it[uploadDate] = row[UploadsTable.uploadDate]
                             it[gameVersion] = row[UploadsTable.gameVersion]
                         }
@@ -341,7 +339,6 @@ object DatabaseFactory {
                             FailedWorldGenReportsTable.coordinate,
                             FailedWorldGenReportsTable.steamId,
                             FailedWorldGenReportsTable.installationId,
-                            FailedWorldGenReportsTable.ipAddress,
                             FailedWorldGenReportsTable.reportDate,
                             FailedWorldGenReportsTable.gameVersion
                         )
@@ -356,7 +353,6 @@ object DatabaseFactory {
                             it[coordinate] = row[FailedWorldGenReportsTable.coordinate]
                             it[steamId] = row[FailedWorldGenReportsTable.steamId]
                             it[installationId] = row[FailedWorldGenReportsTable.installationId]
-                            it[ipAddress] = row[FailedWorldGenReportsTable.ipAddress]
                             it[reportDate] = row[FailedWorldGenReportsTable.reportDate]
                             it[gameVersion] = row[FailedWorldGenReportsTable.gameVersion]
                         }
