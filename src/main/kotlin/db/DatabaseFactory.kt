@@ -25,6 +25,7 @@ import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.SchemaUtils
 import org.jetbrains.exposed.v1.jdbc.insertIgnore
 import org.jetbrains.exposed.v1.jdbc.select
+import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 object DatabaseFactory {
@@ -75,6 +76,8 @@ object DatabaseFactory {
                     RequestedCoordinatesTable,
                     UsernamesTable
                 )
+
+                dropLegacyIpAddressColumns()
             }
 
             println("[INIT] Connected to database: $url")
@@ -376,5 +379,18 @@ object DatabaseFactory {
         copyFailedReports()
 
         println("[MIGRATE] Copy completed.")
+    }
+
+    private fun dropLegacyIpAddressColumns() {
+        executeUpdateSilently("ALTER TABLE uploads DROP COLUMN ip_address")
+        executeUpdateSilently("ALTER TABLE failed_world_gen_reports DROP COLUMN ip_address")
+    }
+
+    private fun executeUpdateSilently(sql: String) {
+        try {
+            TransactionManager.current().exec(sql)
+        } catch (ex: Exception) {
+            /* Ignore missing table/column or unsupported ALTER */
+        }
     }
 }
