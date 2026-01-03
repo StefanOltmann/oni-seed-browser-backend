@@ -89,16 +89,14 @@ import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.insertIgnore
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.upsert
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import org.jetbrains.exposed.v1.jdbc.upsert
 import util.Benchmark
 import util.ZipUtil
 import java.io.File
 import java.security.KeyFactory
 import java.security.interfaces.ECPublicKey
 import java.security.spec.X509EncodedKeySpec
-import java.sql.DriverManager
-import java.util.zip.GZIPOutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import kotlin.io.encoding.Base64
@@ -119,10 +117,7 @@ const val MNI_API_KEY = "MNI_API_KEY"
 const val MNI_PURGE_API_KEY = "MNI_PURGE_API_KEY"
 const val MNI_DATABASE_EXPORT_API_KEY = "MNI_DATABASE_EXPORT_API_KEY"
 
-const val S3_WORLDS_BUCKET = "oni-data.stefanoltmann.de"
-const val S3_SEARCH_BUCKET = "oni-search.stefanoltmann.de"
-const val S3_BACKUP_BUCKET = "oni-backup.stefanoltmann.de"
-const val S3_METADATA_BUCKET = "oni-upload-metadata"
+const val S3_BUCKET_NAME = "mapsnotincluded"
 
 private val purgeApiKey = System.getenv(MNI_PURGE_API_KEY)
     ?: error("Missing MNI_PURGE_API_KEY environment variable")
@@ -249,8 +244,8 @@ private fun Application.configureRoutingInternal() {
         copyMapsToS3()
 
 //        regenerateSearchIndexTable()
-//
-//        createSearchIndexes()
+
+        createSearchIndexes()
     }
 
     routing {
@@ -281,105 +276,105 @@ private fun Application.configureRoutingInternal() {
             call.respondText("util.Benchmark started.")
         }
 
-        get("/createbackup") {
-
-            val apiKey: String? = this.call.request.headers["API_KEY"]
-
-            if (apiKey != System.getenv(MNI_DATABASE_EXPORT_API_KEY)) {
-                call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
-                return@get
-            }
-
-            if (currentBackupJob != null) {
-                call.respond(HttpStatusCode.BadRequest, "Backup job is already running")
-                return@get
-            }
-
-            currentBackupJob = launch {
-
-                log("[BACKUP] Backup creation triggered...")
-
-                val backupFile = File(dataDir, "oni-backup.db")
-                val backupFileZipped = File(dataDir, "oni-backup.db.gz")
-
-                backupFile.delete()
-                backupFileZipped.delete()
-
-                try {
-
-                    val creationDuration = measureTime {
-
-                        val dbFile = File(dataDir, "oni-data.db")
-
-                        val srcUrl = "jdbc:sqlite:${dbFile.absolutePath}"
-
-                        DriverManager.getConnection(srcUrl).use { conn ->
-
-                            /* Ensure no transaction */
-                            conn.autoCommit = true
-
-                            conn.createStatement().use { st ->
-
-                                /* Optional: wait a bit if the DB is busy */
-                                st.execute("PRAGMA busy_timeout = 5000")
-
-                                /* Important on Windows: escape backslashes in SQL literal */
-                                val dstPath = backupFile.absolutePath.replace("\\", "\\\\")
-
-                                st.execute("BACKUP TO '$dstPath'")
-                            }
-                        }
-                    }
-
-                    log("[BACKUP] Database export took $creationDuration. File size: ${backupFile.length() / 1024 / 1024} MB")
-
-                    val compressionDuration = measureTime {
-
-                        backupFile.inputStream().use { inputStream ->
-
-                            GZIPOutputStream(backupFileZipped.outputStream(), true).use { gzipStream ->
-                                inputStream.copyTo(gzipStream)
-                            }
-                        }
-                    }
-
-                    log("[BACKUP] Compression took $compressionDuration. File size: ${backupFileZipped.length() / 1024 / 1024} MB")
-
-                    val uploadDuration = measureTime {
-
-                        minioClient.putObject(
-                            PutObjectArgs
-                                .builder()
-                                .bucket(S3_BACKUP_BUCKET)
-                                .`object`(backupFileZipped.name)
-                                .headers(
-                                    mapOf(
-                                        "Content-Type" to " application/x-sqlite3",
-                                        "Content-Encoding" to "gzip",
-                                        /* Cache for 10 years; we manually purge caches. */
-                                        "Cache-Control" to "public, max-age=315360000, immutable"
-                                    )
-                                )
-                                .stream(backupFileZipped.inputStream(), backupFileZipped.length(), -1)
-                                .build()
-                        )
-                    }
-
-                    log("[BACKUP] Uploading to S3 took $uploadDuration.")
-
-                } catch (ex: Exception) {
-
-                    log("[BACKUP] Error on DB export: ${ex.message}")
-                    log(ex)
-
-                } finally {
-
-                    currentBackupJob = null
-                }
-            }
-
-            call.respond(HttpStatusCode.OK, "Backup job started.")
-        }
+//        get("/createbackup") {
+//
+//            val apiKey: String? = this.call.request.headers["API_KEY"]
+//
+//            if (apiKey != System.getenv(MNI_DATABASE_EXPORT_API_KEY)) {
+//                call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
+//                return@get
+//            }
+//
+//            if (currentBackupJob != null) {
+//                call.respond(HttpStatusCode.BadRequest, "Backup job is already running")
+//                return@get
+//            }
+//
+//            currentBackupJob = launch {
+//
+//                log("[BACKUP] Backup creation triggered...")
+//
+//                val backupFile = File(dataDir, "oni-backup.db")
+//                val backupFileZipped = File(dataDir, "oni-backup.db.gz")
+//
+//                backupFile.delete()
+//                backupFileZipped.delete()
+//
+//                try {
+//
+//                    val creationDuration = measureTime {
+//
+//                        val dbFile = File(dataDir, "oni-data.db")
+//
+//                        val srcUrl = "jdbc:sqlite:${dbFile.absolutePath}"
+//
+//                        DriverManager.getConnection(srcUrl).use { conn ->
+//
+//                            /* Ensure no transaction */
+//                            conn.autoCommit = true
+//
+//                            conn.createStatement().use { st ->
+//
+//                                /* Optional: wait a bit if the DB is busy */
+//                                st.execute("PRAGMA busy_timeout = 5000")
+//
+//                                /* Important on Windows: escape backslashes in SQL literal */
+//                                val dstPath = backupFile.absolutePath.replace("\\", "\\\\")
+//
+//                                st.execute("BACKUP TO '$dstPath'")
+//                            }
+//                        }
+//                    }
+//
+//                    log("[BACKUP] Database export took $creationDuration. File size: ${backupFile.length() / 1024 / 1024} MB")
+//
+//                    val compressionDuration = measureTime {
+//
+//                        backupFile.inputStream().use { inputStream ->
+//
+//                            GZIPOutputStream(backupFileZipped.outputStream(), true).use { gzipStream ->
+//                                inputStream.copyTo(gzipStream)
+//                            }
+//                        }
+//                    }
+//
+//                    log("[BACKUP] Compression took $compressionDuration. File size: ${backupFileZipped.length() / 1024 / 1024} MB")
+//
+//                    val uploadDuration = measureTime {
+//
+//                        minioClient.putObject(
+//                            PutObjectArgs
+//                                .builder()
+//                                .bucket(S3_BACKUP_BUCKET)
+//                                .`object`(backupFileZipped.name)
+//                                .headers(
+//                                    mapOf(
+//                                        "Content-Type" to " application/x-sqlite3",
+//                                        "Content-Encoding" to "gzip",
+//                                        /* Cache for 10 years; we manually purge caches. */
+//                                        "Cache-Control" to "public, max-age=315360000, immutable"
+//                                    )
+//                                )
+//                                .stream(backupFileZipped.inputStream(), backupFileZipped.length(), -1)
+//                                .build()
+//                        )
+//                    }
+//
+//                    log("[BACKUP] Uploading to S3 took $uploadDuration.")
+//
+//                } catch (ex: Exception) {
+//
+//                    log("[BACKUP] Error on DB export: ${ex.message}")
+//                    log(ex)
+//
+//                } finally {
+//
+//                    currentBackupJob = null
+//                }
+//            }
+//
+//            call.respond(HttpStatusCode.OK, "Backup job started.")
+//        }
 
         get("/downloadbackup") {
 
@@ -1576,7 +1571,7 @@ private fun uploadMapToS3(
     minioClient.putObject(
         PutObjectArgs
             .builder()
-            .bucket(S3_WORLDS_BUCKET)
+            .bucket(S3_BUCKET_NAME)
             .`object`(cluster.coordinate)
             .headers(
                 mapOf(
@@ -1599,7 +1594,7 @@ private fun deleteMapFromS3(
     minioClient.removeObject(
         RemoveObjectArgs
             .builder()
-            .bucket(S3_WORLDS_BUCKET)
+            .bucket(S3_BUCKET_NAME)
             .`object`(coordinate)
             .build()
     )
@@ -1616,7 +1611,7 @@ private fun copyMapsToS3() {
 
         val objects = minioClient.listObjects(
             ListObjectsArgs.builder()
-                .bucket(S3_WORLDS_BUCKET)
+                .bucket(S3_BUCKET_NAME)
                 .build()
         )
 
@@ -1824,7 +1819,7 @@ private fun createSearchIndexes() {
                 minioClient.putObject(
                     PutObjectArgs
                         .builder()
-                        .bucket(S3_SEARCH_BUCKET)
+                        .bucket(S3_BUCKET_NAME)
                         .`object`(cluster.prefix)
                         .headers(
                             mapOf(
@@ -1854,7 +1849,7 @@ private fun createSearchIndexes() {
         minioClient.putObject(
             PutObjectArgs
                 .builder()
-                .bucket(S3_SEARCH_BUCKET)
+                .bucket(S3_BUCKET_NAME)
                 .`object`("count")
                 .headers(
                     mapOf(
@@ -1880,7 +1875,7 @@ private fun createSearchIndexes() {
         minioClient.putObject(
             PutObjectArgs
                 .builder()
-                .bucket(S3_SEARCH_BUCKET)
+                .bucket(S3_BUCKET_NAME)
                 .`object`("contributors")
                 .headers(
                     mapOf(
@@ -1909,7 +1904,7 @@ private fun createSearchIndexes() {
         minioClient.putObject(
             PutObjectArgs
                 .builder()
-                .bucket(S3_SEARCH_BUCKET)
+                .bucket(S3_BUCKET_NAME)
                 .`object`("failed-worldgens")
                 .headers(
                     mapOf(
