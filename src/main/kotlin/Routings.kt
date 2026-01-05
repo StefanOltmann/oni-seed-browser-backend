@@ -1368,7 +1368,10 @@ private fun Application.configureRoutingInternal() {
                     UsernamesTable.deleteWhere { UsernamesTable.steamIdHash eq steamIdHash }
                 }
 
-                call.respond(HttpStatusCode.OK, "Username removal successful! Your entry '$existingUsername' was removed from the index.")
+                call.respond(
+                    HttpStatusCode.OK,
+                    "Username removal successful! Your entry '$existingUsername' was removed from the index."
+                )
 
             } catch (ex: JWTVerificationException) {
 
@@ -1652,7 +1655,14 @@ private fun copyMapsToS3() {
 
                     val cluster = ProtoBuf.decodeFromByteArray<Cluster>(unzippedBytes)
 
-                    uploadMapToS3(minioClient, cluster)
+                    try {
+
+                        uploadMapToS3(minioClient, cluster)
+
+                    } catch (ex: Exception) {
+
+                        log("[S3] Skipped ${cluster.coordinate} due to ${ex.message}")
+                    }
 
                     addedCount++
                 }
