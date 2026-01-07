@@ -1619,13 +1619,7 @@ private suspend fun copyMapsToS3() {
 
         var offset = 0
 
-        /*
-         * We can only do 500 maps per second due to Backblaze rate limiting.
-         *
-         * Going straight with the cap shows slow-downs over time, so we
-         * stay away from that a bit.
-         */
-        val batchSize = 450
+        val batchSize = 10000
 
         while (true) {
 
@@ -1646,6 +1640,13 @@ private suspend fun copyMapsToS3() {
                 break
             }
 
+            /*
+             * We can only do 500 maps per second due to Backblaze rate limiting.
+             *
+             * Going straight with the cap shows slow-downs over time, so we
+             * stay away from that a bit.
+             */
+
             val uploadBatchTime = measureTime {
 
                 for (row in worlds) {
@@ -1663,6 +1664,17 @@ private suspend fun copyMapsToS3() {
 
                     try {
 
+                        /*
+                         * We can only do 500 maps per second due to Backblaze rate limiting.
+                         *
+                         * Going straight with the cap shows slow-downs over time, so we
+                         * stay away from that a bit.
+                         *
+                         * If we pause 3 milliseconds after each upload, we go with 333 maps/second.
+                         * This way we should stay away from rate limits.
+                         */
+                        delay(3)
+
                         uploadMapToS3(minioClient, cluster)
 
                     } catch (ex: Exception) {
@@ -1677,12 +1689,6 @@ private suspend fun copyMapsToS3() {
             }
 
             log("[S3] Transferred ${worlds.size} to S3 in $uploadBatchTime")
-
-            /*
-             * We need to wait a second to avoid hitting Backblaze S3 rate limits.
-             * We also wait some extra milliseconds just to make sure.
-             */
-            delay(1000 + 100)
         }
 
         val duration = Clock.System.now().toEpochMilliseconds() - start
