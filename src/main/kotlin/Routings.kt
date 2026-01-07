@@ -1619,7 +1619,7 @@ private suspend fun copyMapsToS3() {
 
         var offset = 0
 
-        val batchSize = 10000
+        val batchSize = 1000
 
         while (true) {
 
@@ -1647,6 +1647,8 @@ private suspend fun copyMapsToS3() {
              * stay away from that a bit.
              */
 
+            var uploadedThisBatch = 0
+
             val uploadBatchTime = measureTime {
 
                 for (row in worlds) {
@@ -1664,31 +1666,32 @@ private suspend fun copyMapsToS3() {
 
                     try {
 
+                        uploadMapToS3(minioClient, cluster)
+
                         /*
                          * We can only do 500 maps per second due to Backblaze rate limiting.
                          *
                          * Going straight with the cap shows slow-downs over time, so we
-                         * stay away from that a bit.
+                         * stay away from that.
                          *
-                         * If we pause 3 milliseconds after each upload, we go with 333 maps/second.
-                         * This way we should stay away from rate limits.
+                         * With a delay of 10 ms we should at max hit 100 maps per second.
                          */
-                        delay(3)
-
-                        uploadMapToS3(minioClient, cluster)
+                        delay(10)
 
                     } catch (ex: Exception) {
 
                         log("[S3] Skipped ${cluster.coordinate} due to ${ex.message}")
                     }
 
+                    uploadedThisBatch++
                     addedCount++
                 }
 
                 offset += worlds.size
             }
 
-            log("[S3] Transferred ${worlds.size} to S3 in $uploadBatchTime")
+            if (uploadedThisBatch > 0)
+                log("[S3] Transferred $uploadedThisBatch to S3 in $uploadBatchTime")
         }
 
         val duration = Clock.System.now().toEpochMilliseconds() - start
