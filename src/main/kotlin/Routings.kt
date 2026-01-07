@@ -79,6 +79,8 @@ import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.encodeToByteArray
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.protobuf.ProtoBuf
+import okhttp3.OkHttpClient
+import okhttp3.Protocol
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -101,6 +103,8 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import kotlin.io.encoding.Base64
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTime
 import kotlin.uuid.ExperimentalUuidApi
@@ -150,10 +154,18 @@ private val strictJson = Json {
     encodeDefaults = true
 }
 
+/* Backblaze B2 S3 endpoint can intermittently close HTTP/2 streams. */
+private val minioHttpClient = OkHttpClient.Builder()
+    .protocols(listOf(Protocol.HTTP_1_1))
+    .retryOnConnectionFailure(true)
+    .writeTimeout(1.minutes)
+    .build()
+
 private val minioClient =
     MinioClient.builder()
         .endpoint(externalS3Url)
         .credentials(externalS3User, externalS3Password)
+        .httpClient(minioHttpClient)
         .build()
 
 private val backgroundScope = CoroutineScope(Dispatchers.Default)
@@ -818,29 +830,6 @@ private fun Application.configureRoutingInternal() {
                 /*
                  * Save the upload to the database
                  */
-
-//                try {
-//
-//                    val originalBytes = originalData.toByteArray()
-//
-//                    minioClient.putObject(
-//                        PutObjectArgs
-//                            .builder()
-//                            .bucket("oni-sample-uploads")
-//                            .`object`(upload.cluster.coordinate)
-//                            .headers(
-//                                mapOf(
-//                                    "Content-Type" to "application/json"
-//                                )
-//                            )
-//                            .stream(originalBytes.inputStream(), originalBytes.size.toLong(), -1)
-//                            .build()
-//                    )
-//
-//                } catch (ex: Exception) {
-//
-//                    ex.printStackTrace()
-//                }
 
                 val uploadDate: Long = Clock.System.now().toEpochMilliseconds()
 
@@ -1565,9 +1554,9 @@ private fun uploadMapToS3(
 
     val protobufBytes = ProtoBuf.encodeToByteArray(cluster)
 
-    val compressedBytes = ZipUtil.zipBytes(
-        originalBytes = protobufBytes
-    )
+    val compressedBytes = ZipUtil.zipBytes(originalBytes = protobufBytes)
+
+    val compressedBytesSize = compressedBytes.size.toLong()
 
     minioClient.putObject(
         PutObjectArgs
@@ -1582,7 +1571,7 @@ private fun uploadMapToS3(
                     "Cache-Control" to "public, max-age=315360000, immutable"
                 )
             )
-            .stream(compressedBytes.inputStream(), compressedBytes.size.toLong(), -1)
+            .stream(compressedBytes.inputStream(), compressedBytesSize, compressedBytesSize)
             .build()
     )
 }
@@ -1824,6 +1813,8 @@ private fun createSearchIndexes() {
 
                 val zippedProtobufBytes = ZipUtil.zipBytes(protobufBytes)
 
+                val size = zippedProtobufBytes.size.toLong()
+
                 minioClient.putObject(
                     PutObjectArgs
                         .builder()
@@ -1837,7 +1828,7 @@ private fun createSearchIndexes() {
                                 "Cache-Control" to "public, max-age=86400"
                             )
                         )
-                        .stream(zippedProtobufBytes.inputStream(), zippedProtobufBytes.size.toLong(), -1)
+                        .stream(zippedProtobufBytes.inputStream(), size, size)
                         .build()
                 )
 
@@ -1848,6 +1839,8 @@ private fun createSearchIndexes() {
         }
 
         val countBytes = count.toString().encodeToByteArray()
+
+        val countBytesSize = countBytes.size.toLong()
 
         /*
          * Save the count to S3 as well
@@ -1866,7 +1859,7 @@ private fun createSearchIndexes() {
                         "Cache-Control" to "public, max-age=86400"
                     )
                 )
-                .stream(countBytes.inputStream(), countBytes.size.toLong(), -1)
+                .stream(countBytes.inputStream(), countBytesSize, countBytesSize)
                 .build()
         )
 
@@ -1880,6 +1873,8 @@ private fun createSearchIndexes() {
 
         val countPerContributorBytes = strictJson.encodeToString(countPerContributor).encodeToByteArray()
 
+        val countPerContributorBytesSize = countPerContributorBytes.size.toLong()
+
         minioClient.putObject(
             PutObjectArgs
                 .builder()
@@ -1892,7 +1887,7 @@ private fun createSearchIndexes() {
                         "Cache-Control" to "public, max-age=86400"
                     )
                 )
-                .stream(countPerContributorBytes.inputStream(), countPerContributorBytes.size.toLong(), -1)
+                .stream(countPerContributorBytes.inputStream(), countPerContributorBytesSize, countPerContributorBytesSize)
                 .build()
         )
 
@@ -1909,6 +1904,8 @@ private fun createSearchIndexes() {
 
         val failedWorldGenReportsBytes = failedWorldGenReports.joinToString("\n").encodeToByteArray()
 
+        val failedWorldGenReportsBytesSize = failedWorldGenReportsBytes.size.toLong()
+
         minioClient.putObject(
             PutObjectArgs
                 .builder()
@@ -1921,7 +1918,7 @@ private fun createSearchIndexes() {
                         "Cache-Control" to "public, max-age=86400"
                     )
                 )
-                .stream(failedWorldGenReportsBytes.inputStream(), failedWorldGenReportsBytes.size.toLong(), -1)
+                .stream(failedWorldGenReportsBytes.inputStream(), failedWorldGenReportsBytesSize, failedWorldGenReportsBytesSize)
                 .build()
         )
 
