@@ -72,8 +72,11 @@ import io.minio.RemoveObjectArgs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.encodeToByteArray
@@ -107,9 +110,11 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTime
 import kotlin.uuid.ExperimentalUuidApi
+import java.util.concurrent.atomic.AtomicInteger
 
 const val LATEST_MAPS_LIMIT = 100
 const val EXPORT_BATCH_SIZE = 5000
+const val S3_UPLOAD_CONCURRENCY = 10
 
 const val QUEUE_REQUEST_LIMIT_PER_USER = 10
 
@@ -1621,77 +1626,72 @@ private suspend fun copyMapsToS3() {
 
         val batchSize = 1000
 
-        while (true) {
+        coroutineScope {
 
-            val worlds = transaction(sqliteDatabase) {
+            val concurrencyLimiter = Semaphore(S3_UPLOAD_CONCURRENCY)
 
-                WorldsTable
-                    .select(WorldsTable.coordinate, WorldsTable.data)
-                    .orderBy(WorldsTable.coordinate)
-                    .limit(batchSize)
-                    .offset(offset.toLong())
-                    .toList()
-            }
+            while (true) {
 
-            if (worlds.isEmpty()) {
+                val worlds = transaction(sqliteDatabase) {
 
-                log("[S3] Iterated whole table. Transfer completed. Offset: $offset")
-
-                break
-            }
-
-            /*
-             * We can only do 500 maps per second due to Backblaze rate limiting.
-             *
-             * Going straight with the cap shows slow-downs over time, so we
-             * stay away from that a bit.
-             */
-
-            var uploadedThisBatch = 0
-
-            val uploadBatchTime = measureTime {
-
-                for (row in worlds) {
-
-                    val coordinate = row[WorldsTable.coordinate]
-
-                    if (existingNames.contains(coordinate))
-                        continue
-
-                    val bytes = row[WorldsTable.data].bytes
-
-                    val unzippedBytes = ZipUtil.unzipBytes(bytes)
-
-                    val cluster = ProtoBuf.decodeFromByteArray<Cluster>(unzippedBytes)
-
-                    try {
-
-                        uploadMapToS3(minioClient, cluster)
-
-                        /*
-                         * We can only do 500 maps per second due to Backblaze rate limiting.
-                         *
-                         * Going straight with the cap shows slow-downs over time, so we
-                         * stay away from that.
-                         *
-                         * With a delay of 10 ms we should at max hit 100 maps per second.
-                         */
-                        delay(10)
-
-                    } catch (ex: Exception) {
-
-                        log("[S3] Skipped ${cluster.coordinate} due to ${ex.message}")
-                    }
-
-                    uploadedThisBatch++
-                    addedCount++
+                    WorldsTable
+                        .select(WorldsTable.coordinate, WorldsTable.data)
+                        .orderBy(WorldsTable.coordinate)
+                        .limit(batchSize)
+                        .offset(offset.toLong())
+                        .toList()
                 }
 
-                offset += worlds.size
-            }
+                if (worlds.isEmpty()) {
 
-            if (uploadedThisBatch > 0)
-                log("[S3] Transferred $uploadedThisBatch to S3 in $uploadBatchTime")
+                    log("[S3] Iterated whole table. Transfer completed. Offset: $offset")
+
+                    break
+                }
+
+                val uploadedThisBatch = AtomicInteger(0)
+
+                val uploadBatchTime = measureTime {
+
+                    val jobs = mutableListOf<Job>()
+
+                    for (row in worlds) {
+
+                        val coordinate = row[WorldsTable.coordinate]
+
+                        if (existingNames.contains(coordinate))
+                            continue
+
+                        val bytes = row[WorldsTable.data].bytes
+
+                        val unzippedBytes = ZipUtil.unzipBytes(bytes)
+
+                        val cluster = ProtoBuf.decodeFromByteArray<Cluster>(unzippedBytes)
+
+                        jobs.add(
+                            launch {
+                                concurrencyLimiter.withPermit {
+                                    try {
+                                        uploadMapToS3(minioClient, cluster)
+                                    } catch (ex: Exception) {
+                                        log("[S3] Skipped ${cluster.coordinate} due to ${ex.message}")
+                                    }
+                                }
+                                uploadedThisBatch.incrementAndGet()
+                            }
+                        )
+                    }
+
+                    jobs.forEach { it.join() }
+
+                    addedCount += uploadedThisBatch.get()
+
+                    offset += worlds.size
+                }
+
+                if (uploadedThisBatch.get() > 0)
+                    log("[S3] Transferred ${uploadedThisBatch.get()} to S3 in $uploadBatchTime")
+            }
         }
 
         val duration = Clock.System.now().toEpochMilliseconds() - start
