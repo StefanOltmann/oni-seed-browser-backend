@@ -123,6 +123,8 @@ const val MNI_DATABASE_EXPORT_API_KEY = "MNI_DATABASE_EXPORT_API_KEY"
 
 const val S3_BUCKET_NAME = "mapsnotincluded"
 
+const val PART_SIZE: Long = 10 * 1024 * 1024
+
 private val purgeApiKey = System.getenv(MNI_PURGE_API_KEY)
     ?: error("Missing MNI_PURGE_API_KEY environment variable")
 
@@ -367,7 +369,7 @@ private fun Application.configureRoutingInternal() {
 //                                        "Cache-Control" to "public, max-age=315360000, immutable"
 //                                    )
 //                                )
-//                                .stream(backupFileZipped.inputStream(), backupFileZipped.length(), -1)
+//                                .stream(backupFileZipped.inputStream(), backupFileZipped.length(), PART_SIZE)
 //                                .build()
 //                        )
 //                    }
@@ -1571,7 +1573,7 @@ private fun uploadMapToS3(
                     "Cache-Control" to "public, max-age=315360000, immutable"
                 )
             )
-            .stream(compressedBytes.inputStream(), compressedBytesSize, compressedBytesSize)
+            .stream(compressedBytes.inputStream(), compressedBytesSize, PART_SIZE)
             .build()
     )
 }
@@ -1828,7 +1830,7 @@ private fun createSearchIndexes() {
                                 "Cache-Control" to "public, max-age=86400"
                             )
                         )
-                        .stream(zippedProtobufBytes.inputStream(), size, size)
+                        .stream(zippedProtobufBytes.inputStream(), size, PART_SIZE)
                         .build()
                 )
 
@@ -1859,7 +1861,7 @@ private fun createSearchIndexes() {
                         "Cache-Control" to "public, max-age=86400"
                     )
                 )
-                .stream(countBytes.inputStream(), countBytesSize, countBytesSize)
+                .stream(countBytes.inputStream(), countBytesSize, PART_SIZE)
                 .build()
         )
 
@@ -1887,7 +1889,7 @@ private fun createSearchIndexes() {
                         "Cache-Control" to "public, max-age=86400"
                     )
                 )
-                .stream(countPerContributorBytes.inputStream(), countPerContributorBytesSize, countPerContributorBytesSize)
+                .stream(countPerContributorBytes.inputStream(), countPerContributorBytesSize, PART_SIZE)
                 .build()
         )
 
@@ -1918,7 +1920,7 @@ private fun createSearchIndexes() {
                         "Cache-Control" to "public, max-age=86400"
                     )
                 )
-                .stream(failedWorldGenReportsBytes.inputStream(), failedWorldGenReportsBytesSize, failedWorldGenReportsBytesSize)
+                .stream(failedWorldGenReportsBytes.inputStream(), failedWorldGenReportsBytesSize, PART_SIZE)
                 .build()
         )
 
