@@ -1662,22 +1662,26 @@ private suspend fun copyMapsToS3() {
 
                     try {
 
-                        minioClient.putObject(
-                            PutObjectArgs
-                                .builder()
-                                .bucket(S3_BUCKET_NAME)
-                                .`object`(coordinate)
-                                .headers(
-                                    mapOf(
-                                        "Content-Type" to " application/protobuf",
-                                        "Content-Encoding" to "gzip",
-                                        /* Cache for 10 years; we manually purge caches. */
-                                        "Cache-Control" to "public, max-age=315360000, immutable"
+                        bytes.inputStream().use { inputStream ->
+
+                            val putObjectArgs =
+                                PutObjectArgs
+                                    .builder()
+                                    .bucket(S3_BUCKET_NAME)
+                                    .`object`(coordinate)
+                                    .headers(
+                                        mapOf(
+                                            "Content-Type" to " application/protobuf",
+                                            "Content-Encoding" to "gzip",
+                                            /* Cache for 10 years; we manually purge caches. */
+                                            "Cache-Control" to "public, max-age=315360000, immutable"
+                                        )
                                     )
-                                )
-                                .stream(bytes.inputStream(), bytes.size.toLong(), PART_SIZE)
-                                .build()
-                        )
+                                    .stream(inputStream, bytes.size.toLong(), PART_SIZE)
+                                    .build()
+
+                            minioClient.putObject(putObjectArgs)
+                        }
 
                         /*
                          * We can only do 500 maps per second due to Backblaze rate limiting.
