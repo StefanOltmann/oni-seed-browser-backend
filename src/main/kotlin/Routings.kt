@@ -1614,6 +1614,8 @@ private fun copyMapsToS3() {
             existingNames.add(item.objectName())
         }
 
+        log("[S3] Existing map count: ${existingNames.size}")
+
         var addedCount = 0
 
         transaction(sqliteDatabase) {
