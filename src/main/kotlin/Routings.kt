@@ -72,11 +72,8 @@ import io.minio.RemoveObjectArgs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.encodeToByteArray
@@ -110,11 +107,9 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTime
 import kotlin.uuid.ExperimentalUuidApi
-import java.util.concurrent.atomic.AtomicInteger
 
 const val LATEST_MAPS_LIMIT = 100
 const val EXPORT_BATCH_SIZE = 5000
-const val S3_UPLOAD_CONCURRENCY = 10
 
 const val QUEUE_REQUEST_LIMIT_PER_USER = 10
 
@@ -1626,72 +1621,77 @@ private suspend fun copyMapsToS3() {
 
         val batchSize = 1000
 
-        coroutineScope {
+        while (true) {
 
-            val concurrencyLimiter = Semaphore(S3_UPLOAD_CONCURRENCY)
+            val worlds = transaction(sqliteDatabase) {
 
-            while (true) {
+                WorldsTable
+                    .select(WorldsTable.coordinate, WorldsTable.data)
+                    .orderBy(WorldsTable.coordinate)
+                    .limit(batchSize)
+                    .offset(offset.toLong())
+                    .toList()
+            }
 
-                val worlds = transaction(sqliteDatabase) {
+            if (worlds.isEmpty()) {
 
-                    WorldsTable
-                        .select(WorldsTable.coordinate, WorldsTable.data)
-                        .orderBy(WorldsTable.coordinate)
-                        .limit(batchSize)
-                        .offset(offset.toLong())
-                        .toList()
-                }
+                log("[S3] Iterated whole table. Transfer completed. Offset: $offset")
 
-                if (worlds.isEmpty()) {
+                break
+            }
 
-                    log("[S3] Iterated whole table. Transfer completed. Offset: $offset")
+            /*
+             * We can only do 500 maps per second due to Backblaze rate limiting.
+             *
+             * Going straight with the cap shows slow-downs over time, so we
+             * stay away from that a bit.
+             */
 
-                    break
-                }
+            var uploadedThisBatch = 0
 
-                val uploadedThisBatch = AtomicInteger(0)
+            val uploadBatchTime = measureTime {
 
-                val uploadBatchTime = measureTime {
+                for (row in worlds) {
 
-                    val jobs = mutableListOf<Job>()
+                    val coordinate = row[WorldsTable.coordinate]
 
-                    for (row in worlds) {
+                    if (existingNames.contains(coordinate))
+                        continue
 
-                        val coordinate = row[WorldsTable.coordinate]
+                    val bytes = row[WorldsTable.data].bytes
 
-                        if (existingNames.contains(coordinate))
-                            continue
+                    val unzippedBytes = ZipUtil.unzipBytes(bytes)
 
-                        val bytes = row[WorldsTable.data].bytes
+                    val cluster = ProtoBuf.decodeFromByteArray<Cluster>(unzippedBytes)
 
-                        val unzippedBytes = ZipUtil.unzipBytes(bytes)
+                    try {
 
-                        val cluster = ProtoBuf.decodeFromByteArray<Cluster>(unzippedBytes)
+                        uploadMapToS3(minioClient, cluster)
 
-                        jobs.add(
-                            launch {
-                                concurrencyLimiter.withPermit {
-                                    try {
-                                        uploadMapToS3(minioClient, cluster)
-                                    } catch (ex: Exception) {
-                                        log("[S3] Skipped ${cluster.coordinate} due to ${ex.message}")
-                                    }
-                                }
-                                uploadedThisBatch.incrementAndGet()
-                            }
-                        )
+                        /*
+                         * We can only do 500 maps per second due to Backblaze rate limiting.
+                         *
+                         * Going straight with the cap shows slow-downs over time, so we
+                         * stay away from that.
+                         *
+                         * With a delay of 10 ms we should at max hit 100 maps per second.
+                         */
+                        delay(10)
+
+                    } catch (ex: Exception) {
+
+                        log("[S3] Skipped ${cluster.coordinate} due to ${ex.message}")
                     }
 
-                    jobs.forEach { it.join() }
-
-                    addedCount += uploadedThisBatch.get()
-
-                    offset += worlds.size
+                    uploadedThisBatch++
+                    addedCount++
                 }
 
-                if (uploadedThisBatch.get() > 0)
-                    log("[S3] Transferred ${uploadedThisBatch.get()} to S3 in $uploadBatchTime")
+                offset += worlds.size
             }
+
+            if (uploadedThisBatch > 0)
+                log("[S3] Transferred $uploadedThisBatch to S3 in $uploadBatchTime")
         }
 
         val duration = Clock.System.now().toEpochMilliseconds() - start
