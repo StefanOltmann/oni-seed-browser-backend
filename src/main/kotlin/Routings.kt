@@ -1660,13 +1660,24 @@ private suspend fun copyMapsToS3() {
 
                     val bytes = row[WorldsTable.data].bytes
 
-                    val unzippedBytes = ZipUtil.unzipBytes(bytes)
-
-                    val cluster = ProtoBuf.decodeFromByteArray<Cluster>(unzippedBytes)
-
                     try {
 
-                        uploadMapToS3(minioClient, cluster)
+                        minioClient.putObject(
+                            PutObjectArgs
+                                .builder()
+                                .bucket(S3_BUCKET_NAME)
+                                .`object`(coordinate)
+                                .headers(
+                                    mapOf(
+                                        "Content-Type" to " application/protobuf",
+                                        "Content-Encoding" to "gzip",
+                                        /* Cache for 10 years; we manually purge caches. */
+                                        "Cache-Control" to "public, max-age=315360000, immutable"
+                                    )
+                                )
+                                .stream(bytes.inputStream(), bytes.size.toLong(), PART_SIZE)
+                                .build()
+                        )
 
                         /*
                          * We can only do 500 maps per second due to Backblaze rate limiting.
@@ -1680,7 +1691,7 @@ private suspend fun copyMapsToS3() {
 
                     } catch (ex: Exception) {
 
-                        log("[S3] Skipped ${cluster.coordinate} due to ${ex.message}")
+                        log("[S3] Skipped $coordinate due to ${ex.message}")
                     }
 
                     uploadedThisBatch++
