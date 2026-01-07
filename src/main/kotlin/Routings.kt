@@ -104,7 +104,6 @@ import java.util.zip.ZipOutputStream
 import kotlin.io.encoding.Base64
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
-import kotlin.time.Duration.Companion.seconds
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTime
 import kotlin.uuid.ExperimentalUuidApi
@@ -1635,32 +1634,37 @@ private fun copyMapsToS3() {
                 if (worlds.isEmpty())
                     break
 
-                for (row in worlds) {
+                val uploadBatchTime = measureTime {
 
-                    val coordinate = row[WorldsTable.coordinate]
+                    for (row in worlds) {
 
-                    if (existingNames.contains(coordinate))
-                        continue
+                        val coordinate = row[WorldsTable.coordinate]
 
-                    val bytes = row[WorldsTable.data].bytes
+                        if (existingNames.contains(coordinate))
+                            continue
 
-                    val unzippedBytes = ZipUtil.unzipBytes(bytes)
+                        val bytes = row[WorldsTable.data].bytes
 
-                    val cluster = ProtoBuf.decodeFromByteArray<Cluster>(unzippedBytes)
+                        val unzippedBytes = ZipUtil.unzipBytes(bytes)
 
-                    try {
+                        val cluster = ProtoBuf.decodeFromByteArray<Cluster>(unzippedBytes)
 
-                        uploadMapToS3(minioClient, cluster)
+                        try {
 
-                    } catch (ex: Exception) {
+                            uploadMapToS3(minioClient, cluster)
 
-                        log("[S3] Skipped ${cluster.coordinate} due to ${ex.message}")
+                        } catch (ex: Exception) {
+
+                            log("[S3] Skipped ${cluster.coordinate} due to ${ex.message}")
+                        }
+
+                        addedCount++
                     }
 
-                    addedCount++
+                    offset += worlds.size
                 }
 
-                offset += worlds.size
+                log("[S3] Transferred ${worlds.size} to S3 in $uploadBatchTime")
 
                 if (worlds.size < batchSize)
                     break
