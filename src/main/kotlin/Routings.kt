@@ -1621,8 +1621,11 @@ private suspend fun copyMapsToS3() {
 
         /*
          * We can only do 500 maps per second due to Backblaze rate limiting.
+         *
+         * Going straight with the cap shows slow-downs over time, so we
+         * stay away from that a bit.
          */
-        val batchSize = 500
+        val batchSize = 450
 
         while (true) {
 
@@ -1677,8 +1680,9 @@ private suspend fun copyMapsToS3() {
 
             /*
              * We need to wait a second to avoid hitting Backblaze S3 rate limits.
+             * We also wait some extra milliseconds just to make sure.
              */
-            delay(1000)
+            delay(1000 + 100)
         }
 
         val duration = Clock.System.now().toEpochMilliseconds() - start
