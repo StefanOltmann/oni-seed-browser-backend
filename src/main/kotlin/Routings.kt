@@ -1598,74 +1598,74 @@ private fun deleteMapFromS3(
 }
 
 @OptIn(ExperimentalTime::class)
-private suspend fun copyMapsToS3() {
+private suspend fun copyMapsToS3() = coroutineScope {
 
-    log("[S3] Transfer maps to S3...")
-    val start = Clock.System.now().toEpochMilliseconds()
+    try {
 
-    val uploadSemaphore = Semaphore(10)
+        log("[S3] Transfer maps to S3...")
+        val start = Clock.System.now().toEpochMilliseconds()
 
-    coroutineScope {
+        val uploadSemaphore = Semaphore(30)
 
-        try {
-            val objects = minioClient.listObjects(
-                ListObjectsArgs.builder()
-                    .bucket(S3_BUCKET_NAME)
-                    .build()
-            )
+        val objects = minioClient.listObjects(
 
-            val existingNames = objects.map { it.get().objectName() }.toSet()
-            log("[S3] Existing map count: ${existingNames.size}")
+            ListObjectsArgs.builder()
+                .bucket(S3_BUCKET_NAME)
+                .build()
+        )
 
-            var addedCount = 0
-            var offset = 0
-            val batchSize = 1000
+        val existingNames = objects.map { it.get().objectName() }.toSet()
+        log("[S3] Existing map count: ${existingNames.size}")
 
-            while (true) {
+        var addedCount = 0
+        var offset = 0
+        val batchSize = 1000
 
-                val worlds = transaction(sqliteDatabase) {
-                    WorldsTable
-                        .select(WorldsTable.coordinate, WorldsTable.data)
-                        .orderBy(WorldsTable.coordinate)
-                        .limit(batchSize)
-                        .offset(offset.toLong())
-                        .toList()
-                }
+        while (true) {
 
-                if (worlds.isEmpty()) {
-                    log("[S3] Iterated whole table. Transfer completed. Offset: $offset")
-                    break
-                }
-
-                val uploadBatchTime = measureTime {
-
-                    worlds
-                        .filter { !existingNames.contains(it[WorldsTable.coordinate]) }
-                        .map { row ->
-                            async {
-                                uploadSemaphore.withPermit {
-                                    uploadWorld(row)
-                                }
-                            }
-                        }
-                        .awaitAll()
-                }
-
-                val uploaded = worlds.count { !existingNames.contains(it[WorldsTable.coordinate]) }
-
-                addedCount += uploaded
-                offset += worlds.size
-
-                if (uploaded > 0)
-                    log("[S3] Transferred $uploaded to S3 in $uploadBatchTime")
+            val worlds = transaction(sqliteDatabase) {
+                WorldsTable
+                    .select(WorldsTable.coordinate, WorldsTable.data)
+                    .orderBy(WorldsTable.coordinate)
+                    .limit(batchSize)
+                    .offset(offset.toLong())
+                    .toList()
             }
 
-            val duration = Clock.System.now().toEpochMilliseconds() - start
-            log("[S3] Completed in $duration ms. Added $addedCount.")
+            if (worlds.isEmpty()) {
+                log("[S3] Iterated whole table. Transfer completed. Offset: $offset")
+                break
+            }
 
-        } catch (ex: Exception) {
-            log(ex)
+            val uploadBatchTime = measureTime {
+
+                worlds
+                    .filter { !existingNames.contains(it[WorldsTable.coordinate]) }
+                    .map { row ->
+                        async {
+                            uploadSemaphore.withPermit {
+                                uploadWorld(row)
+                            }
+                        }
+                    }
+                    .awaitAll()
+            }
+
+            val uploaded = worlds.count { !existingNames.contains(it[WorldsTable.coordinate]) }
+
+            addedCount += uploaded
+            offset += worlds.size
+
+            if (uploaded > 0)
+                log("[S3] Transferred $uploaded to S3 in $uploadBatchTime")
         }
+
+        val duration = Clock.System.now().toEpochMilliseconds() - start
+
+        log("[S3] Completed in $duration ms. Added $addedCount.")
+
+    } catch (ex: Exception) {
+        log("[S3] copyMapsToS3 aborted due to: $ex")
     }
 }
 
