@@ -72,8 +72,13 @@ import io.minio.RemoveObjectArgs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.encodeToByteArray
@@ -81,6 +86,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.protobuf.ProtoBuf
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
+import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -1595,126 +1601,100 @@ private fun deleteMapFromS3(
 private suspend fun copyMapsToS3() {
 
     log("[S3] Transfer maps to S3...")
-
     val start = Clock.System.now().toEpochMilliseconds()
+
+    val uploadSemaphore = Semaphore(10)
+
+    coroutineScope {
+
+        try {
+            val objects = minioClient.listObjects(
+                ListObjectsArgs.builder()
+                    .bucket(S3_BUCKET_NAME)
+                    .build()
+            )
+
+            val existingNames = objects.map { it.get().objectName() }.toSet()
+            log("[S3] Existing map count: ${existingNames.size}")
+
+            var addedCount = 0
+            var offset = 0
+            val batchSize = 1000
+
+            while (true) {
+
+                val worlds = transaction(sqliteDatabase) {
+                    WorldsTable
+                        .select(WorldsTable.coordinate, WorldsTable.data)
+                        .orderBy(WorldsTable.coordinate)
+                        .limit(batchSize)
+                        .offset(offset.toLong())
+                        .toList()
+                }
+
+                if (worlds.isEmpty()) {
+                    log("[S3] Iterated whole table. Transfer completed. Offset: $offset")
+                    break
+                }
+
+                val uploadBatchTime = measureTime {
+
+                    worlds
+                        .filter { !existingNames.contains(it[WorldsTable.coordinate]) }
+                        .map { row ->
+                            async {
+                                uploadSemaphore.withPermit {
+                                    uploadWorld(row)
+                                }
+                            }
+                        }
+                        .awaitAll()
+                }
+
+                val uploaded = worlds.count { !existingNames.contains(it[WorldsTable.coordinate]) }
+
+                addedCount += uploaded
+                offset += worlds.size
+
+                if (uploaded > 0)
+                    log("[S3] Transferred $uploaded to S3 in $uploadBatchTime")
+            }
+
+            val duration = Clock.System.now().toEpochMilliseconds() - start
+            log("[S3] Completed in $duration ms. Added $addedCount.")
+
+        } catch (ex: Exception) {
+            log(ex)
+        }
+    }
+}
+
+private fun uploadWorld(row: ResultRow) {
+
+    val coordinate = row[WorldsTable.coordinate]
+    val bytes = row[WorldsTable.data].bytes
 
     try {
 
-        val objects = minioClient.listObjects(
-            ListObjectsArgs.builder()
+        bytes.inputStream().use { inputStream ->
+            val putObjectArgs = PutObjectArgs.builder()
                 .bucket(S3_BUCKET_NAME)
+                .`object`(coordinate)
+                .headers(
+                    mapOf(
+                        "Content-Type" to "application/protobuf",
+                        "Content-Encoding" to "gzip",
+                        "Cache-Control" to "public, max-age=315360000, immutable"
+                    )
+                )
+                .stream(inputStream, bytes.size.toLong(), PART_SIZE)
                 .build()
-        )
 
-        val existingNames = mutableSetOf<String>()
-
-        for (result in objects) {
-            val item = result.get()
-            existingNames.add(item.objectName())
+            minioClient.putObject(putObjectArgs)
         }
-
-        log("[S3] Existing map count: ${existingNames.size}")
-
-        var addedCount = 0
-
-        var offset = 0
-
-        val batchSize = 1000
-
-        while (true) {
-
-            val worlds = transaction(sqliteDatabase) {
-
-                WorldsTable
-                    .select(WorldsTable.coordinate, WorldsTable.data)
-                    .orderBy(WorldsTable.coordinate)
-                    .limit(batchSize)
-                    .offset(offset.toLong())
-                    .toList()
-            }
-
-            if (worlds.isEmpty()) {
-
-                log("[S3] Iterated whole table. Transfer completed. Offset: $offset")
-
-                break
-            }
-
-            /*
-             * We can only do 500 maps per second due to Backblaze rate limiting.
-             *
-             * Going straight with the cap shows slow-downs over time, so we
-             * stay away from that a bit.
-             */
-
-            var uploadedThisBatch = 0
-
-            val uploadBatchTime = measureTime {
-
-                for (row in worlds) {
-
-                    val coordinate = row[WorldsTable.coordinate]
-
-                    if (existingNames.contains(coordinate))
-                        continue
-
-                    val bytes = row[WorldsTable.data].bytes
-
-                    try {
-
-                        bytes.inputStream().use { inputStream ->
-
-                            val putObjectArgs =
-                                PutObjectArgs
-                                    .builder()
-                                    .bucket(S3_BUCKET_NAME)
-                                    .`object`(coordinate)
-                                    .headers(
-                                        mapOf(
-                                            "Content-Type" to " application/protobuf",
-                                            "Content-Encoding" to "gzip",
-                                            /* Cache for 10 years; we manually purge caches. */
-                                            "Cache-Control" to "public, max-age=315360000, immutable"
-                                        )
-                                    )
-                                    .stream(inputStream, bytes.size.toLong(), PART_SIZE)
-                                    .build()
-
-                            minioClient.putObject(putObjectArgs)
-                        }
-
-                        /*
-                         * We can only do 500 maps per second due to Backblaze rate limiting.
-                         *
-                         * Going straight with the cap shows slow-downs over time, so we
-                         * stay away from that.
-                         *
-                         * With a delay of 10 ms we should at max hit 100 maps per second.
-                         */
-                        delay(10)
-
-                    } catch (ex: Exception) {
-
-                        log("[S3] Skipped $coordinate due to ${ex.message}")
-                    }
-
-                    uploadedThisBatch++
-                    addedCount++
-                }
-
-                offset += worlds.size
-            }
-
-            if (uploadedThisBatch > 0)
-                log("[S3] Transferred $uploadedThisBatch to S3 in $uploadBatchTime")
-        }
-
-        val duration = Clock.System.now().toEpochMilliseconds() - start
-
-        log("[S3] Completed in $duration ms. Added $addedCount.")
 
     } catch (ex: Exception) {
-        log(ex)
+        log("[S3] Skipped $coordinate due to ${ex.message}")
     }
 }
 
