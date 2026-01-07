@@ -1592,7 +1592,7 @@ private fun deleteMapFromS3(
 }
 
 @OptIn(ExperimentalTime::class)
-private fun copyMapsToS3() {
+private suspend fun copyMapsToS3() {
 
     log("[S3] Transfer maps to S3...")
 
@@ -1617,59 +1617,68 @@ private fun copyMapsToS3() {
 
         var addedCount = 0
 
-        transaction(sqliteDatabase) {
+        var offset = 0
 
-            var offset = 0
-            val batchSize = 10000
+        /*
+         * We can only do 500 maps per second due to Backblaze rate limiting.
+         */
+        val batchSize = 500
 
-            while (true) {
+        while (true) {
 
-                val worlds = WorldsTable
+            val worlds = transaction(sqliteDatabase) {
+
+                WorldsTable
                     .select(WorldsTable.coordinate, WorldsTable.data)
                     .orderBy(WorldsTable.coordinate)
                     .limit(batchSize)
                     .offset(offset.toLong())
                     .toList()
+            }
 
-                if (worlds.isEmpty()) {
+            if (worlds.isEmpty()) {
 
-                    log("[S3] Iterated whole table. Transfer completed. Offset: $offset")
+                log("[S3] Iterated whole table. Transfer completed. Offset: $offset")
 
-                    break
-                }
+                break
+            }
 
-                val uploadBatchTime = measureTime {
+            val uploadBatchTime = measureTime {
 
-                    for (row in worlds) {
+                for (row in worlds) {
 
-                        val coordinate = row[WorldsTable.coordinate]
+                    val coordinate = row[WorldsTable.coordinate]
 
-                        if (existingNames.contains(coordinate))
-                            continue
+                    if (existingNames.contains(coordinate))
+                        continue
 
-                        val bytes = row[WorldsTable.data].bytes
+                    val bytes = row[WorldsTable.data].bytes
 
-                        val unzippedBytes = ZipUtil.unzipBytes(bytes)
+                    val unzippedBytes = ZipUtil.unzipBytes(bytes)
 
-                        val cluster = ProtoBuf.decodeFromByteArray<Cluster>(unzippedBytes)
+                    val cluster = ProtoBuf.decodeFromByteArray<Cluster>(unzippedBytes)
 
-                        try {
+                    try {
 
-                            uploadMapToS3(minioClient, cluster)
+                        uploadMapToS3(minioClient, cluster)
 
-                        } catch (ex: Exception) {
+                    } catch (ex: Exception) {
 
-                            log("[S3] Skipped ${cluster.coordinate} due to ${ex.message}")
-                        }
-
-                        addedCount++
+                        log("[S3] Skipped ${cluster.coordinate} due to ${ex.message}")
                     }
 
-                    offset += worlds.size
+                    addedCount++
                 }
 
-                log("[S3] Transferred ${worlds.size} to S3 in $uploadBatchTime")
+                offset += worlds.size
             }
+
+            log("[S3] Transferred ${worlds.size} to S3 in $uploadBatchTime")
+
+            /*
+             * We need to wait a second to avoid hitting Backblaze S3 rate limits.
+             */
+            delay(1000)
         }
 
         val duration = Clock.System.now().toEpochMilliseconds() - start
