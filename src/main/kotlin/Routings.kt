@@ -1631,8 +1631,12 @@ private fun copyMapsToS3() {
                     .offset(offset.toLong())
                     .toList()
 
-                if (worlds.isEmpty())
+                if (worlds.isEmpty()) {
+
+                    log("[S3] Iterated whole table. Transfer completed. Offset: $offset")
+
                     break
+                }
 
                 val uploadBatchTime = measureTime {
 
@@ -1665,9 +1669,6 @@ private fun copyMapsToS3() {
                 }
 
                 log("[S3] Transferred ${worlds.size} to S3 in $uploadBatchTime")
-
-                if (worlds.size < batchSize)
-                    break
             }
         }
 
