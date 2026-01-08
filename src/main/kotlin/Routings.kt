@@ -245,6 +245,7 @@ private fun Application.configureRoutingInternal() {
 
         allowMethod(HttpMethod.Options)
         allowMethod(HttpMethod.Get)
+        allowMethod(HttpMethod.Head)
         allowMethod(HttpMethod.Post)
 
         allowHeader(HttpHeaders.AccessControlAllowOrigin)
