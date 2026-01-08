@@ -264,11 +264,13 @@ private fun Application.configureRoutingInternal() {
 
         copyMapsToLocalDir()
 
+        createSearchIndexes()
+
         copyMapsToS3()
 
 //        regenerateSearchIndexTable()
 
-        createSearchIndexes()
+        // createSearchIndexes()
     }
 
     routing {
