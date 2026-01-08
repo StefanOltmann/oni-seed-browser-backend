@@ -189,6 +189,8 @@ private val seedRequestCounterMap = mutableMapOf<String, Long>()
 
 private val dataDir: File = File("/data")
 
+private val mapsDir: File = File(dataDir, "maps")
+
 private val sqliteDatabase = DatabaseFactory.init(
     url = "jdbc:sqlite:/data/oni-data.db?journal_mode=WAL",
     username = "",
@@ -259,6 +261,8 @@ private fun Application.configureRoutingInternal() {
 //            localDatabase,
 //            sqliteDatabase
 //        )
+
+        copyMapsToLocalDir()
 
         copyMapsToS3()
 
@@ -1595,6 +1599,64 @@ private fun deleteMapFromS3(
             .`object`(coordinate)
             .build()
     )
+}
+
+@OptIn(ExperimentalTime::class)
+private fun copyMapsToLocalDir() {
+
+    try {
+
+        mapsDir.mkdirs()
+
+        log("[LOCAL] Transfer maps to LOCAL...")
+
+        val start = Clock.System.now().toEpochMilliseconds()
+
+        var addedCount = 0
+        var offset = 0
+        val batchSize = 1000
+
+        while (true) {
+
+            val worlds = transaction(sqliteDatabase) {
+                WorldsTable
+                    .select(WorldsTable.coordinate, WorldsTable.data)
+                    .orderBy(WorldsTable.coordinate)
+                    .limit(batchSize)
+                    .offset(offset.toLong())
+                    .toList()
+            }
+
+            if (worlds.isEmpty()) {
+                log("[S3] Iterated whole table. Transfer completed. Offset: $offset")
+                break
+            }
+
+            for (row in worlds) {
+
+                val coordinate = row[WorldsTable.coordinate]
+                val bytes = row[WorldsTable.data].bytes
+
+                val targetFile = File(mapsDir, coordinate)
+
+                if (targetFile.exists() && targetFile.length() > 0)
+                    continue
+
+                targetFile.writeBytes(bytes)
+
+                addedCount++
+            }
+
+            offset += worlds.size
+        }
+
+        val duration = Clock.System.now().toEpochMilliseconds() - start
+
+        log("[LOCAL] Completed in $duration ms. Added $addedCount.")
+
+    } catch (ex: Exception) {
+        log("[S3] copyMapsToS3 aborted due to: $ex")
+    }
 }
 
 @OptIn(ExperimentalTime::class)
