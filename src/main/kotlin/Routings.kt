@@ -2045,20 +2045,20 @@ private fun runWithRetry(
 
     var attempt = 1
 
-    try {
+    while (attempt <= retryCount) {
 
-        while (attempt <= retryCount) {
+        try {
 
             action()
 
             break
+
+        } catch (ex: Throwable) {
+
+            log("Attempt $attempt failed: $ex")
+
+            attempt++
         }
-
-    } catch (ex: Throwable) {
-
-        log("Attempt $attempt failed: $ex")
-
-        attempt++
     }
 }
 
