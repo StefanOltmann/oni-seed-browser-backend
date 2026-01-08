@@ -46,6 +46,7 @@ import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.install
+import io.ktor.server.application.log
 import io.ktor.server.plugins.compression.Compression
 import io.ktor.server.plugins.compression.gzip
 import io.ktor.server.plugins.compression.matchContentType
@@ -1867,30 +1868,30 @@ private fun createSearchIndexes() {
 
                 val summaries = mutableListOf<ClusterSummaryCompact>()
 
-                transaction(sqliteDatabase) {
+                val resultRows = transaction(sqliteDatabase) {
 
-                    val resultRows = SearchIndexTable
+                    SearchIndexTable
                         .select(SearchIndexTable.uploaderSteamIdHash, SearchIndexTable.data)
                         .where { SearchIndexTable.clusterTypeId eq cluster.id.toInt() }
                         .orderBy(SearchIndexTable.uploadDate to SortOrder.DESC)
                         .iterator()
+                }
 
-                    while (resultRows.hasNext()) {
+                while (resultRows.hasNext()) {
 
-                        val resultRow = resultRows.next()
+                    val resultRow = resultRows.next()
 
-                        val uploaderSteamIdHash = resultRow[SearchIndexTable.uploaderSteamIdHash]
+                    val uploaderSteamIdHash = resultRow[SearchIndexTable.uploaderSteamIdHash]
 
-                        /* Increase count */
-                        countPerContributor[uploaderSteamIdHash] =
-                            (countPerContributor[uploaderSteamIdHash] ?: 0L) + 1
+                    /* Increase count */
+                    countPerContributor[uploaderSteamIdHash] =
+                        (countPerContributor[uploaderSteamIdHash] ?: 0L) + 1
 
-                        val bytes = resultRow[SearchIndexTable.data].bytes
+                    val bytes = resultRow[SearchIndexTable.data].bytes
 
-                        val summary = ProtoBuf.decodeFromByteArray<ClusterSummaryCompact>(bytes)
+                    val summary = ProtoBuf.decodeFromByteArray<ClusterSummaryCompact>(bytes)
 
-                        summaries.add(summary)
-                    }
+                    summaries.add(summary)
                 }
 
                 val searchIndex = SearchIndex.create(
@@ -1905,24 +1906,27 @@ private fun createSearchIndexes() {
 
                 val size = zippedProtobufBytes.size.toLong()
 
-                minioClient.putObject(
-                    PutObjectArgs
-                        .builder()
-                        .bucket(S3_BUCKET_NAME)
-                        .`object`(cluster.prefix)
-                        .headers(
-                            mapOf(
-                                "Content-Type" to "application/protobuf",
-                                "Content-Encoding" to "gzip",
-                                /* Cache for a day. */
-                                "Cache-Control" to "public, max-age=86400"
-                            )
-                        )
-                        .stream(zippedProtobufBytes.inputStream(), size, PART_SIZE)
-                        .build()
-                )
+                runWithRetry {
 
-                count += searchIndex.summaries.size
+                    minioClient.putObject(
+                        PutObjectArgs
+                            .builder()
+                            .bucket(S3_BUCKET_NAME)
+                            .`object`(cluster.prefix)
+                            .headers(
+                                mapOf(
+                                    "Content-Type" to "application/protobuf",
+                                    "Content-Encoding" to "gzip",
+                                    /* Cache for a day. */
+                                    "Cache-Control" to "public, max-age=86400"
+                                )
+                            )
+                            .stream(zippedProtobufBytes.inputStream(), size, PART_SIZE)
+                            .build()
+                    )
+
+                    count += searchIndex.summaries.size
+                }
             }
 
             log("[INDEX] Processed ${cluster.prefix} in $time.")
@@ -1937,21 +1941,24 @@ private fun createSearchIndexes() {
          *
          * This ensures it matches to the actual searchable clusters.
          */
-        minioClient.putObject(
-            PutObjectArgs
-                .builder()
-                .bucket(S3_BUCKET_NAME)
-                .`object`("count")
-                .headers(
-                    mapOf(
-                        "Content-Type" to "text/plain",
-                        /* Cache for a day. */
-                        "Cache-Control" to "public, max-age=86400"
+        runWithRetry {
+
+            minioClient.putObject(
+                PutObjectArgs
+                    .builder()
+                    .bucket(S3_BUCKET_NAME)
+                    .`object`("count")
+                    .headers(
+                        mapOf(
+                            "Content-Type" to "text/plain",
+                            /* Cache for a day. */
+                            "Cache-Control" to "public, max-age=86400"
+                        )
                     )
-                )
-                .stream(countBytes.inputStream(), countBytesSize, PART_SIZE)
-                .build()
-        )
+                    .stream(countBytes.inputStream(), countBytesSize, PART_SIZE)
+                    .build()
+            )
+        }
 
         /*
          * Save the contributors to S3
@@ -1965,21 +1972,24 @@ private fun createSearchIndexes() {
 
         val countPerContributorBytesSize = countPerContributorBytes.size.toLong()
 
-        minioClient.putObject(
-            PutObjectArgs
-                .builder()
-                .bucket(S3_BUCKET_NAME)
-                .`object`("contributors")
-                .headers(
-                    mapOf(
-                        "Content-Type" to "application/json",
-                        /* Cache for a day. */
-                        "Cache-Control" to "public, max-age=86400"
+        runWithRetry {
+
+            minioClient.putObject(
+                PutObjectArgs
+                    .builder()
+                    .bucket(S3_BUCKET_NAME)
+                    .`object`("contributors")
+                    .headers(
+                        mapOf(
+                            "Content-Type" to "application/json",
+                            /* Cache for a day. */
+                            "Cache-Control" to "public, max-age=86400"
+                        )
                     )
-                )
-                .stream(countPerContributorBytes.inputStream(), countPerContributorBytesSize, PART_SIZE)
-                .build()
-        )
+                    .stream(countPerContributorBytes.inputStream(), countPerContributorBytesSize, PART_SIZE)
+                    .build()
+            )
+        }
 
         /**
          * Also upload failed world gens
@@ -1996,21 +2006,24 @@ private fun createSearchIndexes() {
 
         val failedWorldGenReportsBytesSize = failedWorldGenReportsBytes.size.toLong()
 
-        minioClient.putObject(
-            PutObjectArgs
-                .builder()
-                .bucket(S3_BUCKET_NAME)
-                .`object`("failed-worldgens")
-                .headers(
-                    mapOf(
-                        "Content-Type" to "text/plain",
-                        /* Cache for a day. */
-                        "Cache-Control" to "public, max-age=86400"
+        runWithRetry {
+
+            minioClient.putObject(
+                PutObjectArgs
+                    .builder()
+                    .bucket(S3_BUCKET_NAME)
+                    .`object`("failed-worldgens")
+                    .headers(
+                        mapOf(
+                            "Content-Type" to "text/plain",
+                            /* Cache for a day. */
+                            "Cache-Control" to "public, max-age=86400"
+                        )
                     )
-                )
-                .stream(failedWorldGenReportsBytes.inputStream(), failedWorldGenReportsBytesSize, PART_SIZE)
-                .build()
-        )
+                    .stream(failedWorldGenReportsBytes.inputStream(), failedWorldGenReportsBytesSize, PART_SIZE)
+                    .build()
+            )
+        }
 
         val duration = Clock.System.now().toEpochMilliseconds() - start
 
@@ -2019,6 +2032,33 @@ private fun createSearchIndexes() {
     } catch (ex: Exception) {
 
         log(ex)
+    }
+}
+
+/*
+ * Uploading to Backblaze S3 fails to often that we need to do it with retries.
+ */
+private fun runWithRetry(
+    retryCount: Int = 5,
+    action: () -> Unit
+) {
+
+    var attempt = 1
+
+    try {
+
+        while (attempt <= retryCount) {
+
+            action()
+
+            break
+        }
+
+    } catch (ex: Throwable) {
+
+        log("Attempt $attempt failed: $ex")
+
+        attempt++
     }
 }
 
