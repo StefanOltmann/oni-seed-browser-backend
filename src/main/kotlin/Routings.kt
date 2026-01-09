@@ -609,10 +609,12 @@ private fun Application.configureRoutingInternal() {
 
             val bytes = worldData[WorldsTable.data].bytes
 
+            val unzippedBytes = ZipUtil.unzipBytes(bytes)
+
             call.respondBytes(
-                contentType = ContentType.Application.GZip,
+                contentType = ContentType.Application.ProtoBuf,
                 status = HttpStatusCode.OK,
-                bytes = bytes
+                bytes = unzippedBytes
             )
         }
 
@@ -643,7 +645,7 @@ private fun Application.configureRoutingInternal() {
             )
         }
 
-        head("/index/{cluster}") {
+        get("/index/{cluster}/last-modified") {
 
             val cluster = call.parameters["cluster"]
 
@@ -651,7 +653,7 @@ private fun Application.configureRoutingInternal() {
 
                 call.respond(HttpStatusCode.BadRequest, "Invalid cluster '$cluster'")
 
-                return@head
+                return@get
             }
 
             val searchIndexFile = File(searchIndexDir, cluster)
@@ -660,14 +662,14 @@ private fun Application.configureRoutingInternal() {
 
                 call.respond(HttpStatusCode.NotFound, "Search index not found.")
 
-                return@head
+                return@get
             }
 
-            call.response.header(HttpHeaders.ContentType, ContentType.Application.ProtoBuf.toString())
-            call.response.header(HttpHeaders.ContentLength, searchIndexFile.length().toString())
-            call.response.header(HttpHeaders.LastModified, searchIndexFile.lastModified().toString())
-
-            call.respond(HttpStatusCode.OK)
+            call.respondText(
+                text = searchIndexFile.lastModified().toString(),
+                contentType = ContentType.Text.Plain,
+                status = HttpStatusCode.OK
+            )
         }
 
         get("/count") {
