@@ -46,7 +46,6 @@ import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.install
-import io.ktor.server.application.log
 import io.ktor.server.plugins.compression.Compression
 import io.ktor.server.plugins.compression.gzip
 import io.ktor.server.plugins.compression.matchContentType
@@ -58,36 +57,26 @@ import io.ktor.server.request.receive
 import io.ktor.server.request.receiveText
 import io.ktor.server.response.header
 import io.ktor.server.response.respond
+import io.ktor.server.response.respondBytes
 import io.ktor.server.response.respondFile
 import io.ktor.server.response.respondOutputStream
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
+import io.ktor.server.routing.head
 import io.ktor.server.routing.post
 import io.ktor.server.routing.put
 import io.ktor.server.routing.routing
-import io.minio.ListObjectsArgs
-import io.minio.MinioClient
-import io.minio.PutObjectArgs
-import io.minio.RemoveObjectArgs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.encodeToByteArray
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.protobuf.ProtoBuf
-import okhttp3.OkHttpClient
-import okhttp3.Protocol
-import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.SortOrder
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -110,7 +99,6 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import kotlin.io.encoding.Base64
 import kotlin.time.Clock
-import kotlin.time.Duration.Companion.minutes
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTime
 import kotlin.uuid.ExperimentalUuidApi
@@ -140,15 +128,6 @@ private val publicKey: ECPublicKey = System.getenv("MNI_JWT_PUBLIC_KEY")?.let { 
     KeyFactory.getInstance("EC").generatePublic(keySpec) as ECPublicKey
 } ?: error("Missing MNI_JWT_PUBLIC_KEY environment variable")
 
-private val externalS3Url: String =
-    System.getenv("MNI_S3_URL") ?: error("Missing MNI_S3_URL environment variable")
-
-private val externalS3User: String =
-    System.getenv("MNI_S3_USERNAME") ?: error("Missing MNI_S3_USERNAME environment variable")
-
-private val externalS3Password: String =
-    System.getenv("MNI_S3_PASSWORD") ?: error("Missing MNI_S3_PASSWORD environment variable")
-
 private val ecdsaAlgorithm = Algorithm.ECDSA256(publicKey)
 
 private val jwtVerifier = JWT
@@ -161,20 +140,6 @@ private val strictJson = Json {
 
     encodeDefaults = true
 }
-
-/* Backblaze B2 S3 endpoint can intermittently close HTTP/2 streams. */
-private val minioHttpClient = OkHttpClient.Builder()
-    .protocols(listOf(Protocol.HTTP_1_1))
-    .retryOnConnectionFailure(true)
-    .writeTimeout(1.minutes)
-    .build()
-
-private val minioClient =
-    MinioClient.builder()
-        .endpoint(externalS3Url)
-        .credentials(externalS3User, externalS3Password)
-        .httpClient(minioHttpClient)
-        .build()
 
 private val backgroundScope = CoroutineScope(Dispatchers.Default)
 
@@ -190,7 +155,11 @@ private val seedRequestCounterMap = mutableMapOf<String, Long>()
 
 private val dataDir: File = File("/data")
 
-private val mapsDir: File = File(dataDir, "maps")
+private val searchIndexDir: File = File(dataDir, "index")
+
+private val countFile: File = File(searchIndexDir, "count")
+private val contributorsFile: File = File(searchIndexDir, "contributors")
+private val failedWorldgensFile: File = File(searchIndexDir, "failed-worldgens")
 
 private val sqliteDatabase = DatabaseFactory.init(
     url = "jdbc:sqlite:/data/oni-data.db?journal_mode=WAL",
@@ -223,6 +192,8 @@ private fun Application.configureRoutingInternal() {
 
     if (!dataDir.exists())
         error("Data dir is missing!")
+
+    searchIndexDir.mkdirs()
 
     install(ContentNegotiation) {
         json(strictJson)
@@ -264,11 +235,7 @@ private fun Application.configureRoutingInternal() {
 //            sqliteDatabase
 //        )
 
-        copyMapsToLocalDir()
-
         createSearchIndexes()
-
-        copyMapsToS3()
 
 //        regenerateSearchIndexTable()
 
@@ -456,47 +423,6 @@ private fun Application.configureRoutingInternal() {
             }
         }
 
-//        get("/copy-maps-to-s3") {
-//
-//            try {
-//
-//                val ipAddress = call.getIpAddress()
-//
-//                val apiKey: String? = this.call.request.headers["API_KEY"]
-//
-//                if (apiKey != System.getenv(MNI_DATABASE_EXPORT_API_KEY)) {
-//
-//                    log("/copy-maps-to-s3 : Unauthorized API key used by ip address $ipAddress.")
-//
-//                    call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
-//
-//                    return@get
-//                }
-//
-//                backgroundScope.launch {
-//
-//                    val start = Clock.System.now().toEpochMilliseconds()
-//
-//                    copyMapsToS3()
-//
-//                    val duration = Clock.System.now().toEpochMilliseconds() - start
-//
-//                    log("Copied maps in $duration ms.")
-//
-//                    /* Final extra cleanup */
-//                    System.gc()
-//                }
-//
-//                call.respond(HttpStatusCode.OK, "Copy maps triggered.")
-//
-//            } catch (ex: Exception) {
-//
-//                log(ex)
-//
-//                call.respond(HttpStatusCode.InternalServerError, "Error on map copy")
-//            }
-//        }
-
         get("/export/{collection}") {
 
             try {
@@ -655,6 +581,142 @@ private fun Application.configureRoutingInternal() {
             }
         }
 
+        get("/map/{coordinate}") {
+
+            val coordinate = call.parameters["coordinate"]
+
+            if (coordinate.isNullOrBlank()) {
+
+                call.respond(HttpStatusCode.BadRequest, "Invalid coordinate '$coordinate'")
+
+                return@get
+            }
+
+            val worldData = transaction(sqliteDatabase) {
+                WorldsTable
+                    .select(WorldsTable.coordinate, WorldsTable.data)
+                    .where { WorldsTable.coordinate eq coordinate }
+                    .firstOrNull()
+            }
+
+            if (worldData == null) {
+
+                call.respond(HttpStatusCode.NotFound, "Coordinate $coordinate not found.")
+
+                return@get
+            }
+
+            val bytes = worldData[WorldsTable.data].bytes
+
+            call.respondBytes(
+                contentType = ContentType.Application.ProtoBuf,
+                status = HttpStatusCode.OK,
+                bytes = bytes
+            )
+        }
+
+        get("/index/{cluster}") {
+
+            val cluster = call.parameters["cluster"]
+
+            if (cluster.isNullOrBlank()) {
+
+                call.respond(HttpStatusCode.BadRequest, "Invalid cluster '$cluster'")
+
+                return@get
+            }
+
+            val searchIndexFile = File(searchIndexDir, cluster)
+
+            if (!searchIndexFile.exists()) {
+
+                call.respond(HttpStatusCode.NotFound, "Search index not found.")
+
+                return@get
+            }
+
+            call.respondBytes(
+                contentType = ContentType.Application.ProtoBuf,
+                status = HttpStatusCode.OK,
+                bytes = searchIndexFile.readBytes()
+            )
+        }
+
+        head("/index/{cluster}") {
+
+            val cluster = call.parameters["cluster"]
+
+            if (cluster.isNullOrBlank()) {
+
+                call.respond(HttpStatusCode.BadRequest, "Invalid cluster '$cluster'")
+
+                return@head
+            }
+
+            val searchIndexFile = File(searchIndexDir, cluster)
+
+            if (!searchIndexFile.exists()) {
+
+                call.respond(HttpStatusCode.NotFound, "Search index not found.")
+
+                return@head
+            }
+
+            call.response.header(HttpHeaders.ContentType, ContentType.Application.ProtoBuf.toString())
+            call.response.header(HttpHeaders.ContentLength, searchIndexFile.length().toString())
+            call.response.header(HttpHeaders.LastModified, searchIndexFile.lastModified().toString())
+
+            call.respond(HttpStatusCode.OK)
+        }
+
+        get("/count") {
+
+            if (!countFile.exists()) {
+
+                call.respondText(
+                    text = "0"
+                )
+
+                return@get
+            }
+
+            call.respondText(
+                text = countFile.readText()
+            )
+        }
+
+        get("/contributors") {
+
+            if (!contributorsFile.exists()) {
+
+                call.respond(HttpStatusCode.NotFound, "Contributors not found.")
+
+                return@get
+            }
+
+            call.respondBytes(
+                contentType = ContentType.Application.Json,
+                status = HttpStatusCode.OK,
+                bytes = contributorsFile.readBytes()
+            )
+        }
+
+        get("/failed-worldgens") {
+
+            if (!failedWorldgensFile.exists()) {
+
+                call.respond(HttpStatusCode.NotFound, "Failed worldgens not found.")
+
+                return@get
+            }
+
+            call.respondBytes(
+                contentType = ContentType.Text.Plain,
+                status = HttpStatusCode.OK,
+                bytes = failedWorldgensFile.readBytes()
+            )
+        }
+
         /*
          * Purge the requested key out of existence.
          */
@@ -689,8 +751,6 @@ private fun Application.configureRoutingInternal() {
                     UploadsTable.deleteWhere { UploadsTable.coordinate eq coordinate }
                     SearchIndexTable.deleteWhere { SearchIndexTable.coordinate eq coordinate }
                 }
-
-                deleteMapFromS3(minioClient, coordinate)
 
                 log("[PURGE] Removed $coordinate")
 
@@ -906,12 +966,6 @@ private fun Application.configureRoutingInternal() {
                         it[SearchIndexTable.data] = ExposedBlob(summaryBytes)
                     }
                 }
-
-                /*
-                 * S3 uploads
-                 */
-
-                uploadMapToS3(minioClient, optimizedCluster)
 
                 /*
                  * Finalize
@@ -1561,209 +1615,6 @@ private fun ApplicationCall.getIpAddress(): String =
     request.headers["X-Forwarded-For"]?.split(",")?.firstOrNull()?.trim()
         ?: request.origin.remoteAddress
 
-@OptIn(ExperimentalSerializationApi::class)
-private fun uploadMapToS3(
-    minioClient: MinioClient,
-    cluster: Cluster
-) {
-
-    val protobufBytes = ProtoBuf.encodeToByteArray(cluster)
-
-    val compressedBytes = ZipUtil.zipBytes(originalBytes = protobufBytes)
-
-    val compressedBytesSize = compressedBytes.size.toLong()
-
-    minioClient.putObject(
-        PutObjectArgs
-            .builder()
-            .bucket(S3_BUCKET_NAME)
-            .`object`(cluster.coordinate)
-            .headers(
-                mapOf(
-                    "Content-Type" to " application/protobuf",
-                    "Content-Encoding" to "gzip",
-                    /* Cache for 10 years; we manually purge caches. */
-                    "Cache-Control" to "public, max-age=315360000, immutable"
-                )
-            )
-            .stream(compressedBytes.inputStream(), compressedBytesSize, PART_SIZE)
-            .build()
-    )
-}
-
-private fun deleteMapFromS3(
-    minioClient: MinioClient,
-    coordinate: String
-) {
-
-    minioClient.removeObject(
-        RemoveObjectArgs
-            .builder()
-            .bucket(S3_BUCKET_NAME)
-            .`object`(coordinate)
-            .build()
-    )
-}
-
-@OptIn(ExperimentalTime::class)
-private fun copyMapsToLocalDir() {
-
-    try {
-
-        mapsDir.mkdirs()
-
-        log("[LOCAL] Transfer maps to LOCAL...")
-
-        val start = Clock.System.now().toEpochMilliseconds()
-
-        var addedCount = 0
-        var offset = 0
-        val batchSize = 1000
-
-        while (true) {
-
-            val worlds = transaction(sqliteDatabase) {
-                WorldsTable
-                    .select(WorldsTable.coordinate, WorldsTable.data)
-                    .orderBy(WorldsTable.coordinate)
-                    .limit(batchSize)
-                    .offset(offset.toLong())
-                    .toList()
-            }
-
-            if (worlds.isEmpty()) {
-                log("[S3] Iterated whole table. Transfer completed. Offset: $offset")
-                break
-            }
-
-            for (row in worlds) {
-
-                val coordinate = row[WorldsTable.coordinate]
-                val bytes = row[WorldsTable.data].bytes
-
-                val targetFile = File(mapsDir, coordinate)
-
-                if (targetFile.exists() && targetFile.length() > 0)
-                    continue
-
-                targetFile.writeBytes(bytes)
-
-                addedCount++
-            }
-
-            offset += worlds.size
-        }
-
-        val duration = Clock.System.now().toEpochMilliseconds() - start
-
-        log("[LOCAL] Completed in $duration ms. Added $addedCount.")
-
-    } catch (ex: Exception) {
-        log("[S3] copyMapsToS3 aborted due to: $ex")
-    }
-}
-
-@OptIn(ExperimentalTime::class)
-private suspend fun copyMapsToS3() = coroutineScope {
-
-    try {
-
-        log("[S3] Transfer maps to S3...")
-        val start = Clock.System.now().toEpochMilliseconds()
-
-        val uploadSemaphore = Semaphore(30)
-
-        val objects = minioClient.listObjects(
-
-            ListObjectsArgs.builder()
-                .bucket(S3_BUCKET_NAME)
-                .build()
-        )
-
-        val existingNames = objects.map { it.get().objectName() }.toSet()
-        log("[S3] Existing map count: ${existingNames.size}")
-
-        var addedCount = 0
-        var offset = 0
-        val batchSize = 1000
-
-        while (true) {
-
-            val worlds = transaction(sqliteDatabase) {
-                WorldsTable
-                    .select(WorldsTable.coordinate, WorldsTable.data)
-                    .orderBy(WorldsTable.coordinate)
-                    .limit(batchSize)
-                    .offset(offset.toLong())
-                    .toList()
-            }
-
-            if (worlds.isEmpty()) {
-                log("[S3] Iterated whole table. Transfer completed. Offset: $offset")
-                break
-            }
-
-            val uploadBatchTime = measureTime {
-
-                worlds
-                    .filter { !existingNames.contains(it[WorldsTable.coordinate]) }
-                    .map { row ->
-                        async {
-                            uploadSemaphore.withPermit {
-                                uploadWorld(row)
-                            }
-                        }
-                    }
-                    .awaitAll()
-            }
-
-            val uploaded = worlds.count { !existingNames.contains(it[WorldsTable.coordinate]) }
-
-            addedCount += uploaded
-            offset += worlds.size
-
-            if (uploaded > 0)
-                log("[S3] Transferred $uploaded to S3 in $uploadBatchTime")
-        }
-
-        val duration = Clock.System.now().toEpochMilliseconds() - start
-
-        log("[S3] Completed in $duration ms. Added $addedCount.")
-
-    } catch (ex: Exception) {
-        log("[S3] copyMapsToS3 aborted due to: $ex")
-    }
-}
-
-private fun uploadWorld(row: ResultRow) {
-
-    val coordinate = row[WorldsTable.coordinate]
-    val bytes = row[WorldsTable.data].bytes
-
-    try {
-
-        bytes.inputStream().use { inputStream ->
-            val putObjectArgs = PutObjectArgs.builder()
-                .bucket(S3_BUCKET_NAME)
-                .`object`(coordinate)
-                .headers(
-                    mapOf(
-                        "Content-Type" to "application/protobuf",
-                        "Content-Encoding" to "gzip",
-                        "Cache-Control" to "public, max-age=315360000, immutable"
-                    )
-                )
-                .stream(inputStream, bytes.size.toLong(), PART_SIZE)
-                .build()
-
-            minioClient.putObject(putObjectArgs)
-        }
-
-    } catch (ex: Exception) {
-        log("[S3] Skipped $coordinate due to ${ex.message}")
-    }
-}
-
 @OptIn(ExperimentalSerializationApi::class, ExperimentalTime::class)
 private fun regenerateSearchIndexTable() {
 
@@ -1905,29 +1756,9 @@ private fun createSearchIndexes() {
 
                 val zippedProtobufBytes = ZipUtil.zipBytes(protobufBytes)
 
-                val size = zippedProtobufBytes.size.toLong()
+                File(searchIndexDir, cluster.prefix).writeBytes(zippedProtobufBytes)
 
-                runWithRetry {
-
-                    minioClient.putObject(
-                        PutObjectArgs
-                            .builder()
-                            .bucket(S3_BUCKET_NAME)
-                            .`object`(cluster.prefix)
-                            .headers(
-                                mapOf(
-                                    "Content-Type" to "application/protobuf",
-                                    "Content-Encoding" to "gzip",
-                                    /* Cache for a day. */
-                                    "Cache-Control" to "public, max-age=86400"
-                                )
-                            )
-                            .stream(zippedProtobufBytes.inputStream(), size, PART_SIZE)
-                            .build()
-                    )
-
-                    count += searchIndex.summaries.size
-                }
+                count += searchIndex.summaries.size
             }
 
             log("[INDEX] Processed ${cluster.prefix} in $time.")
@@ -1935,62 +1766,19 @@ private fun createSearchIndexes() {
 
         val countBytes = count.toString().encodeToByteArray()
 
-        val countBytesSize = countBytes.size.toLong()
+        countFile.writeBytes(countBytes)
 
         /*
-         * Save the count to S3 as well
-         *
-         * This ensures it matches to the actual searchable clusters.
-         */
-        runWithRetry {
-
-            minioClient.putObject(
-                PutObjectArgs
-                    .builder()
-                    .bucket(S3_BUCKET_NAME)
-                    .`object`("count")
-                    .headers(
-                        mapOf(
-                            "Content-Type" to "text/plain",
-                            /* Cache for a day. */
-                            "Cache-Control" to "public, max-age=86400"
-                        )
-                    )
-                    .stream(countBytes.inputStream(), countBytesSize, PART_SIZE)
-                    .build()
-            )
-        }
-
-        /*
-         * Save the contributors to S3
+         * Save the contributors
          *
          * This ensures it matches to the actual count
          */
 
-        log("[INDEX] Saving contributors to S3: $countPerContributor")
+        log("[INDEX] Saving contributors: $countPerContributor")
 
         val countPerContributorBytes = strictJson.encodeToString(countPerContributor).encodeToByteArray()
 
-        val countPerContributorBytesSize = countPerContributorBytes.size.toLong()
-
-        runWithRetry {
-
-            minioClient.putObject(
-                PutObjectArgs
-                    .builder()
-                    .bucket(S3_BUCKET_NAME)
-                    .`object`("contributors")
-                    .headers(
-                        mapOf(
-                            "Content-Type" to "application/json",
-                            /* Cache for a day. */
-                            "Cache-Control" to "public, max-age=86400"
-                        )
-                    )
-                    .stream(countPerContributorBytes.inputStream(), countPerContributorBytesSize, PART_SIZE)
-                    .build()
-            )
-        }
+        contributorsFile.writeBytes(countPerContributorBytes)
 
         /**
          * Also upload failed world gens
@@ -2005,26 +1793,7 @@ private fun createSearchIndexes() {
 
         val failedWorldGenReportsBytes = failedWorldGenReports.joinToString("\n").encodeToByteArray()
 
-        val failedWorldGenReportsBytesSize = failedWorldGenReportsBytes.size.toLong()
-
-        runWithRetry {
-
-            minioClient.putObject(
-                PutObjectArgs
-                    .builder()
-                    .bucket(S3_BUCKET_NAME)
-                    .`object`("failed-worldgens")
-                    .headers(
-                        mapOf(
-                            "Content-Type" to "text/plain",
-                            /* Cache for a day. */
-                            "Cache-Control" to "public, max-age=86400"
-                        )
-                    )
-                    .stream(failedWorldGenReportsBytes.inputStream(), failedWorldGenReportsBytesSize, PART_SIZE)
-                    .build()
-            )
-        }
+        failedWorldgensFile.writeBytes(failedWorldGenReportsBytes)
 
         val duration = Clock.System.now().toEpochMilliseconds() - start
 
@@ -2033,33 +1802,6 @@ private fun createSearchIndexes() {
     } catch (ex: Exception) {
 
         log(ex)
-    }
-}
-
-/*
- * Uploading to Backblaze S3 fails to often that we need to do it with retries.
- */
-private fun runWithRetry(
-    retryCount: Int = 5,
-    action: () -> Unit
-) {
-
-    var attempt = 1
-
-    while (attempt <= retryCount) {
-
-        try {
-
-            action()
-
-            break
-
-        } catch (ex: Throwable) {
-
-            log("Attempt $attempt failed: $ex")
-
-            attempt++
-        }
     }
 }
 

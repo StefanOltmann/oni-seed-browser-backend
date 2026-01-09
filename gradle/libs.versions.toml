@@ -43,7 +43,6 @@ exposed-jdbc = { module = "org.jetbrains.exposed:exposed-jdbc", version.ref = "e
 # Other libraries
 polybool-kotlin = { module = "de.stefan-oltmann:polybool-kotlin", version.ref = "polybool" }
 java-jwt = { module = "com.auth0:java-jwt", version.ref = "jwt" }
-minio = { module = "io.minio:minio", version.ref = "minio" }
 
 # Test libraries
 kotlin-test-junit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
