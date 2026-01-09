@@ -704,7 +704,7 @@ private fun Application.configureRoutingInternal() {
             call.respondBytes(
                 contentType = ContentType.Application.Json,
                 status = HttpStatusCode.OK,
-                bytes = ZipUtil.zipBytes(contributorsFile.readBytes())
+                bytes = contributorsFile.readBytes()
             )
         }
 
@@ -722,7 +722,7 @@ private fun Application.configureRoutingInternal() {
             call.respondBytes(
                 contentType = ContentType.Text.Plain,
                 status = HttpStatusCode.OK,
-                bytes = ZipUtil.zipBytes(failedWorldgensFile.readBytes())
+                bytes = failedWorldgensFile.readBytes()
             )
         }
 
@@ -1785,7 +1785,9 @@ private fun createSearchIndexes() {
 
         val countPerContributorJson = strictJson.encodeToString(countPerContributor)
 
-        contributorsFile.writeText(countPerContributorJson)
+        contributorsFile.writeBytes(
+            ZipUtil.zipBytes(countPerContributorJson.encodeToByteArray())
+        )
 
         /**
          * Also upload failed world gens
@@ -1800,7 +1802,9 @@ private fun createSearchIndexes() {
 
         val failedWorldGenReportsString = failedWorldGenReports.joinToString("\n")
 
-        failedWorldgensFile.writeText(failedWorldGenReportsString)
+        failedWorldgensFile.writeBytes(
+            ZipUtil.zipBytes(failedWorldGenReportsString.encodeToByteArray())
+        )
 
         val duration = Clock.System.now().toEpochMilliseconds() - start
 
