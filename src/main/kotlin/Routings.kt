@@ -699,10 +699,12 @@ private fun Application.configureRoutingInternal() {
                 return@get
             }
 
-            call.respondText(
-                text = contributorsFile.readText(),
-                contentType = ContentType.Text.Plain,
-                status = HttpStatusCode.OK
+            call.response.headers.append(HttpHeaders.ContentEncoding, "gzip")
+
+            call.respondBytes(
+                contentType = ContentType.Application.Json,
+                status = HttpStatusCode.OK,
+                bytes = ZipUtil.zipBytes(contributorsFile.readBytes())
             )
         }
 
@@ -715,10 +717,12 @@ private fun Application.configureRoutingInternal() {
                 return@get
             }
 
-            call.respondText(
-                text = failedWorldgensFile.readText(),
+            call.response.headers.append(HttpHeaders.ContentEncoding, "gzip")
+
+            call.respondBytes(
                 contentType = ContentType.Text.Plain,
-                status = HttpStatusCode.OK
+                status = HttpStatusCode.OK,
+                bytes = ZipUtil.zipBytes(failedWorldgensFile.readBytes())
             )
         }
 
