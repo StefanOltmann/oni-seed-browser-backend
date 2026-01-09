@@ -61,6 +61,7 @@ import io.ktor.server.response.respondBytes
 import io.ktor.server.response.respondFile
 import io.ktor.server.response.respondOutputStream
 import io.ktor.server.response.respondText
+import io.ktor.server.routing.contentType
 import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
 import io.ktor.server.routing.head
@@ -609,7 +610,7 @@ private fun Application.configureRoutingInternal() {
             val bytes = worldData[WorldsTable.data].bytes
 
             call.respondBytes(
-                contentType = ContentType.Application.ProtoBuf,
+                contentType = ContentType.Application.GZip,
                 status = HttpStatusCode.OK,
                 bytes = bytes
             )
@@ -636,7 +637,7 @@ private fun Application.configureRoutingInternal() {
             }
 
             call.respondBytes(
-                contentType = ContentType.Application.ProtoBuf,
+                contentType = ContentType.Application.GZip,
                 status = HttpStatusCode.OK,
                 bytes = searchIndexFile.readBytes()
             )
@@ -681,7 +682,9 @@ private fun Application.configureRoutingInternal() {
             }
 
             call.respondText(
-                text = countFile.readText()
+                text = countFile.readText(),
+                contentType = ContentType.Text.Plain,
+                status = HttpStatusCode.OK
             )
         }
 
@@ -694,10 +697,10 @@ private fun Application.configureRoutingInternal() {
                 return@get
             }
 
-            call.respondBytes(
-                contentType = ContentType.Application.Json,
-                status = HttpStatusCode.OK,
-                bytes = contributorsFile.readBytes()
+            call.respondText(
+                text = contributorsFile.readText(),
+                contentType = ContentType.Text.Plain,
+                status = HttpStatusCode.OK
             )
         }
 
@@ -710,10 +713,10 @@ private fun Application.configureRoutingInternal() {
                 return@get
             }
 
-            call.respondBytes(
+            call.respondText(
+                text = failedWorldgensFile.readText(),
                 contentType = ContentType.Text.Plain,
-                status = HttpStatusCode.OK,
-                bytes = failedWorldgensFile.readBytes()
+                status = HttpStatusCode.OK
             )
         }
 
@@ -1764,9 +1767,7 @@ private fun createSearchIndexes() {
             log("[INDEX] Processed ${cluster.prefix} in $time.")
         }
 
-        val countBytes = count.toString().encodeToByteArray()
-
-        countFile.writeBytes(countBytes)
+        countFile.writeText(count.toString())
 
         /*
          * Save the contributors
@@ -1776,9 +1777,9 @@ private fun createSearchIndexes() {
 
         log("[INDEX] Saving contributors: $countPerContributor")
 
-        val countPerContributorBytes = strictJson.encodeToString(countPerContributor).encodeToByteArray()
+        val countPerContributorJson = strictJson.encodeToString(countPerContributor)
 
-        contributorsFile.writeBytes(countPerContributorBytes)
+        contributorsFile.writeText(countPerContributorJson)
 
         /**
          * Also upload failed world gens
@@ -1791,9 +1792,9 @@ private fun createSearchIndexes() {
                 .sorted()
         }
 
-        val failedWorldGenReportsBytes = failedWorldGenReports.joinToString("\n").encodeToByteArray()
+        val failedWorldGenReportsString = failedWorldGenReports.joinToString("\n")
 
-        failedWorldgensFile.writeBytes(failedWorldGenReportsBytes)
+        failedWorldgensFile.writeText(failedWorldGenReportsString)
 
         val duration = Clock.System.now().toEpochMilliseconds() - start
 
