@@ -61,10 +61,8 @@ import io.ktor.server.response.respondBytes
 import io.ktor.server.response.respondFile
 import io.ktor.server.response.respondOutputStream
 import io.ktor.server.response.respondText
-import io.ktor.server.routing.contentType
 import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
-import io.ktor.server.routing.head
 import io.ktor.server.routing.post
 import io.ktor.server.routing.put
 import io.ktor.server.routing.routing
@@ -609,12 +607,12 @@ private fun Application.configureRoutingInternal() {
 
             val bytes = worldData[WorldsTable.data].bytes
 
-            val unzippedBytes = ZipUtil.unzipBytes(bytes)
+            call.response.headers.append(HttpHeaders.ContentEncoding, "gzip")
 
             call.respondBytes(
                 contentType = ContentType.Application.ProtoBuf,
                 status = HttpStatusCode.OK,
-                bytes = unzippedBytes
+                bytes = bytes
             )
         }
 
@@ -638,8 +636,10 @@ private fun Application.configureRoutingInternal() {
                 return@get
             }
 
+            call.response.headers.append(HttpHeaders.ContentEncoding, "gzip")
+
             call.respondBytes(
-                contentType = ContentType.Application.GZip,
+                contentType = ContentType.Application.ProtoBuf,
                 status = HttpStatusCode.OK,
                 bytes = searchIndexFile.readBytes()
             )
