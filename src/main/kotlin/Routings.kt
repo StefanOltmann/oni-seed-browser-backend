@@ -699,8 +699,6 @@ private fun Application.configureRoutingInternal() {
                 return@get
             }
 
-            call.response.headers.append(HttpHeaders.ContentEncoding, "gzip")
-
             call.respondBytes(
                 contentType = ContentType.Application.Json,
                 status = HttpStatusCode.OK,
@@ -1781,13 +1779,11 @@ private fun createSearchIndexes() {
          * This ensures it matches to the actual count
          */
 
-        log("[INDEX] Saving contributors: $countPerContributor")
-
         val countPerContributorJson = strictJson.encodeToString(countPerContributor)
 
-        contributorsFile.writeBytes(
-            ZipUtil.zipBytes(countPerContributorJson.encodeToByteArray())
-        )
+        log("[INDEX] Saving contributors: $countPerContributorJson")
+
+        contributorsFile.writeBytes(countPerContributorJson.encodeToByteArray())
 
         /**
          * Also upload failed world gens
