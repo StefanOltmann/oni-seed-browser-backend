@@ -345,6 +345,15 @@ private fun Application.configureRoutingInternal() {
         }
 
         get("/$mniBackupEndpoint") {
+
+            /* This adds a nice filename */
+            call.response.header(
+                HttpHeaders.ContentDisposition,
+                ContentDisposition.Attachment
+                    .withParameter(ContentDisposition.Parameters.FileName, backupFile.name)
+                    .toString()
+            )
+
             call.respondFile(backupFile)
         }
 
