@@ -1723,7 +1723,7 @@ private fun createSearchIndexes() {
 
         val countPerContributorJson = strictJson.encodeToString(countPerContributor)
 
-        log("[INDEX] Saving contributors: $countPerContributorJson")
+        log("[INDEX] Saving ${countPerContributor.size} contributors.")
 
         contributorsFile.writeBytes(countPerContributorJson.encodeToByteArray())
 
