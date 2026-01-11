@@ -1,4 +1,7 @@
-FROM gradle:8-jdk17 AS BUILD_STAGE
+ARG BUILDPLATFORM
+ARG TARGETPLATFORM
+
+FROM --platform=$BUILDPLATFORM gradle:8-jdk17 AS BUILD_STAGE
 WORKDIR /tmp
 COPY .git .git
 COPY gradle gradle
@@ -7,7 +10,7 @@ COPY src src
 RUN chmod +x gradlew
 RUN ./gradlew --no-daemon --info test buildFatJar
 
-FROM eclipse-temurin:17-jre-alpine
+FROM --platform=$TARGETPLATFORM eclipse-temurin:17-jre-alpine
 EXPOSE 8080:8080
 RUN mkdir /app
 COPY --from=BUILD_STAGE /tmp/build/libs/*-all.jar /app/ktor-server.jar

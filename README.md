@@ -6,3 +6,17 @@
 [![GitHub Sponsors](https://img.shields.io/badge/Sponsor-gray?&logo=GitHub-Sponsors&logoColor=EA4AAA)](https://github.com/sponsors/StefanOltmann)
 
 This is the backend for https://github.com/StefanOltmann/oni-seed-browser
+
+## Docker multi-arch build (amd64 + arm64)
+
+Docker buildx is required for native multi-arch images:
+
+```bash
+docker buildx create --use --name oni-seed-browser-builder
+docker buildx inspect --bootstrap
+docker buildx build --platform linux/amd64,linux/arm64 -t your-registry/oni-seed-browser-backend:latest --push .
+```
+
+Notes:
+- Multi-arch builds must be pushed to a registry; `--load` only loads a single arch image locally.
+- If you only want one architecture locally, use `--platform linux/arm64` (or `linux/amd64`) with `--load`.

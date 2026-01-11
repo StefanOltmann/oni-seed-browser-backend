@@ -16,6 +16,12 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v3
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v1
         with:
@@ -28,15 +34,5 @@ jobs:
         with:
           context: .
           push: true
+          platforms: linux/amd64,linux/arm64
           tags: ghcr.io/stefanoltmann/oni-seed-browser-backend:latest
-
-      - name: Save Docker image as a tar archive
-        run: |
-          docker pull ghcr.io/stefanoltmann/oni-seed-browser-backend:latest
-          docker save -o oni-seed-browser-backend-latest.tar ghcr.io/stefanoltmann/oni-seed-browser-backend:latest
-
-      - name: Upload Docker image as an artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: oni-seed-browser-backend-latest.tar
-          path: oni-seed-browser-backend-latest.tar
