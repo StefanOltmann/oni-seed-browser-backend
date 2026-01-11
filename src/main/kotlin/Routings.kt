@@ -160,6 +160,8 @@ private val countFile: File = File(searchIndexDir, "count")
 private val contributorsFile: File = File(searchIndexDir, "contributors")
 private val failedWorldgensFile: File = File(searchIndexDir, "failed-worldgens")
 
+private val backupFile = File(dataDir, "oni-data.backup.db")
+
 private val sqliteDatabase = DatabaseFactory.init(
     url = "jdbc:sqlite:/data/oni-data.db?journal_mode=WAL",
     username = "",
@@ -298,11 +300,7 @@ private fun Application.configureRoutingInternal() {
 
                 log("[BACKUP] Backup creation triggered...")
 
-                val backupFile = File(dataDir, "oni-backup.db")
-                val backupFileZipped = File(dataDir, "oni-backup.db.gz")
-
                 backupFile.delete()
-                backupFileZipped.delete()
 
                 try {
 
@@ -332,18 +330,6 @@ private fun Application.configureRoutingInternal() {
 
                     log("[BACKUP] Database export took $creationDuration. File size: ${backupFile.length() / 1024 / 1024} MB")
 
-                    val compressionDuration = measureTime {
-
-                        backupFile.inputStream().use { inputStream ->
-
-                            GZIPOutputStream(backupFileZipped.outputStream(), true).use { gzipStream ->
-                                inputStream.copyTo(gzipStream)
-                            }
-                        }
-                    }
-
-                    log("[BACKUP] Compression took $compressionDuration. File size: ${backupFileZipped.length() / 1024 / 1024} MB")
-
                 } catch (ex: Exception) {
 
                     log("[BACKUP] Error on DB export: ${ex.message}")
@@ -359,7 +345,7 @@ private fun Application.configureRoutingInternal() {
         }
 
         get("/$mniBackupEndpoint") {
-            call.respondFile(dataDir, "oni-backup.db.gz")
+            call.respondFile(backupFile)
         }
 
         get("/export/{collection}") {
