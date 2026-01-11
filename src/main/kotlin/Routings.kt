@@ -116,10 +116,6 @@ const val MNI_API_KEY = "MNI_API_KEY"
 const val MNI_PURGE_API_KEY = "MNI_PURGE_API_KEY"
 const val MNI_DATABASE_EXPORT_API_KEY = "MNI_DATABASE_EXPORT_API_KEY"
 
-const val S3_BUCKET_NAME = "mapsnotincluded"
-
-const val PART_SIZE: Long = 10 * 1024 * 1024
-
 private val purgeApiKey = System.getenv(MNI_PURGE_API_KEY)
     ?: error("Missing MNI_PURGE_API_KEY environment variable")
 
@@ -147,12 +143,6 @@ private val backgroundScope = CoroutineScope(Dispatchers.Default)
 private val latestCoordinates = mutableListOf<String>()
 
 private val seedRequestCounterMap = mutableMapOf<String, Long>()
-
-//private val localDatabase = DatabaseFactory.init(
-//    url = "jdbc:mysql://10.147.20.24:3306/oni",
-//    username = "myuser",
-//    password = "mypassword"
-//)
 
 private val dataDir: File = File("/data")
 
