@@ -1,14 +1,12 @@
 [versions]
-kotlin = "2.2.20"
-ktor = "3.3.0"
+kotlin = "2.3.0"
+ktor = "3.3.3"
 polybool = "0.1.1"
 jwt = "4.5.0"
-minio = "8.5.17"
 git-versioning = "6.4.4"
 oni-model = "e8c0495-SNAPSHOT"
-mysql = "9.4.0"
 sqlite = "3.50.3.0"
-exposed = "1.0.0-rc-2"
+exposed = "1.0.0-rc-4"
 logback = "1.4.14"
 
 [libraries]
@@ -32,7 +30,6 @@ logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "lo
 ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
 
 # Database
-mysql = { module = "com.mysql:mysql-connector-j", version.ref = "mysql" }
 sqlite = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite" }
 
 # JetBrains Exposed ORM

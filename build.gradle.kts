@@ -24,7 +24,7 @@ gitVersioning.apply {
 }
 
 kotlin {
-    jvmToolchain(jdkVersion = 17)
+    jvmToolchain(jdkVersion = 25)
 }
 
 application {
@@ -66,7 +66,6 @@ dependencies {
     /*
      * Database
      */
-    implementation(libs.mysql)
     implementation(libs.sqlite)
 
     /*
