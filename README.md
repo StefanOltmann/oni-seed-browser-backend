@@ -18,5 +18,6 @@ docker buildx build --platform linux/amd64,linux/arm64 -t your-registry/oni-seed
 ```
 
 Notes:
+
 - Multi-arch builds must be pushed to a registry; `--load` only loads a single arch image locally.
 - If you only want one architecture locally, use `--platform linux/arm64` (or `linux/amd64`) with `--load`.
