@@ -119,6 +119,9 @@ const val MNI_DATABASE_EXPORT_API_KEY = "MNI_DATABASE_EXPORT_API_KEY"
 private val purgeApiKey = System.getenv(MNI_PURGE_API_KEY)
     ?: error("Missing MNI_PURGE_API_KEY environment variable")
 
+private val mniBackupEndpoint = System.getenv("MNI_BACKUP_ENDPOINT")
+    ?: error("Missing MNI_BACKUP_ENDPOINT environment variable")
+
 private val publicKey: ECPublicKey = System.getenv("MNI_JWT_PUBLIC_KEY")?.let { base64Key ->
     val keyBytes = Base64.decode(base64Key)
     val keySpec = X509EncodedKeySpec(keyBytes)
@@ -339,15 +342,7 @@ private fun Application.configureRoutingInternal() {
             call.respond(HttpStatusCode.OK, "Backup job started.")
         }
 
-        get("/downloadbackup") {
-
-            val apiKey: String? = this.call.request.headers["API_KEY"]
-
-            if (apiKey != System.getenv(MNI_DATABASE_EXPORT_API_KEY)) {
-                call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
-                return@get
-            }
-
+        get("/$mniBackupEndpoint") {
             call.respondFile(dataDir, "oni-backup.db.gz")
         }
 
