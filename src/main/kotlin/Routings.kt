@@ -95,6 +95,9 @@ import java.security.KeyFactory
 import java.security.interfaces.ECPublicKey
 import java.security.spec.X509EncodedKeySpec
 import java.sql.DriverManager
+import java.time.Instant
+import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 import java.util.zip.GZIPOutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
@@ -115,6 +118,8 @@ const val TOKEN_HEADER_MOD = "MNI_TOKEN"
 const val MNI_API_KEY = "MNI_API_KEY"
 const val MNI_PURGE_API_KEY = "MNI_PURGE_API_KEY"
 const val MNI_DATABASE_EXPORT_API_KEY = "MNI_DATABASE_EXPORT_API_KEY"
+
+private const val SEARCH_INDEX_REFRESH_INTERVAL_HOURS = 4
 
 private val purgeApiKey = System.getenv(MNI_PURGE_API_KEY)
     ?: error("Missing MNI_PURGE_API_KEY environment variable")
@@ -229,11 +234,24 @@ private fun Application.configureRoutingInternal() {
 //            sqliteDatabase
 //        )
 
-        createSearchIndexes()
-
 //        regenerateSearchIndexTable()
 
         // createSearchIndexes()
+    }
+
+    /*
+     * Generate fresh search indexes at the start and repeat every couple of hours
+     */
+    backgroundScope.launch {
+
+        createSearchIndexes()
+
+        while (true) {
+
+            delay(calculateDelayMillis(SEARCH_INDEX_REFRESH_INTERVAL_HOURS))
+
+            createSearchIndexes()
+        }
     }
 
     routing {
@@ -344,47 +362,6 @@ private fun Application.configureRoutingInternal() {
 
         get("/$mniBackupEndpoint") {
             call.respondFile(dataDir, "oni-backup.db.gz")
-        }
-
-        get("/generate-search-indexes") {
-
-            try {
-
-                val ipAddress = call.getIpAddress()
-
-                val apiKey: String? = this.call.request.headers["API_KEY"]
-
-                if (apiKey != System.getenv(MNI_DATABASE_EXPORT_API_KEY)) {
-
-                    log("/generate-search-indexes : Unauthorized API key used by ip address $ipAddress.")
-
-                    call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
-
-                    return@get
-                }
-
-                backgroundScope.launch {
-
-                    val start = Clock.System.now().toEpochMilliseconds()
-
-                    createSearchIndexes()
-
-                    val duration = Clock.System.now().toEpochMilliseconds() - start
-
-                    log("Created indexes in $duration ms.")
-
-                    /* Final extra cleanup */
-                    System.gc()
-                }
-
-                call.respond(HttpStatusCode.OK, "Regeneration triggered.")
-
-            } catch (ex: Exception) {
-
-                log(ex)
-
-                call.respond(HttpStatusCode.InternalServerError, "Error on search index creation")
-            }
         }
 
         get("/export/{collection}") {
@@ -1676,15 +1653,15 @@ private fun regenerateSearchIndexTable() {
 @OptIn(ExperimentalSerializationApi::class, ExperimentalTime::class)
 private fun createSearchIndexes() {
 
-    log("[INDEX] Create search indexes from database ...")
-
-    val start = Clock.System.now().toEpochMilliseconds()
-
-    var count = 0L
-
-    val countPerContributor = mutableMapOf<String, Long>()
-
     try {
+
+        log("[INDEX] Create search indexes from database ...")
+
+        val start = Clock.System.now().toEpochMilliseconds()
+
+        var count = 0L
+
+        val countPerContributor = mutableMapOf<String, Long>()
 
         for (cluster in ClusterType.entries) {
 
@@ -1788,3 +1765,18 @@ private fun log(message: String) =
 
 private fun log(ex: Throwable) =
     ex.printStackTrace()
+
+private fun calculateDelayMillis(intervalHours: Int): Long {
+
+    val zoneId = ZoneId.systemDefault()
+
+    val now = Instant.now().atZone(zoneId)
+
+    val nextHour = now.truncatedTo(ChronoUnit.HOURS).plusHours(1)
+
+    val hoursToAdd = (intervalHours - (nextHour.hour % intervalHours)) % intervalHours
+
+    val target = nextHour.plusHours(hoursToAdd.toLong())
+
+    return ChronoUnit.MILLIS.between(now, target)
+}
