@@ -240,11 +240,9 @@ private fun Application.configureRoutingInternal() {
     }
 
     /*
-     * Generate fresh search indexes at the start and repeat every couple of hours
+     * Generate fresh search indexes every couple of hours
      */
     backgroundScope.launch {
-
-        createSearchIndexes()
 
         while (true) {
 
