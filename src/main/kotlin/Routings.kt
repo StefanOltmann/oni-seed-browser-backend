@@ -124,9 +124,6 @@ private const val SEARCH_INDEX_REFRESH_INTERVAL_HOURS = 4
 private val purgeApiKey = System.getenv(MNI_PURGE_API_KEY)
     ?: error("Missing MNI_PURGE_API_KEY environment variable")
 
-private val mniBackupEndpoint = System.getenv("MNI_BACKUP_ENDPOINT")
-    ?: error("Missing MNI_BACKUP_ENDPOINT environment variable")
-
 private val publicKey: ECPublicKey = System.getenv("MNI_JWT_PUBLIC_KEY")?.let { base64Key ->
     val keyBytes = Base64.decode(base64Key)
     val keySpec = X509EncodedKeySpec(keyBytes)
@@ -344,7 +341,20 @@ private fun Application.configureRoutingInternal() {
             call.respond(HttpStatusCode.OK, "Backup job started.")
         }
 
-        get("/$mniBackupEndpoint") {
+        get("/oni-data.backup.db") {
+
+            val ipAddress = call.getIpAddress()
+
+            val apiKey: String? = this.call.request.headers["API_KEY"]
+
+            if (apiKey != System.getenv(MNI_DATABASE_EXPORT_API_KEY)) {
+
+                log("Unauthorized API key used by ip address $ipAddress.")
+
+                call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
+
+                return@get
+            }
 
             /* This adds a nice filename */
             call.response.header(
