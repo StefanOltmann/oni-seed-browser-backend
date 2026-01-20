@@ -120,6 +120,7 @@ const val MNI_PURGE_API_KEY = "MNI_PURGE_API_KEY"
 const val MNI_DATABASE_EXPORT_API_KEY = "MNI_DATABASE_EXPORT_API_KEY"
 
 private const val SEARCH_INDEX_REFRESH_INTERVAL_HOURS = 4
+private const val BACKUP_REFRESH_INTERVAL_HOURS = 24
 
 private val purgeApiKey = System.getenv(MNI_PURGE_API_KEY)
     ?: error("Missing MNI_PURGE_API_KEY environment variable")
@@ -166,6 +167,7 @@ private val sqliteDatabase = DatabaseFactory.init(
 )
 
 private var currentBackupJob: Job? = null
+private val backupLock = Any()
 
 @OptIn(ExperimentalSerializationApi::class)
 fun Application.configureRouting() {
@@ -251,6 +253,19 @@ private fun Application.configureRoutingInternal() {
         }
     }
 
+    /*
+     * Create database backups
+     */
+    backgroundScope.launch {
+
+        while (true) {
+
+            delay(calculateDelayMillis(BACKUP_REFRESH_INTERVAL_HOURS))
+
+            startBackupJob()
+        }
+    }
+
     routing {
 
         get("/") {
@@ -277,68 +292,6 @@ private fun Application.configureRoutingInternal() {
             }
 
             call.respondText("util.Benchmark started.")
-        }
-
-        get("/createbackup") {
-
-            val apiKey: String? = this.call.request.headers["API_KEY"]
-
-            if (apiKey != System.getenv(MNI_DATABASE_EXPORT_API_KEY)) {
-                call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
-                return@get
-            }
-
-            if (currentBackupJob != null) {
-                call.respond(HttpStatusCode.BadRequest, "Backup job is already running")
-                return@get
-            }
-
-            currentBackupJob = launch {
-
-                log("[BACKUP] Backup creation triggered...")
-
-                backupFile.delete()
-
-                try {
-
-                    val creationDuration = measureTime {
-
-                        val dbFile = File(dataDir, "oni-data.db")
-
-                        val srcUrl = "jdbc:sqlite:${dbFile.absolutePath}"
-
-                        DriverManager.getConnection(srcUrl).use { conn ->
-
-                            /* Ensure no transaction */
-                            conn.autoCommit = true
-
-                            conn.createStatement().use { st ->
-
-                                /* Optional: wait a bit if the DB is busy */
-                                st.execute("PRAGMA busy_timeout = 5000")
-
-                                /* Important on Windows: escape backslashes in SQL literal */
-                                val dstPath = backupFile.absolutePath.replace("\\", "\\\\")
-
-                                st.execute("BACKUP TO '$dstPath'")
-                            }
-                        }
-                    }
-
-                    log("[BACKUP] Database export took $creationDuration. File size: ${backupFile.length() / 1024 / 1024} MB")
-
-                } catch (ex: Exception) {
-
-                    log("[BACKUP] Error on DB export: ${ex.message}")
-                    log(ex)
-
-                } finally {
-
-                    currentBackupJob = null
-                }
-            }
-
-            call.respond(HttpStatusCode.OK, "Backup job started.")
         }
 
         get("/oni-data.backup.db") {
@@ -1394,6 +1347,66 @@ private fun Application.configureRoutingInternal() {
                 log(ex)
 
                 call.respond(HttpStatusCode.InternalServerError, "Server error")
+            }
+        }
+    }
+}
+
+private fun startBackupJob() {
+
+    synchronized(backupLock) {
+
+        val existingJob = currentBackupJob
+
+        if (existingJob != null && existingJob.isActive) {
+            log("[BACKUP] Backup job already running.")
+            return
+        }
+
+        currentBackupJob = backgroundScope.launch {
+
+            log("[BACKUP] Backup creation triggered...")
+
+            backupFile.delete()
+
+            try {
+
+                val creationDuration = measureTime {
+
+                    val dbFile = File(dataDir, "oni-data.db")
+
+                    val srcUrl = "jdbc:sqlite:${dbFile.absolutePath}"
+
+                    DriverManager.getConnection(srcUrl).use { conn ->
+
+                        /* Ensure no transaction */
+                        conn.autoCommit = true
+
+                        conn.createStatement().use { st ->
+
+                            /* Optional: wait a bit if the DB is busy */
+                            st.execute("PRAGMA busy_timeout = 5000")
+
+                            /* Important on Windows: escape backslashes in SQL literal */
+                            val dstPath = backupFile.absolutePath.replace("\\", "\\\\")
+
+                            st.execute("BACKUP TO '$dstPath'")
+                        }
+                    }
+                }
+
+                log("[BACKUP] Database export took $creationDuration. File size: ${backupFile.length() / 1024 / 1024} MB")
+
+            } catch (ex: Exception) {
+
+                log("[BACKUP] Error on DB export: ${ex.message}")
+                log(ex)
+
+            } finally {
+
+                synchronized(backupLock) {
+                    currentBackupJob = null
+                }
             }
         }
     }
