@@ -26,11 +26,6 @@ fun main() {
         factory = Netty,
         port = 8080,
         host = "0.0.0.0",
-        module = Application::module
+        module = Application::configureRouting
     ).start(wait = true)
-}
-
-fun Application.module() {
-
-    configureRouting()
 }
