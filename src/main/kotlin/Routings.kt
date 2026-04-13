@@ -28,7 +28,6 @@ import db.UploadsTable
 import db.UsernamesTable
 import db.WorldsTable
 import de.stefan_oltmann.oni.model.Cluster
-import de.stefan_oltmann.oni.model.ClusterExportCollection
 import de.stefan_oltmann.oni.model.ClusterType
 import de.stefan_oltmann.oni.model.Dlc
 import de.stefan_oltmann.oni.model.search.ClusterSummaryCompact
@@ -59,7 +58,6 @@ import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondBytes
 import io.ktor.server.response.respondFile
-import io.ktor.server.response.respondOutputStream
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
@@ -98,12 +96,12 @@ import java.sql.DriverManager
 import java.time.Instant
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
-import java.util.zip.ZipEntry
-import java.util.zip.ZipOutputStream
 import kotlin.io.encoding.Base64
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTime
 import kotlin.uuid.ExperimentalUuidApi
@@ -159,7 +157,11 @@ private val countFile: File = File(searchIndexDir, "count")
 private val contributorsFile: File = File(searchIndexDir, "contributors")
 private val failedWorldgensFile: File = File(searchIndexDir, "failed-worldgens")
 
-private val backupFile = File(dataDir, "oni-data.backup.db")
+/** Contains everything */
+private val fullBackupFile = File(dataDir, "oni-data.backup.db")
+
+/** The public file contains the core data without PII. */
+private val publicBackupFile = File(dataDir, "oni-data.db")
 
 private val sqliteDatabase = DatabaseFactory.init(
     url = "jdbc:sqlite:/data/oni-data.db?journal_mode=WAL",
@@ -259,11 +261,14 @@ private fun Application.configureRoutingInternal() {
      */
     backgroundScope.launch {
 
+        delay(30.seconds)
+
         while (true) {
 
-            delay(calculateDelayDuration(BACKUP_REFRESH_INTERVAL_HOURS))
-
+            /* Create backup instant after restart */
             startBackupJob()
+
+            delay(calculateDelayDuration(BACKUP_REFRESH_INTERVAL_HOURS))
         }
     }
 
@@ -312,171 +317,26 @@ private fun Application.configureRoutingInternal() {
 
             /* This adds a nice filename */
             call.response.header(
-                HttpHeaders.ContentDisposition,
-                ContentDisposition.Attachment
-                    .withParameter(ContentDisposition.Parameters.FileName, backupFile.name)
+                name = HttpHeaders.ContentDisposition,
+                value = ContentDisposition.Attachment
+                    .withParameter(ContentDisposition.Parameters.FileName, fullBackupFile.name)
                     .toString()
             )
 
-            call.respondFile(backupFile)
+            call.respondFile(fullBackupFile)
         }
 
-        get("/export/{collection}") {
+        get("/oni-data.db") {
 
-            try {
+            /* This adds a nice filename */
+            call.response.header(
+                name = HttpHeaders.ContentDisposition,
+                value = ContentDisposition.Attachment
+                    .withParameter(ContentDisposition.Parameters.FileName, publicBackupFile.name)
+                    .toString()
+            )
 
-                val start = Clock.System.now().toEpochMilliseconds()
-
-                val ipAddress = call.getIpAddress()
-
-                val apiKey: String? = this.call.request.headers["API_KEY"]
-
-                if (apiKey != System.getenv(MNI_DATABASE_EXPORT_API_KEY)) {
-
-                    log("Unauthorized API key used by ip address $ipAddress.")
-
-                    call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
-
-                    return@get
-                }
-
-                val exportCollectionName = call.parameters["collection"]
-
-                if (exportCollectionName.isNullOrBlank()) {
-
-                    call.respond(
-                        HttpStatusCode.BadRequest,
-                        "Invalid collection: $exportCollectionName"
-                    )
-
-                    return@get
-                }
-
-                val exportCollection = ClusterExportCollection.entries.find { value ->
-                    value.id == exportCollectionName
-                }
-
-                if (exportCollection == null) {
-
-                    call.respond(
-                        HttpStatusCode.BadRequest,
-                        "Invalid collection: $exportCollectionName"
-                    )
-
-                    return@get
-                }
-
-                call.response.header(
-                    HttpHeaders.ContentDisposition,
-                    ContentDisposition.Attachment.withParameter(
-                        key = ContentDisposition.Parameters.FileName,
-                        value = "data.zip"
-                    ).toString()
-                )
-
-                val clustersToExport: List<ClusterType> = ClusterType.entries
-                    .filter { it.exportCollection == exportCollection }
-
-                /*
-                 * Stream the response, so we can remove from memory what the client already received.
-                 */
-                call.respondOutputStream(
-                    contentType = ContentType.Application.Zip,
-                    status = HttpStatusCode.OK
-                ) {
-
-                    ZipOutputStream(this).use { zipOutputStream ->
-
-                        transaction(sqliteDatabase) {
-
-                            var batchNumber = 1
-                            var offset = 0
-                            val batchMaps = mutableListOf<Cluster>()
-
-                            do {
-
-                                val batchResults = WorldsTable
-                                    .select(WorldsTable.coordinate, WorldsTable.clusterTypeId, WorldsTable.data)
-                                    .where { WorldsTable.clusterTypeId inList clustersToExport.map { it.id.toInt() } }
-                                    .orderBy(WorldsTable.coordinate to SortOrder.ASC)
-                                    .limit(EXPORT_BATCH_SIZE)
-                                    .offset(offset.toLong())
-                                    .toList()
-
-                                for (row in batchResults) {
-
-                                    val bytes = row[WorldsTable.data].bytes
-
-                                    val unzippedBytes = ZipUtil.unzipBytes(bytes)
-
-                                    val cluster = ProtoBuf.decodeFromByteArray<Cluster>(unzippedBytes)
-
-                                    batchMaps.add(cluster)
-
-                                    if (batchMaps.size >= EXPORT_BATCH_SIZE) {
-
-                                        val paddedBatchNumber = batchNumber.toString().padStart(4, '0')
-
-                                        zipOutputStream.putNextEntry(
-                                            ZipEntry("${exportCollection.id}-data-$paddedBatchNumber.pb")
-                                        )
-
-                                        ProtoBuf.encodeToByteArray(batchMaps).let { bytes ->
-                                            zipOutputStream.write(bytes)
-                                            zipOutputStream.flush()
-                                        }
-
-                                        zipOutputStream.closeEntry()
-
-                                        batchMaps.clear()
-                                        batchNumber++
-
-                                        /* Clean up to prevent out of memory. */
-                                        System.gc()
-                                    }
-                                }
-
-                                offset += batchResults.size
-
-                            } while (batchResults.size == EXPORT_BATCH_SIZE) // Continue if we got a full batch
-
-                            /* Handle remaining items */
-                            if (batchMaps.isNotEmpty()) {
-
-                                val paddedBatchNumber = batchNumber.toString().padStart(4, '0')
-
-                                zipOutputStream.putNextEntry(
-                                    ZipEntry("${exportCollection.id}-data-$paddedBatchNumber.pb")
-                                )
-
-                                ProtoBuf.encodeToByteArray(batchMaps).let { bytes ->
-                                    zipOutputStream.write(bytes)
-                                    zipOutputStream.flush()
-                                }
-
-                                zipOutputStream.closeEntry()
-                                batchMaps.clear()
-
-                                /* Clean up to prevent out of memory. */
-                                System.gc()
-                            }
-                        }
-                    }
-                }
-
-                val duration = Clock.System.now().toEpochMilliseconds() - start
-
-                log("Exported data in $duration ms.")
-
-                /* Final extra cleanup */
-                System.gc()
-
-            } catch (ex: Exception) {
-
-                log(ex)
-
-                call.respond(HttpStatusCode.InternalServerError, "Error on export")
-            }
+            call.respondFile(publicBackupFile)
         }
 
         get("/map/{coordinate}") {
@@ -1368,11 +1228,12 @@ private fun startBackupJob() {
 
             log("[BACKUP] Backup creation triggered...")
 
-            backupFile.delete()
+            /* Delete old backups first */
+            fullBackupFile.delete()
 
             try {
 
-                val creationDuration = measureTime {
+                val creationDurationFull = measureTime {
 
                     val dbFile = File(dataDir, "oni-data.db")
 
@@ -1380,23 +1241,60 @@ private fun startBackupJob() {
 
                     DriverManager.getConnection(srcUrl).use { conn ->
 
-                        /* Ensure no transaction */
                         conn.autoCommit = true
 
                         conn.createStatement().use { st ->
 
-                            /* Optional: wait a bit if the DB is busy */
-                            st.execute("PRAGMA busy_timeout = 5000")
+                            /*
+                             * We need some timeout, because the database may be locked right now.
+                             */
+                            st.execute("PRAGMA busy_timeout = 10000")
 
-                            /* Important on Windows: escape backslashes in SQL literal */
-                            val dstPath = backupFile.absolutePath.replace("\\", "\\\\")
+                            val dstPath = fullBackupFile.absolutePath.replace("\\", "\\\\")
 
+                            /*
+                             * This internal SQLite command is the easiest way to create a full backup.
+                             */
                             st.execute("BACKUP TO '$dstPath'")
                         }
                     }
                 }
 
-                log("[BACKUP] Database export took $creationDuration. File size: ${backupFile.length() / 1024 / 1024} MB")
+                log("[BACKUP] Full backup export took $creationDurationFull. File size: ${fullBackupFile.length() / 1024 / 1024} MB")
+
+                val tempFile = File(publicBackupFile.absolutePath + ".tmp")
+
+                try {
+
+                    fullBackupFile.copyTo(
+                        target = tempFile,
+                        overwrite = true
+                    )
+
+                    /*
+                     * Drop tables that contain PII data
+                     */
+                    DriverManager.getConnection("jdbc:sqlite:${tempFile.absolutePath}").use { conn ->
+
+                        conn.createStatement().use { st ->
+                            st.execute("DROP TABLE IF EXISTS uploads")
+                            st.execute("DROP TABLE IF EXISTS failed_world_gen_reports")
+                            st.execute("DROP TABLE IF EXISTS requested_coordinates")
+                            st.execute("DROP TABLE IF EXISTS usernames")
+                        }
+                    }
+
+                    publicBackupFile.delete()
+                    tempFile.renameTo(publicBackupFile)
+
+                    val partialSize = publicBackupFile.length() / 1024 / 1024
+
+                    log("[BACKUP] Partial backup (worlds + search_index) created. File size: $partialSize MB")
+
+                } finally {
+
+                    tempFile.delete()
+                }
 
             } catch (ex: Exception) {
 
