@@ -1,12 +1,12 @@
 [versions]
-kotlin = "2.3.0"
-ktor = "3.3.3"
+kotlin = "2.3.20"
+ktor = "3.4.2"
 polybool = "0.1.1"
-jwt = "4.5.0"
+jwt = "4.5.1"
 git-versioning = "6.4.4"
-oni-model = "e8c0495-SNAPSHOT"
+oni-model = "91c47d3"
 sqlite = "3.50.3.0"
-exposed = "1.0.0-rc-4"
+exposed = "1.2.0"
 logback = "1.4.14"
 
 [libraries]

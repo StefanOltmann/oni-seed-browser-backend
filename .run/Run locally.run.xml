@@ -1,6 +1,13 @@
 <component name="ProjectRunConfigurationManager">
     <configuration default="false" name="Run locally" type="GradleRunConfiguration" factoryName="Gradle">
         <ExternalSystemSettings>
+            <option name="env">
+                <map>
+                    <entry key="MNI_JWT_PUBLIC_KEY"
+                           value="MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEZ83LogpvAuoKrBb45qfGKyQ2Ijjy3qI4QIdW05xeV9ye90ZgQBNpxCcCtg+gy8n7h9/Goznk18ebM7TXqEZGzw=="/>
+                    <entry key="MNI_PURGE_API_KEY" value="myPurgeApiKey"/>
+                </map>
+            </option>
             <option name="executionName"/>
             <option name="externalProjectPath" value="$PROJECT_DIR$"/>
             <option name="externalSystemIdString" value="GRADLE"/>
@@ -17,8 +24,11 @@
         </ExternalSystemSettings>
         <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
         <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
+        <ExternalSystemDebugDisabled>false</ExternalSystemDebugDisabled>
         <DebugAllEnabled>false</DebugAllEnabled>
         <RunAsTest>false</RunAsTest>
+        <GradleProfilingDisabled>false</GradleProfilingDisabled>
+        <GradleCoverageDisabled>false</GradleCoverageDisabled>
         <method v="2"/>
     </configuration>
 </component>

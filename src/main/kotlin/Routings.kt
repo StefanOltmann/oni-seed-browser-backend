@@ -98,11 +98,12 @@ import java.sql.DriverManager
 import java.time.Instant
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
-import java.util.zip.GZIPOutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import kotlin.io.encoding.Base64
 import kotlin.time.Clock
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTime
 import kotlin.uuid.ExperimentalUuidApi
@@ -247,7 +248,7 @@ private fun Application.configureRoutingInternal() {
 
         while (true) {
 
-            delay(calculateDelayMillis(SEARCH_INDEX_REFRESH_INTERVAL_HOURS))
+            delay(calculateDelayDuration(SEARCH_INDEX_REFRESH_INTERVAL_HOURS))
 
             createSearchIndexes()
         }
@@ -260,7 +261,7 @@ private fun Application.configureRoutingInternal() {
 
         while (true) {
 
-            delay(calculateDelayMillis(BACKUP_REFRESH_INTERVAL_HOURS))
+            delay(calculateDelayDuration(BACKUP_REFRESH_INTERVAL_HOURS))
 
             startBackupJob()
         }
@@ -1782,7 +1783,7 @@ private fun log(message: String) =
 private fun log(ex: Throwable) =
     ex.printStackTrace()
 
-private fun calculateDelayMillis(intervalHours: Int): Long {
+private fun calculateDelayDuration(intervalHours: Int): Duration {
 
     val zoneId = ZoneId.systemDefault()
 
@@ -1794,5 +1795,5 @@ private fun calculateDelayMillis(intervalHours: Int): Long {
 
     val target = nextHour.plusHours(hoursToAdd.toLong())
 
-    return ChronoUnit.MILLIS.between(now, target)
+    return ChronoUnit.MILLIS.between(now, target).milliseconds
 }
