@@ -158,10 +158,10 @@ private val contributorsFile: File = File(searchIndexDir, "contributors")
 private val failedWorldgensFile: File = File(searchIndexDir, "failed-worldgens")
 
 /** Contains everything */
-private val fullBackupFile = File(dataDir, "oni-data.backup.db")
+private val fullBackupFile = File(dataDir, "oni-data-full-backup.db")
 
 /** The public file contains the core data without PII. */
-private val publicBackupFile = File(dataDir, "oni-data.db")
+private val publicBackupFile = File(dataDir, "oni-data-public-backup.db")
 
 private val sqliteDatabase = DatabaseFactory.init(
     url = "jdbc:sqlite:/data/oni-data.db?journal_mode=WAL",
@@ -300,7 +300,7 @@ private fun Application.configureRoutingInternal() {
             call.respondText("util.Benchmark started.")
         }
 
-        get("/oni-data.backup.db") {
+        get("/backup.db") {
 
             val ipAddress = call.getIpAddress()
 
@@ -326,7 +326,7 @@ private fun Application.configureRoutingInternal() {
             call.respondFile(fullBackupFile)
         }
 
-        get("/oni-data.db") {
+        get("/data.db") {
 
             /* This adds a nice filename */
             call.response.header(
