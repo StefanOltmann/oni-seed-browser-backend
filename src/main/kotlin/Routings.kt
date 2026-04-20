@@ -30,6 +30,7 @@ import db.WorldsTable
 import de.stefan_oltmann.oni.model.Cluster
 import de.stefan_oltmann.oni.model.ClusterType
 import de.stefan_oltmann.oni.model.Dlc
+import de.stefan_oltmann.oni.model.mixing.GameSettings
 import de.stefan_oltmann.oni.model.search.ClusterSummaryCompact
 import de.stefan_oltmann.oni.model.search.SearchIndex
 import de.stefan_oltmann.oni.model.server.FailedGenReport
@@ -100,7 +101,6 @@ import kotlin.io.encoding.Base64
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTime
@@ -669,6 +669,29 @@ private fun Application.configureRoutingInternal() {
                 }
 
                 /*
+                 * Extra check on the Remix part
+                 */
+
+                val remixCoordinatePart = upload.cluster.coordinate.substringAfterLast("-")
+
+                if (remixCoordinatePart != "0") {
+
+                    try {
+
+                        /* Try to parse Game settings */
+                        GameSettings.fromRemixCode(remixCoordinatePart)
+
+                    } catch (_: Exception) {
+
+                        log("[REQUEST] Ignoring invalid remix $remixCoordinatePart (by $steamId)")
+
+                        call.respond(HttpStatusCode.BadRequest, "Invalid remix '$remixCoordinatePart'")
+
+                        return@post
+                    }
+                }
+
+                /*
                  * Save the upload to the database
                  */
 
@@ -893,6 +916,29 @@ private fun Application.configureRoutingInternal() {
                     call.respond(HttpStatusCode.BadRequest, "Invalid coordinate '$coordinate'")
 
                     return@post
+                }
+
+                /*
+                 * Extra check on the remix part.
+                 */
+
+                val remixCoordinatePart = coordinate.substringAfterLast("-")
+
+                if (remixCoordinatePart != "0") {
+
+                    try {
+
+                        /* Try to parse Game settings */
+                        GameSettings.fromRemixCode(remixCoordinatePart)
+
+                    } catch (_: Exception) {
+
+                        log("[REQUEST] Ignoring invalid remix of coordinate $coordinate (by $steamId)")
+
+                        call.respond(HttpStatusCode.BadRequest, "Invalid remix '$remixCoordinatePart'")
+
+                        return@post
+                    }
                 }
 
                 val exists = transaction(sqliteDatabase) {
