@@ -1312,7 +1312,7 @@ private fun startBackupJob() {
 }
 
 private fun findCurrentGameVersion(): Int {
-    return 720697 // Current version as of 2026-04-13
+    return 722606 // Current version as of 2026-04-20
 }
 
 private suspend fun handleGetRequestedCoordinate(
