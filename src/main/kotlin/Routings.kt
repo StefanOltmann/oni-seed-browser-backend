@@ -1358,7 +1358,8 @@ private fun startBackupJob() {
 }
 
 private fun findCurrentGameVersion(): Int {
-    return 722606 // Current version as of 2026-04-20
+    return 720697 // Current supported version of the WASM worldgen engine.
+    // return 722606 // Current version as of 2026-04-20
 }
 
 private suspend fun handleGetRequestedCoordinate(
