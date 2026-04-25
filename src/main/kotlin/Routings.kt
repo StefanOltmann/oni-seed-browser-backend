@@ -114,7 +114,8 @@ const val QUEUE_REQUEST_LIMIT_PER_USER = 10
 const val TOKEN_HEADER_WEBPAGE = "token"
 const val TOKEN_HEADER_MOD = "MNI_TOKEN"
 
-const val MNI_API_KEY = "MNI_API_KEY"
+const val MNI_MOD_API_KEY = "MNI_API_KEY"
+const val MNI_BROWSER_API_KEY = "MNI_API_KEY_BROWSER"
 const val MNI_PURGE_API_KEY = "MNI_PURGE_API_KEY"
 const val MNI_DATABASE_EXPORT_API_KEY = "MNI_DATABASE_EXPORT_API_KEY"
 
@@ -607,11 +608,24 @@ private fun Application.configureRoutingInternal() {
                  * Check API key and token validity
                  */
 
-                val apiKey: String? = this.call.request.headers[MNI_API_KEY]
+                val apiKeyMod: String? = this.call.request.headers[MNI_MOD_API_KEY]
+                val apiKeyBrowser: String? = this.call.request.headers[MNI_BROWSER_API_KEY]
 
-                if (apiKey != System.getenv(MNI_API_KEY)) {
+                if (apiKeyMod == null && apiKeyBrowser == null) {
                     log("[UPLOAD] Unauthorized API key used by $ipAddress.")
-                    call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
+                    call.respond(HttpStatusCode.Unauthorized, "No API key.")
+                    return@post
+                }
+
+                if (apiKeyMod != null && apiKeyMod != System.getenv(MNI_MOD_API_KEY)) {
+                    log("[UPLOAD] Unauthorized API key used by $ipAddress (MOD).")
+                    call.respond(HttpStatusCode.Unauthorized, "Wrong API key (MOD).")
+                    return@post
+                }
+
+                if (apiKeyBrowser != null && apiKeyBrowser != System.getenv(MNI_BROWSER_API_KEY)) {
+                    log("[UPLOAD] Unauthorized API key used by $ipAddress (BROWSER).")
+                    call.respond(HttpStatusCode.Unauthorized, "Wrong API key (BROWSER).")
                     return@post
                 }
 
@@ -802,9 +816,9 @@ private fun Application.configureRoutingInternal() {
 
                 val ipAddress = call.getIpAddress()
 
-                val apiKey: String? = this.call.request.headers[MNI_API_KEY]
+                val apiKey: String? = this.call.request.headers[MNI_MOD_API_KEY]
 
-                if (apiKey != System.getenv(MNI_API_KEY)) {
+                if (apiKey != System.getenv(MNI_MOD_API_KEY)) {
                     log("[WORLDGENFAIL] Unauthorized API key used by $ipAddress.")
                     call.respond(HttpStatusCode.Unauthorized, "Wrong API key.")
                     return@post
@@ -1369,9 +1383,9 @@ private suspend fun handleGetRequestedCoordinate(
 
     val ipAddress = call.getIpAddress()
 
-    val apiKey = call.request.headers[MNI_API_KEY]
+    val apiKey = call.request.headers[MNI_MOD_API_KEY]
 
-    if (apiKey != System.getenv(MNI_API_KEY)) {
+    if (apiKey != System.getenv(MNI_MOD_API_KEY)) {
 
         log("[REQUEST] Unauthorized API key used by $ipAddress.")
 
