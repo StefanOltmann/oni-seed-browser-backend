@@ -738,6 +738,7 @@ private fun Application.configureRoutingInternal() {
                         it[WorldsTable.gameVersion] = upload.cluster.gameVersion
                         it[WorldsTable.uploaderSteamIdHash] = uploaderSteamIdHash
                         it[WorldsTable.uploadDate] = uploadDate
+                        it[WorldsTable.clientType] = if (apiKeyMod != null) "MOD" else "BROWSER"
                         it[WorldsTable.data] = ExposedBlob(compressedBytes)
                     }
 
