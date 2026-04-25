@@ -226,6 +226,7 @@ private fun Application.configureRoutingInternal() {
         allowHeader(HttpHeaders.AccessControlAllowOrigin)
         allowHeader(HttpHeaders.ContentType)
         allowHeader(TOKEN_HEADER_WEBPAGE)
+        allowHeader(MNI_BROWSER_API_KEY)
 
         anyHost()
     }
