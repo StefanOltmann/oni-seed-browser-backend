@@ -106,8 +106,12 @@ import kotlin.time.ExperimentalTime
 import kotlin.time.measureTime
 import kotlin.uuid.ExperimentalUuidApi
 
+/*
+ * Public backup disabled due to size constraints.
+ */
+const val ENABLE_PUBLIC_BACKUP = false
+
 const val LATEST_MAPS_LIMIT = 100
-const val EXPORT_BATCH_SIZE = 5000
 
 const val QUEUE_REQUEST_LIMIT_PER_USER = 10
 
@@ -329,6 +333,11 @@ private fun Application.configureRoutingInternal() {
         }
 
         get("/data.db") {
+
+            if (!ENABLE_PUBLIC_BACKUP) {
+                call.respond(HttpStatusCode.NotFound, "Sorry, public backup is disabled right now.")
+                return@get
+            }
 
             /* This adds a nice filename */
             call.response.header(
@@ -1324,38 +1333,50 @@ private fun startBackupJob() {
 
                 log("[BACKUP] Full backup export took $creationDurationFull. File size: ${fullBackupFile.length() / 1024 / 1024} MB")
 
-                val tempFile = File(publicBackupFile.absolutePath + ".tmp")
+                /*
+                 * If enabled, do a second backup file for the public.
+                 * Same data, just PII removed.
+                 */
+                if (ENABLE_PUBLIC_BACKUP) {
 
-                try {
+                    val tempFile = File(publicBackupFile.absolutePath + ".tmp")
 
-                    fullBackupFile.copyTo(
-                        target = tempFile,
-                        overwrite = true
-                    )
+                    try {
 
-                    /*
-                     * Drop tables that contain PII data
-                     */
-                    DriverManager.getConnection("jdbc:sqlite:${tempFile.absolutePath}").use { conn ->
+                        fullBackupFile.copyTo(
+                            target = tempFile,
+                            overwrite = true
+                        )
 
-                        conn.createStatement().use { st ->
-                            st.execute("DROP TABLE IF EXISTS uploads")
-                            st.execute("DROP TABLE IF EXISTS failed_world_gen_reports")
-                            st.execute("DROP TABLE IF EXISTS requested_coordinates")
-                            st.execute("DROP TABLE IF EXISTS usernames")
+                        /*
+                         * Drop tables that contain PII data
+                         */
+                        DriverManager.getConnection("jdbc:sqlite:${tempFile.absolutePath}").use { conn ->
+
+                            conn.createStatement().use { st ->
+                                st.execute("DROP TABLE IF EXISTS uploads")
+                                st.execute("DROP TABLE IF EXISTS failed_world_gen_reports")
+                                st.execute("DROP TABLE IF EXISTS requested_coordinates")
+                                st.execute("DROP TABLE IF EXISTS usernames")
+                            }
                         }
+
+                        publicBackupFile.delete()
+                        tempFile.renameTo(publicBackupFile)
+
+                        val partialSize = publicBackupFile.length() / 1024 / 1024
+
+                        log("[BACKUP] Partial backup (worlds + search_index) created. File size: $partialSize MB")
+
+                    } finally {
+
+                        tempFile.delete()
                     }
 
+                } else {
+
+                    /* Delete old files. */
                     publicBackupFile.delete()
-                    tempFile.renameTo(publicBackupFile)
-
-                    val partialSize = publicBackupFile.length() / 1024 / 1024
-
-                    log("[BACKUP] Partial backup (worlds + search_index) created. File size: $partialSize MB")
-
-                } finally {
-
-                    tempFile.delete()
                 }
 
             } catch (ex: Exception) {
