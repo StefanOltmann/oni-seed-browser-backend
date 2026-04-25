@@ -21,6 +21,7 @@ package db
 import org.jetbrains.exposed.v1.core.StdOutSqlLogger
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.SchemaUtils
+import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 object DatabaseFactory {
@@ -71,6 +72,24 @@ object DatabaseFactory {
                     RequestedCoordinatesTable,
                     UsernamesTable
                 )
+
+                /*
+                 * Do the migration
+                 */
+
+                val alterStatements = SchemaUtils.addMissingColumnsStatements(
+                    WorldsTable,
+                    SearchIndexTable,
+                    UploadsTable,
+                    FailedWorldGenReportsTable,
+                    RequestedCoordinatesTable,
+                    UsernamesTable
+                )
+
+                val transaction = TransactionManager.current()
+
+                for (sql in alterStatements)
+                    transaction.exec(sql)
             }
 
             println("[INIT] Connected to database: $url")

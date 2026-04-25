@@ -30,6 +30,7 @@ object WorldsTable : Table("worlds") {
     val gameVersion = integer("game_version")
     val uploaderSteamIdHash = varchar("uploader_steam_id_hash", 80)
     val uploadDate = long("upload_date")
+    val clientType = varchar("client_type", 10).default("MOD")
     val data = blob("data")
 
     override val primaryKey = PrimaryKey(coordinate)
@@ -88,11 +89,8 @@ object FailedWorldGenReportsTable : Table("failed_world_gen_reports") {
 object RequestedCoordinatesTable : Table("requested_coordinates") {
 
     val steamId = varchar("steam_id", 17)
-
     val date = long("date")
-
     val coordinate = varchar("coordinate", 50)
-
     val clusterType = varchar("cluster_type", 10)
 
     override val primaryKey = PrimaryKey(coordinate)
