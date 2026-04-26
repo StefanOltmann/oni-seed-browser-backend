@@ -26,8 +26,13 @@ import kotlin.time.Duration.Companion.milliseconds
 
 object UploadRateLimiter {
 
-    private const val MAX_QUEUED: Int = 50
-    private const val DELAY_MS: Long = 100L
+    /** Process 5 maps per second (at max). */
+    private const val MAPS_PER_SECOND: Int = 5
+
+    /* Buffer maps for 10 seconds. */
+    private const val MAX_QUEUED: Int = MAPS_PER_SECOND * 10
+
+    private const val DELAY_MS: Long = 1000L / MAPS_PER_SECOND
 
     private val semaphore = Semaphore(1)
     private val inFlight = AtomicInteger(0)
