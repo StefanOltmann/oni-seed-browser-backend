@@ -26,8 +26,8 @@ import kotlin.time.Duration.Companion.milliseconds
 
 object UploadRateLimiter {
 
-    private const val MAX_QUEUED: Int = 30
-    private const val DELAY_MS: Long = 500L
+    private const val MAX_QUEUED: Int = 50
+    private const val DELAY_MS: Long = 100L
 
     private val semaphore = Semaphore(1)
     private val inFlight = AtomicInteger(0)
