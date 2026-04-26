@@ -104,7 +104,6 @@ import kotlin.io.encoding.Base64
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Duration.Companion.minutes
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTime
 import kotlin.uuid.ExperimentalUuidApi
@@ -161,11 +160,6 @@ private val backgroundScope = CoroutineScope(Dispatchers.Default)
 private val latestCoordinates = mutableListOf<String>()
 
 private val seedRequestCounterMap = mutableMapOf<String, Long>()
-
-/**
- * Semaphore to protect from too many concurrent uploads.
- */
-private val uploadSemaphore = Semaphore(permits = MAX_CONCURRENT_UPLOADS)
 
 private val dataDir: File = File("/data")
 
@@ -239,6 +233,7 @@ private fun Application.configureRoutingInternal() {
         allowMethod(HttpMethod.Get)
         allowMethod(HttpMethod.Head)
         allowMethod(HttpMethod.Post)
+        allowMethod(HttpMethod.Put)
 
         allowHeader(HttpHeaders.AccessControlAllowOrigin)
         allowHeader(HttpHeaders.ContentType)
@@ -850,7 +845,7 @@ private fun Application.configureRoutingInternal() {
 
             } catch (ex: TooManyUploadsException) {
 
-                log(ex)
+                log("[UPLOAD] Rejected upload due to high load: ${ex.message}")
 
                 call.response.headers.append("Retry-After", "10")
 
