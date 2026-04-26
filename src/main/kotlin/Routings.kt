@@ -265,7 +265,11 @@ private fun Application.configureRoutingInternal() {
 
         while (true) {
 
-            delay(calculateDelayDuration(SEARCH_INDEX_REFRESH_INTERVAL_HOURS))
+            val delay = calculateDelayDuration(SEARCH_INDEX_REFRESH_INTERVAL_HOURS)
+
+            println("Next search index refresh in: $delay")
+
+            delay(duration = delay)
 
             createSearchIndexes()
         }
@@ -278,7 +282,11 @@ private fun Application.configureRoutingInternal() {
 
         while (true) {
 
-            delay(calculateDelayDuration(BACKUP_REFRESH_INTERVAL_HOURS))
+            val delay = calculateDelayDuration(BACKUP_REFRESH_INTERVAL_HOURS)
+
+            println("Next backup in: $delay")
+
+            delay(duration = delay)
 
             /* Create backup instant after restart */
             startBackupJob()
