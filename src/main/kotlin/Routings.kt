@@ -70,6 +70,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.encodeToByteArray
@@ -115,6 +116,8 @@ const val LATEST_MAPS_LIMIT = 100
 
 const val QUEUE_REQUEST_LIMIT_PER_USER = 10
 
+const val MAX_CONCURRENT_UPLOADS = 5
+
 const val TOKEN_HEADER_WEBPAGE = "token"
 const val TOKEN_HEADER_MOD = "MNI_TOKEN"
 
@@ -153,6 +156,11 @@ private val backgroundScope = CoroutineScope(Dispatchers.Default)
 private val latestCoordinates = mutableListOf<String>()
 
 private val seedRequestCounterMap = mutableMapOf<String, Long>()
+
+/**
+ * Semaphore to protect from too many concurrent uploads.
+ */
+private val uploadSemaphore = Semaphore(permits = MAX_CONCURRENT_UPLOADS)
 
 private val dataDir: File = File("/data")
 
@@ -616,200 +624,226 @@ private fun Application.configureRoutingInternal() {
                 val ipAddress = call.getIpAddress()
 
                 /*
-                 * Check API key and token validity
+                 * Rate limiting: Check global concurrent limit.
+                 *
+                 * We now have very fast clients, and we need to make sure that
+                 * the server is not under such a heavy load that it can't respond
+                 * to normal user queries.
                  */
 
-                val apiKeyMod: String? = this.call.request.headers[MNI_MOD_API_KEY]
-                val apiKeyBrowser: String? = this.call.request.headers[MNI_BROWSER_API_KEY]
+                val hasPermit = uploadSemaphore.tryAcquire()
 
-                if (apiKeyMod == null && apiKeyBrowser == null) {
-                    log("[UPLOAD] Unauthorized API key used by $ipAddress.")
-                    call.respond(HttpStatusCode.Unauthorized, "No API key.")
-                    return@post
-                }
+                if (!hasPermit) {
 
-                if (apiKeyMod != null && apiKeyMod != System.getenv(MNI_MOD_API_KEY)) {
-                    log("[UPLOAD] Unauthorized API key used by $ipAddress (MOD).")
-                    call.respond(HttpStatusCode.Unauthorized, "Wrong API key (MOD).")
-                    return@post
-                }
+                    log("[UPLOAD] Server too busy, rejecting $ipAddress")
 
-                if (apiKeyBrowser != null && apiKeyBrowser != System.getenv(MNI_BROWSER_API_KEY)) {
-                    log("[UPLOAD] Unauthorized API key used by $ipAddress (BROWSER).")
-                    call.respond(HttpStatusCode.Unauthorized, "Wrong API key (BROWSER).")
-                    return@post
-                }
-
-                val token: String? = this.call.request.headers[TOKEN_HEADER_MOD]
-
-                if (token.isNullOrBlank()) {
-                    log("[UPLOAD] Missing steam auth token for $ipAddress.")
-                    call.respond(HttpStatusCode.Unauthorized, "Missing steam auth token.")
-                    return@post
-                }
-
-                val jwt = try {
-
-                    jwtVerifier.verify(token)
-
-                } catch (ex: Exception) {
-
-                    log("[UPLOAD] Rejected invalid token from $ipAddress: ${ex.message}. Token: $token")
-                    call.respond(HttpStatusCode.Unauthorized, "Invalid token.")
-                    return@post
-                }
-
-                val steamId = jwt.steamId
-
-                val uploaderSteamIdHash: String? = jwt.claims["hash"]?.asString()
-
-                if (uploaderSteamIdHash.isNullOrBlank()) {
-
-                    log("[UPLOAD] Rejected: Missing steam ID hash in token for $steamId.")
-                    call.respond(HttpStatusCode.Unauthorized, "Missing steam ID hash in token.")
-                    return@post
-                }
-
-                /*
-                 * Receive the upload and perform further checks
-                 */
-
-                val originalData = call.receiveText()
-
-                /* Read the JSON data and be strict. */
-                val upload = strictJson.decodeFromString<Upload>(originalData)
-
-                val uploadCheckResult = upload.check(
-                    tokenSteamId = steamId,
-                    currentGameVersion = findCurrentGameVersion()
-                )
-
-                if (uploadCheckResult is UploadCheckResult.Error) {
-
-                    log("[UPLOAD] Rejected upload: ${uploadCheckResult.message} ($steamId)")
-
-                    call.respond(HttpStatusCode.NotAcceptable, uploadCheckResult.message)
+                    call.respond(
+                        status = HttpStatusCode.TooManyRequests,
+                        message = "Server is currently handling too many uploads."
+                    )
 
                     return@post
                 }
 
-                /*
-                 * Extra check on the Remix part
-                 */
+                try {
 
-                val remixCoordinatePart = upload.cluster.coordinate.substringAfterLast("-")
+                    /*
+                     * Check API key and token validity
+                     */
 
-                if (remixCoordinatePart != "0") {
+                    val apiKeyMod: String? = this.call.request.headers[MNI_MOD_API_KEY]
+                    val apiKeyBrowser: String? = this.call.request.headers[MNI_BROWSER_API_KEY]
 
-                    try {
+                    if (apiKeyMod == null && apiKeyBrowser == null) {
+                        log("[UPLOAD] Unauthorized API key used by $ipAddress.")
+                        call.respond(HttpStatusCode.Unauthorized, "No API key.")
+                        return@post
+                    }
 
-                        /* Try to parse Game settings */
-                        GameSettings.fromRemixCode(remixCoordinatePart)
+                    if (apiKeyMod != null && apiKeyMod != System.getenv(MNI_MOD_API_KEY)) {
+                        log("[UPLOAD] Unauthorized API key used by $ipAddress (MOD).")
+                        call.respond(HttpStatusCode.Unauthorized, "Wrong API key (MOD).")
+                        return@post
+                    }
 
-                    } catch (_: Exception) {
+                    if (apiKeyBrowser != null && apiKeyBrowser != System.getenv(MNI_BROWSER_API_KEY)) {
+                        log("[UPLOAD] Unauthorized API key used by $ipAddress (BROWSER).")
+                        call.respond(HttpStatusCode.Unauthorized, "Wrong API key (BROWSER).")
+                        return@post
+                    }
 
-                        log("[REQUEST] Ignoring invalid remix $remixCoordinatePart (by $steamId)")
+                    val token: String? = this.call.request.headers[TOKEN_HEADER_MOD]
 
-                        call.respond(HttpStatusCode.BadRequest, "Invalid remix '$remixCoordinatePart'")
+                    if (token.isNullOrBlank()) {
+                        log("[UPLOAD] Missing steam auth token for $ipAddress.")
+                        call.respond(HttpStatusCode.Unauthorized, "Missing steam auth token.")
+                        return@post
+                    }
+
+                    val jwt = try {
+
+                        jwtVerifier.verify(token)
+
+                    } catch (ex: Exception) {
+
+                        log("[UPLOAD] Rejected invalid token from $ipAddress: ${ex.message}. Token: $token")
+                        call.respond(HttpStatusCode.Unauthorized, "Invalid token.")
+                        return@post
+                    }
+
+                    val steamId = jwt.steamId
+
+                    val uploaderSteamIdHash: String? = jwt.claims["hash"]?.asString()
+
+                    if (uploaderSteamIdHash.isNullOrBlank()) {
+
+                        log("[UPLOAD] Rejected: Missing steam ID hash in token for $steamId.")
+                        call.respond(HttpStatusCode.Unauthorized, "Missing steam ID hash in token.")
+                        return@post
+                    }
+
+                    /*
+                     * Receive the upload and perform further checks
+                     */
+
+                    val originalData = call.receiveText()
+
+                    /* Read the JSON data and be strict. */
+                    val upload = strictJson.decodeFromString<Upload>(originalData)
+
+                    val uploadCheckResult = upload.check(
+                        tokenSteamId = steamId,
+                        currentGameVersion = findCurrentGameVersion()
+                    )
+
+                    if (uploadCheckResult is UploadCheckResult.Error) {
+
+                        log("[UPLOAD] Rejected upload: ${uploadCheckResult.message} ($steamId)")
+
+                        call.respond(HttpStatusCode.NotAcceptable, uploadCheckResult.message)
 
                         return@post
                     }
-                }
 
-                /*
-                 * Save the upload to the database
-                 */
+                    /*
+                     * Extra check on the Remix part
+                     */
 
-                val uploadDate: Long = Clock.System.now().toEpochMilliseconds()
+                    val remixCoordinatePart = upload.cluster.coordinate.substringAfterLast("-")
 
-                val optimizedCluster = UploadClusterConverter.convert(
-                    uploadCluster = upload.cluster,
-                    uploaderSteamIdHash = uploaderSteamIdHash,
-                    uploaderAuthenticated = true,
-                    uploadDate = uploadDate
-                )
+                    if (remixCoordinatePart != "0") {
 
-                /*
-                 * Database updates
-                 */
+                        try {
 
-                transaction(sqliteDatabase) {
+                            /* Try to parse Game settings */
+                            GameSettings.fromRemixCode(remixCoordinatePart)
 
-                    val clusterCoordinate = upload.cluster.coordinate
+                        } catch (_: Exception) {
 
-                    val protobufBytes = ProtoBuf.encodeToByteArray(optimizedCluster)
+                            log("[REQUEST] Ignoring invalid remix $remixCoordinatePart (by $steamId)")
 
-                    val compressedBytes = ZipUtil.zipBytes(
-                        originalBytes = protobufBytes
+                            call.respond(HttpStatusCode.BadRequest, "Invalid remix '$remixCoordinatePart'")
+
+                            return@post
+                        }
+                    }
+
+                    /*
+                     * Save the upload to the database
+                     */
+
+                    val uploadDate: Long = Clock.System.now().toEpochMilliseconds()
+
+                    val optimizedCluster = UploadClusterConverter.convert(
+                        uploadCluster = upload.cluster,
+                        uploaderSteamIdHash = uploaderSteamIdHash,
+                        uploaderAuthenticated = true,
+                        uploadDate = uploadDate
                     )
 
-                    WorldsTable.insert {
-                        it[WorldsTable.coordinate] = clusterCoordinate
-                        it[WorldsTable.clusterTypeId] = upload.cluster.cluster.id.toInt()
-                        it[WorldsTable.gameVersion] = upload.cluster.gameVersion
-                        it[WorldsTable.uploaderSteamIdHash] = uploaderSteamIdHash
-                        it[WorldsTable.uploadDate] = uploadDate
-                        it[WorldsTable.clientType] = if (apiKeyMod != null) "MOD" else "BROWSER"
-                        it[WorldsTable.data] = ExposedBlob(compressedBytes)
-                    }
+                    /*
+                     * Database updates
+                     */
 
-                    UploadsTable.insert {
+                    transaction(sqliteDatabase) {
 
-                        it[UploadsTable.coordinate] = upload.cluster.coordinate
+                        val clusterCoordinate = upload.cluster.coordinate
 
-                        it[UploadsTable.steamId] = steamId
-                        it[UploadsTable.installationId] = upload.installationId
-                        it[UploadsTable.uploadDate] = uploadDate
+                        val protobufBytes = ProtoBuf.encodeToByteArray(optimizedCluster)
 
-                        it[UploadsTable.gameVersion] = upload.gameVersion.toString()
+                        val compressedBytes = ZipUtil.zipBytes(
+                            originalBytes = protobufBytes
+                        )
+
+                        WorldsTable.insert {
+                            it[WorldsTable.coordinate] = clusterCoordinate
+                            it[WorldsTable.clusterTypeId] = upload.cluster.cluster.id.toInt()
+                            it[WorldsTable.gameVersion] = upload.cluster.gameVersion
+                            it[WorldsTable.uploaderSteamIdHash] = uploaderSteamIdHash
+                            it[WorldsTable.uploadDate] = uploadDate
+                            it[WorldsTable.clientType] = if (apiKeyMod != null) "MOD" else "BROWSER"
+                            it[WorldsTable.data] = ExposedBlob(compressedBytes)
+                        }
+
+                        UploadsTable.insert {
+
+                            it[UploadsTable.coordinate] = upload.cluster.coordinate
+
+                            it[UploadsTable.steamId] = steamId
+                            it[UploadsTable.installationId] = upload.installationId
+                            it[UploadsTable.uploadDate] = uploadDate
+
+                            it[UploadsTable.gameVersion] = upload.gameVersion.toString()
+                        }
+
+                        /*
+                         * Add to the search index
+                         */
+
+                        val summary = ClusterSummaryCompact.create(optimizedCluster)
+                        val summaryBytes = ProtoBuf.encodeToByteArray(summary)
+
+                        SearchIndexTable.insert {
+
+                            it[SearchIndexTable.coordinate] = clusterCoordinate
+                            it[SearchIndexTable.clusterTypeId] = upload.cluster.cluster.id.toInt()
+                            it[SearchIndexTable.uploaderSteamIdHash] = uploaderSteamIdHash
+                            it[SearchIndexTable.gameVersion] = upload.cluster.gameVersion
+                            it[SearchIndexTable.uploadDate] = uploadDate
+                            it[SearchIndexTable.data] = ExposedBlob(summaryBytes)
+                        }
                     }
 
                     /*
-                     * Add to the search index
+                     * Finalize
                      */
 
-                    val summary = ClusterSummaryCompact.create(optimizedCluster)
-                    val summaryBytes = ProtoBuf.encodeToByteArray(summary)
+                    call.respond(HttpStatusCode.OK, "Data was saved.")
 
-                    SearchIndexTable.insert {
+                    val duration = Clock.System.now().toEpochMilliseconds() - start
 
-                        it[SearchIndexTable.coordinate] = clusterCoordinate
-                        it[SearchIndexTable.clusterTypeId] = upload.cluster.cluster.id.toInt()
-                        it[SearchIndexTable.uploaderSteamIdHash] = uploaderSteamIdHash
-                        it[SearchIndexTable.gameVersion] = upload.cluster.gameVersion
-                        it[SearchIndexTable.uploadDate] = uploadDate
-                        it[SearchIndexTable.data] = ExposedBlob(summaryBytes)
+                    log("[UPLOAD] ${upload.cluster.coordinate} in $duration ms by $steamId")
+
+                    /*
+                     * Add coordinate to the latest list.
+                     * Wait a moment to allow S3 to index it.
+                     */
+                    backgroundScope.launch {
+
+                        /*
+                         * Add it to the top of the list.
+                         */
+                        latestCoordinates.add(0, optimizedCluster.coordinate)
+
+                        /*
+                         * Remove the last entry
+                         */
+                        while (latestCoordinates.size > LATEST_MAPS_LIMIT)
+                            latestCoordinates.removeLast()
                     }
-                }
 
-                /*
-                 * Finalize
-                 */
-
-                call.respond(HttpStatusCode.OK, "Data was saved.")
-
-                val duration = Clock.System.now().toEpochMilliseconds() - start
-
-                log("[UPLOAD] ${upload.cluster.coordinate} in $duration ms by $steamId")
-
-                /*
-                 * Add coordinate to the latest list.
-                 * Wait a moment to allow S3 to index it.
-                 */
-                backgroundScope.launch {
-
-                    delay(5000)
-
-                    /*
-                     * Add it to the top of the list.
-                     */
-                    latestCoordinates.add(0, optimizedCluster.coordinate)
-
-                    /*
-                     * Remove the last entry
-                     */
-                    while (latestCoordinates.size > LATEST_MAPS_LIMIT)
-                        latestCoordinates.removeLast()
+                } finally {
+                    uploadSemaphore.release()
                 }
 
             } catch (ex: Exception) {
