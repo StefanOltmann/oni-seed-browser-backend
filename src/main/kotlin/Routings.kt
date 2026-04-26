@@ -116,7 +116,10 @@ const val LATEST_MAPS_LIMIT = 100
 
 const val QUEUE_REQUEST_LIMIT_PER_USER = 10
 
-const val MAX_CONCURRENT_UPLOADS = 5
+/**
+ * Prevent too much load on the server.
+ */
+const val MAX_CONCURRENT_UPLOADS = 1
 
 const val TOKEN_HEADER_WEBPAGE = "token"
 const val TOKEN_HEADER_MOD = "MNI_TOKEN"
@@ -863,6 +866,12 @@ private fun Application.configureRoutingInternal() {
                     }
 
                 } finally {
+
+                    /*
+                     * Take a short breath before releasing the semaphore to reduce load.
+                     */
+                    delay(100.milliseconds)
+
                     uploadSemaphore.release()
                 }
 
