@@ -26,8 +26,15 @@ import kotlin.time.Duration.Companion.milliseconds
 
 object UploadRateLimiter {
 
-    /** Process 5 maps per second (at max). */
-    private const val MAPS_PER_SECOND: Int = 5
+    /**
+     * Process 8 maps per second.
+     *
+     * Limiting to 5 maps resulted in loads between 20% and 50%.
+     * We don't want to overload the server, but we also don't
+     * want to slow down the upload process too much.
+     * We try 8 for now.
+     */
+    private const val MAPS_PER_SECOND: Int = 8
 
     /* Buffer maps for 10 seconds. */
     private const val MAX_QUEUED: Int = MAPS_PER_SECOND * 10
