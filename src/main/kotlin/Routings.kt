@@ -620,6 +620,11 @@ private fun Application.configureRoutingInternal() {
 
         post("/upload") {
 
+            /*
+             * Delay requests to prevent high load.
+             */
+            delay(200.milliseconds)
+
             try {
 
                 val start = Clock.System.now().toEpochMilliseconds()
@@ -866,12 +871,6 @@ private fun Application.configureRoutingInternal() {
                     }
 
                 } finally {
-
-                    /*
-                     * Take a short breath before releasing the semaphore to reduce load.
-                     */
-                    delay(100.milliseconds)
-
                     uploadSemaphore.release()
                 }
 
