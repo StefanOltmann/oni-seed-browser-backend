@@ -89,6 +89,8 @@ import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.jetbrains.exposed.v1.jdbc.upsert
 import util.Benchmark
+import util.TooManyUploadsException
+import util.UploadRateLimiter
 import util.ZipUtil
 import java.io.File
 import java.security.KeyFactory
@@ -620,40 +622,17 @@ private fun Application.configureRoutingInternal() {
 
         post("/upload") {
 
-            /*
-             * Delay requests to prevent high load.
-             */
-            delay(200.milliseconds)
-
             try {
 
-                val start = Clock.System.now().toEpochMilliseconds()
-
-                val ipAddress = call.getIpAddress()
-
                 /*
-                 * Rate limiting: Check global concurrent limit.
-                 *
-                 * We now have very fast clients, and we need to make sure that
-                 * the server is not under such a heavy load that it can't respond
-                 * to normal user queries.
+                 * As we now have very fast clients, we need to rate limit
+                 * to prevent high server load.
                  */
+                UploadRateLimiter.execute {
 
-                val hasPermit = uploadSemaphore.tryAcquire()
+                    val start = Clock.System.now().toEpochMilliseconds()
 
-                if (!hasPermit) {
-
-                    log("[UPLOAD] Server too busy, rejecting $ipAddress")
-
-                    call.respond(
-                        status = HttpStatusCode.TooManyRequests,
-                        message = "Server is currently handling too many uploads."
-                    )
-
-                    return@post
-                }
-
-                try {
+                    val ipAddress = call.getIpAddress()
 
                     /*
                      * Check API key and token validity
@@ -665,19 +644,19 @@ private fun Application.configureRoutingInternal() {
                     if (apiKeyMod == null && apiKeyBrowser == null) {
                         log("[UPLOAD] Unauthorized API key used by $ipAddress.")
                         call.respond(HttpStatusCode.Unauthorized, "No API key.")
-                        return@post
+                        return@execute
                     }
 
                     if (apiKeyMod != null && apiKeyMod != System.getenv(MNI_MOD_API_KEY)) {
                         log("[UPLOAD] Unauthorized API key used by $ipAddress (MOD).")
                         call.respond(HttpStatusCode.Unauthorized, "Wrong API key (MOD).")
-                        return@post
+                        return@execute
                     }
 
                     if (apiKeyBrowser != null && apiKeyBrowser != System.getenv(MNI_BROWSER_API_KEY)) {
                         log("[UPLOAD] Unauthorized API key used by $ipAddress (BROWSER).")
                         call.respond(HttpStatusCode.Unauthorized, "Wrong API key (BROWSER).")
-                        return@post
+                        return@execute
                     }
 
                     val token: String? = this.call.request.headers[TOKEN_HEADER_MOD]
@@ -685,7 +664,7 @@ private fun Application.configureRoutingInternal() {
                     if (token.isNullOrBlank()) {
                         log("[UPLOAD] Missing steam auth token for $ipAddress.")
                         call.respond(HttpStatusCode.Unauthorized, "Missing steam auth token.")
-                        return@post
+                        return@execute
                     }
 
                     val jwt = try {
@@ -696,7 +675,7 @@ private fun Application.configureRoutingInternal() {
 
                         log("[UPLOAD] Rejected invalid token from $ipAddress: ${ex.message}. Token: $token")
                         call.respond(HttpStatusCode.Unauthorized, "Invalid token.")
-                        return@post
+                        return@execute
                     }
 
                     val steamId = jwt.steamId
@@ -707,7 +686,7 @@ private fun Application.configureRoutingInternal() {
 
                         log("[UPLOAD] Rejected: Missing steam ID hash in token for $steamId.")
                         call.respond(HttpStatusCode.Unauthorized, "Missing steam ID hash in token.")
-                        return@post
+                        return@execute
                     }
 
                     /*
@@ -732,7 +711,7 @@ private fun Application.configureRoutingInternal() {
 
                     if (mapAlreadyExists) {
                         call.respond(HttpStatusCode.Conflict, "Map ${upload.cluster.coordinate} already exists.")
-                        return@post
+                        return@execute
                     }
 
                     /*
@@ -750,7 +729,7 @@ private fun Application.configureRoutingInternal() {
 
                         call.respond(HttpStatusCode.NotAcceptable, uploadCheckResult.message)
 
-                        return@post
+                        return@execute
                     }
 
                     /*
@@ -772,7 +751,7 @@ private fun Application.configureRoutingInternal() {
 
                             call.respond(HttpStatusCode.BadRequest, "Invalid remix '$remixCoordinatePart'")
 
-                            return@post
+                            return@execute
                         }
                     }
 
@@ -869,10 +848,18 @@ private fun Application.configureRoutingInternal() {
                         while (latestCoordinates.size > LATEST_MAPS_LIMIT)
                             latestCoordinates.removeLast()
                     }
-
-                } finally {
-                    uploadSemaphore.release()
                 }
+
+            } catch (ex: TooManyUploadsException) {
+
+                log(ex)
+
+                call.response.headers.append("Retry-After", "10")
+
+                call.respond(
+                    status = HttpStatusCode.TooManyRequests,
+                    message = "Server is under heavy load. Please try again later."
+                )
 
             } catch (ex: Exception) {
 
