@@ -67,10 +67,11 @@ import io.ktor.server.routing.put
 import io.ktor.server.routing.routing
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.decodeFromByteArray
 import kotlinx.serialization.encodeToByteArray
@@ -100,10 +101,12 @@ import java.sql.DriverManager
 import java.time.Instant
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.io.encoding.Base64
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTime
 import kotlin.uuid.ExperimentalUuidApi
@@ -132,6 +135,13 @@ const val MNI_DATABASE_EXPORT_API_KEY = "MNI_DATABASE_EXPORT_API_KEY"
 
 private const val SEARCH_INDEX_REFRESH_INTERVAL_HOURS = 4
 private const val BACKUP_REFRESH_INTERVAL_HOURS = 24
+
+/**
+ * Hard upper bound for how long a backup may run.
+ * Under constant write load SQLite's BACKUP command can loop indefinitely
+ * re-copying dirty pages; this timeout prevents that from becoming permanent.
+ */
+private val BACKUP_TIMEOUT = 60.minutes
 
 private val purgeApiKey = System.getenv(MNI_PURGE_API_KEY)
     ?: error("Missing MNI_PURGE_API_KEY environment variable")
@@ -181,8 +191,15 @@ private val sqliteDatabase = DatabaseFactory.init(
     password = ""
 )
 
-private var currentBackupJob: Job? = null
-private val backupLock = Any()
+/**
+ * Atomic flag replacing the previous Job reference + lock pattern.
+ *
+ * The old approach had a race window: a second caller could see
+ * isActive == false between job completion and the finally block that
+ * set currentBackupJob = null, allowing two backups to run concurrently.
+ * compareAndSet is race-free by definition.
+ */
+private val backupRunning = AtomicBoolean(false)
 
 @OptIn(ExperimentalSerializationApi::class)
 fun Application.configureRouting() {
@@ -267,7 +284,7 @@ private fun Application.configureRoutingInternal() {
 
             val delay = calculateDelayDuration(SEARCH_INDEX_REFRESH_INTERVAL_HOURS)
 
-            println("Next search index refresh in: $delay")
+            println("[SCHEDULE] Next search index refresh in: $delay")
 
             delay(duration = delay)
 
@@ -284,7 +301,7 @@ private fun Application.configureRoutingInternal() {
 
             val delay = calculateDelayDuration(BACKUP_REFRESH_INTERVAL_HOURS)
 
-            println("Next backup in: $delay")
+            println("[SCHEDULE] Next backup in: $delay")
 
             delay(duration = delay)
 
@@ -1337,47 +1354,71 @@ private fun Application.configureRoutingInternal() {
 
 private fun startBackupJob() {
 
-    synchronized(backupLock) {
+    /*
+     * compareAndSet is race-free: if two coroutines call this simultaneously,
+     * exactly one wins the CAS and proceeds; the other returns immediately.
+     *
+     * The old Job-reference approach had a window where isActive could be false
+     * (job just finished), but the currentBackupJob was not yet nulled out in the
+     * finally block, allowing a second backup to start concurrently.
+     */
+    if (!backupRunning.compareAndSet(false, true)) {
+        log("[BACKUP] Backup job already running, skipping.")
+        return
+    }
 
-        val existingJob = currentBackupJob
+    backgroundScope.launch {
 
-        if (existingJob != null && existingJob.isActive) {
-            log("[BACKUP] Backup job already running.")
-            return
-        }
+        try {
 
-        currentBackupJob = backgroundScope.launch {
+            /*
+             * Hard deadline for the entire backup operation.
+             *
+             * SQLite's BACKUP TO uses the Online Backup API, which works by copying
+             * pages and then re-copying any pages that were modified during the copy.
+             * Under constant write load this loop never converges and the backup runs
+             * forever. withTimeout cancels the coroutine if that happens.
+             */
+            withTimeout(BACKUP_TIMEOUT) {
 
-            log("[BACKUP] Backup creation triggered...")
+                log("[BACKUP] Backup creation triggered...")
 
-            /* Delete old backups first */
-            fullBackupFile.delete()
-
-            try {
+                /* Delete old backup first so no stale file is left on timeout. */
+                fullBackupFile.delete()
 
                 val creationDurationFull = measureTime {
 
-                    val dbFile = File(dataDir, "oni-data.db")
+                    /*
+                     * JDBC is blocking I/O – run it on the IO dispatcher so we don't
+                     * starve the Default dispatcher's coroutine threads.
+                     */
+                    withContext(Dispatchers.IO) {
 
-                    val srcUrl = "jdbc:sqlite:${dbFile.absolutePath}"
+                        val dbFile = File(dataDir, "oni-data.db")
 
-                    DriverManager.getConnection(srcUrl).use { conn ->
+                        DriverManager.getConnection("jdbc:sqlite:${dbFile.absolutePath}").use { conn ->
 
-                        conn.autoCommit = true
+                            conn.autoCommit = true
 
-                        conn.createStatement().use { st ->
+                            conn.createStatement().use { st ->
 
-                            /*
-                             * We need some timeout, because the database may be locked right now.
-                             */
-                            st.execute("PRAGMA busy_timeout = 10000")
+                                /*
+                                 * busy_timeout: how long to wait if a write lock is held.
+                                 */
+                                st.execute("PRAGMA busy_timeout = 10000")
 
-                            val dstPath = fullBackupFile.absolutePath.replace("\\", "\\\\")
+                                /*
+                                 * Flush the WAL into the main database file before backup.
+                                 * This reduces the number of dirty pages the backup API
+                                 * has to re-copy, lowering the risk of the infinite-loop
+                                 * scenario described above.
+                                 */
+                                st.execute("PRAGMA wal_checkpoint(PASSIVE)")
 
-                            /*
-                             * This internal SQLite command is the easiest way to create a full backup.
-                             */
-                            st.execute("BACKUP TO '$dstPath'")
+                                val dstPath = fullBackupFile.absolutePath.replace("\\", "\\\\")
+
+                                st.execute("BACKUP TO '$dstPath'")
+                            }
                         }
                     }
                 }
@@ -1402,13 +1443,15 @@ private fun startBackupJob() {
                         /*
                          * Drop tables that contain PII data
                          */
-                        DriverManager.getConnection("jdbc:sqlite:${tempFile.absolutePath}").use { conn ->
+                        withContext(Dispatchers.IO) {
+                            DriverManager.getConnection("jdbc:sqlite:${tempFile.absolutePath}").use { conn ->
 
-                            conn.createStatement().use { st ->
-                                st.execute("DROP TABLE IF EXISTS uploads")
-                                st.execute("DROP TABLE IF EXISTS failed_world_gen_reports")
-                                st.execute("DROP TABLE IF EXISTS requested_coordinates")
-                                st.execute("DROP TABLE IF EXISTS usernames")
+                                conn.createStatement().use { st ->
+                                    st.execute("DROP TABLE IF EXISTS uploads")
+                                    st.execute("DROP TABLE IF EXISTS failed_world_gen_reports")
+                                    st.execute("DROP TABLE IF EXISTS requested_coordinates")
+                                    st.execute("DROP TABLE IF EXISTS usernames")
+                                }
                             }
                         }
 
@@ -1429,18 +1472,27 @@ private fun startBackupJob() {
                     /* Delete old files. */
                     publicBackupFile.delete()
                 }
-
-            } catch (ex: Exception) {
-
-                log("[BACKUP] Error on DB export: ${ex.message}")
-                log(ex)
-
-            } finally {
-
-                synchronized(backupLock) {
-                    currentBackupJob = null
-                }
             }
+
+        } catch (ex: TimeoutCancellationException) {
+
+            /*
+             * Backup ran past BACKUP_TIMEOUT – almost certainly caused by constant
+             * write load preventing the Online Backup API from converging.
+             * Delete the incomplete file so callers don't download corrupt data.
+             */
+            log("[BACKUP] Backup timed out after $BACKUP_TIMEOUT – DB under too much write load?")
+            fullBackupFile.delete()
+
+        } catch (ex: Exception) {
+
+            log("[BACKUP] Error on DB export: ${ex.message}")
+            log(ex)
+
+        } finally {
+
+            /* Always release the flag so the next scheduled run can proceed. */
+            backupRunning.set(false)
         }
     }
 }
