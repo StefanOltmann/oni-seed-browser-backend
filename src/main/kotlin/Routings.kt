@@ -711,6 +711,26 @@ private fun Application.configureRoutingInternal() {
                     /* Read the JSON data and be strict. */
                     val upload = strictJson.decodeFromString<Upload>(originalData)
 
+                    /*
+                     * Reject doubled entries.
+                     */
+
+                    val mapAlreadyExists = transaction(sqliteDatabase) {
+                        WorldsTable
+                            .select(WorldsTable.coordinate)
+                            .where { WorldsTable.coordinate eq upload.cluster.coordinate }
+                            .empty().not()
+                    }
+
+                    if (mapAlreadyExists) {
+                        call.respond(HttpStatusCode.Conflict, "Map ${upload.cluster.coordinate} already exists.")
+                        return@post
+                    }
+
+                    /*
+                     * Further checks
+                     */
+
                     val uploadCheckResult = upload.check(
                         tokenSteamId = steamId,
                         currentGameVersion = findCurrentGameVersion()
