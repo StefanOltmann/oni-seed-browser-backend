@@ -281,17 +281,12 @@ private fun Application.configureRoutingInternal() {
      */
     backgroundScope.launch {
 
-        /*
-         * Delay a few minutes so we can see the load on the server without backup.
-         */
-        delay(15.minutes)
-
         while (true) {
+
+            delay(calculateDelayDuration(BACKUP_REFRESH_INTERVAL_HOURS))
 
             /* Create backup instant after restart */
             startBackupJob()
-
-            delay(calculateDelayDuration(BACKUP_REFRESH_INTERVAL_HOURS))
         }
     }
 
