@@ -130,6 +130,7 @@ const val TOKEN_HEADER_MOD = "MNI_TOKEN"
 
 const val MNI_MOD_API_KEY = "MNI_API_KEY"
 const val MNI_BROWSER_API_KEY = "MNI_API_KEY_BROWSER"
+const val MNI_DOCKER_API_KEY = "MNI_API_KEY_DOCKER"
 const val MNI_PURGE_API_KEY = "MNI_PURGE_API_KEY"
 const val MNI_DATABASE_EXPORT_API_KEY = "MNI_DATABASE_EXPORT_API_KEY"
 
@@ -658,8 +659,9 @@ private fun Application.configureRoutingInternal() {
 
                     val apiKeyMod: String? = this.call.request.headers[MNI_MOD_API_KEY]
                     val apiKeyBrowser: String? = this.call.request.headers[MNI_BROWSER_API_KEY]
+                    val apiKeyDocker: String? = this.call.request.headers[MNI_DOCKER_API_KEY]
 
-                    if (apiKeyMod == null && apiKeyBrowser == null) {
+                    if (apiKeyMod == null && apiKeyBrowser == null && apiKeyDocker == null) {
                         log("[UPLOAD] Unauthorized API key used by $ipAddress.")
                         call.respond(HttpStatusCode.Unauthorized, "No API key.")
                         return@execute
@@ -674,6 +676,12 @@ private fun Application.configureRoutingInternal() {
                     if (apiKeyBrowser != null && apiKeyBrowser != System.getenv(MNI_BROWSER_API_KEY)) {
                         log("[UPLOAD] Unauthorized API key used by $ipAddress (BROWSER).")
                         call.respond(HttpStatusCode.Unauthorized, "Wrong API key (BROWSER).")
+                        return@execute
+                    }
+
+                    if (apiKeyDocker != null && apiKeyDocker != System.getenv(MNI_DOCKER_API_KEY)) {
+                        log("[UPLOAD] Unauthorized API key used by $ipAddress (DOCKER).")
+                        call.respond(HttpStatusCode.Unauthorized, "Wrong API key (DOCKER).")
                         return@execute
                     }
 
@@ -806,7 +814,11 @@ private fun Application.configureRoutingInternal() {
                             it[WorldsTable.gameVersion] = upload.cluster.gameVersion
                             it[WorldsTable.uploaderSteamIdHash] = uploaderSteamIdHash
                             it[WorldsTable.uploadDate] = uploadDate
-                            it[WorldsTable.clientType] = if (apiKeyMod != null) "MOD" else "BROWSER"
+                            it[WorldsTable.clientType] = when {
+                                apiKeyBrowser != null -> "BROWSER"
+                                apiKeyDocker != null -> "DOCKER"
+                                else -> "MOD"
+                            }
                             it[WorldsTable.data] = ExposedBlob(compressedBytes)
                         }
 
