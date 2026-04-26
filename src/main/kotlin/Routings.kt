@@ -104,7 +104,7 @@ import kotlin.io.encoding.Base64
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTime
 import kotlin.uuid.ExperimentalUuidApi
@@ -281,7 +281,10 @@ private fun Application.configureRoutingInternal() {
      */
     backgroundScope.launch {
 
-        delay(30.seconds)
+        /*
+         * Delay a few minutes so we can see the load on the server without backup.
+         */
+        delay(15.minutes)
 
         while (true) {
 

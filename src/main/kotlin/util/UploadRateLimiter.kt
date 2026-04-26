@@ -26,7 +26,7 @@ import kotlin.time.Duration.Companion.milliseconds
 
 object UploadRateLimiter {
 
-    private const val MAX_QUEUED: Int = 10
+    private const val MAX_QUEUED: Int = 30
     private const val DELAY_MS: Long = 500L
 
     private val semaphore = Semaphore(1)
@@ -72,4 +72,4 @@ object UploadRateLimiter {
 }
 
 class TooManyUploadsException(maxQueued: Int) :
-    Exception("Upload queue full (max $maxQueued concurrent requests)")
+    Exception("Upload queue full (max $maxQueued concurrent requests reached)")
