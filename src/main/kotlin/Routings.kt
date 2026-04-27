@@ -116,6 +116,11 @@ import kotlin.uuid.ExperimentalUuidApi
  */
 const val ENABLE_PUBLIC_BACKUP = false
 
+/*
+ * Backup is currently done through Hetzner
+ */
+const val ENABLE_BACKUP = false
+
 const val LATEST_MAPS_LIMIT = 100
 
 const val QUEUE_REQUEST_LIMIT_PER_USER = 10
@@ -292,6 +297,9 @@ private fun Application.configureRoutingInternal() {
      * Create database backups
      */
     backgroundScope.launch {
+
+        if (!ENABLE_BACKUP)
+            return@launch
 
         while (true) {
 
