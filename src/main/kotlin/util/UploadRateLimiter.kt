@@ -35,7 +35,13 @@ object UploadRateLimiter {
     private val mapsPerSecond = System.getenv("MAPS_PER_SECOND")
         .takeIf { it.isNotBlank() }?.toIntOrNull() ?: 3
 
-    private val maxQueued: Int = mapsPerSecond * 10
+    /*
+     * The maximum number of clients that can wait to upload a map.
+     * If we reach this limit, we already have a lot of clients waiting,
+     * so we don't want to overload the server.
+     * Clients are asked to send it slower.
+     */
+    private const val MAX_QUEUED: Int = 50
 
     private val delayMs: Long = 1000L / mapsPerSecond
 
@@ -52,11 +58,11 @@ object UploadRateLimiter {
         /*
          * If queue is full, throw an exception
          */
-        if (count > maxQueued) {
+        if (count > MAX_QUEUED) {
 
             inFlight.decrementAndGet()
 
-            throw TooManyUploadsException(maxQueued)
+            throw TooManyUploadsException(MAX_QUEUED)
         }
 
         /*
