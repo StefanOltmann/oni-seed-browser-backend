@@ -646,15 +646,15 @@ private fun Application.configureRoutingInternal() {
 
             try {
 
+                val ipAddress = call.getIpAddress()
+
                 /*
                  * As we now have very fast clients, we need to rate limit
                  * to prevent high server load.
                  */
-                UploadRateLimiter.execute {
+                UploadRateLimiter.execute(ipAddress) {
 
                     val start = Clock.System.now().toEpochMilliseconds()
-
-                    val ipAddress = call.getIpAddress()
 
                     /*
                      * Check API key and token validity
