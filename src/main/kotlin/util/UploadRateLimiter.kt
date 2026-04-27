@@ -27,22 +27,19 @@ import kotlin.time.Duration.Companion.milliseconds
 object UploadRateLimiter {
 
     /**
-     * Process 3 maps per second.
+     * The number of maps that can be uploaded per second.
      *
-     * Limiting to 5 maps resulted in loads between 20% and 50%.
-     * We tried 8 for a while, but that resulted in high CPU usage sometimes.
-     *
-     * On the same machine runs a contributor service.
-     * So to not overload the server overall, we limit the upload rate to 3 maps per second.
+     * This depends on the server hardware and the number of cores.
+     * 3 is a safe default.
      */
-    private const val MAPS_PER_SECOND: Int = 3
+    private val mapsPerSecond = System.getenv("MAPS_PER_SECOND")
+        .takeIf { it.isNotBlank() }?.toIntOrNull() ?: 3
 
-    /* Buffer maps for 10 seconds. */
-    private const val MAX_QUEUED: Int = MAPS_PER_SECOND * 10
+    private val maxQueued: Int = mapsPerSecond * 10
 
-    private const val DELAY_MS: Long = 1000L / MAPS_PER_SECOND
+    private val delayMs: Long = 1000L / mapsPerSecond
 
-    private val semaphore = Semaphore(1)
+    private val semaphore = Semaphore(permits = 1)
     private val inFlight = AtomicInteger(0)
 
     suspend fun <T> execute(block: suspend () -> T): T {
@@ -55,11 +52,11 @@ object UploadRateLimiter {
         /*
          * If queue is full, throw an exception
          */
-        if (count > MAX_QUEUED) {
+        if (count > maxQueued) {
 
             inFlight.decrementAndGet()
 
-            throw TooManyUploadsException(MAX_QUEUED)
+            throw TooManyUploadsException(maxQueued)
         }
 
         /*
@@ -75,7 +72,7 @@ object UploadRateLimiter {
                 } finally {
 
                     /* Block the semaphore for a bit longer to slow down the rate */
-                    delay(duration = DELAY_MS.milliseconds)
+                    delay(duration = delayMs.milliseconds)
                 }
             }
         } finally {
