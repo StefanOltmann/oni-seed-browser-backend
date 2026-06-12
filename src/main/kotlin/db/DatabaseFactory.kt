@@ -119,14 +119,6 @@ object DatabaseFactory {
 
             println("[INIT] Completed database cleanup.")
 
-            if (url.contains("sqlite", ignoreCase = true)) {
-                DriverManager.getConnection(url).use { connection ->
-                    connection.createStatement().execute("VACUUM;")
-                }
-            }
-
-            println("[INIT] Completed database vacuum.")
-
             return db
 
         } catch (ex: Exception) {
