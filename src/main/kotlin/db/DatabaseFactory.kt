@@ -57,6 +57,12 @@ object DatabaseFactory {
                         /* ~20 MB page cache */
                         connection.createStatement().execute("PRAGMA cache_size = -20000;")
                     }
+
+                    /*
+                     * Delete the oldest maps to clean up.
+                     */
+                    connection.createStatement().execute("DELETE FROM worlds WHERE game_version < 643370;")
+                    connection.createStatement().execute("DELETE FROM search_index WHERE game_version < 643370;")
                 }
             )
 

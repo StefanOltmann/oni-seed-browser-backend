@@ -648,8 +648,12 @@ private fun Application.configureRoutingInternal() {
 
         post("/upload") {
 
-            if (!uploadsEnabled)
+            if (!uploadsEnabled) {
+
                 call.respond(HttpStatusCode.InsufficientStorage)
+
+                return@post
+            }
 
             try {
 
@@ -911,8 +915,12 @@ private fun Application.configureRoutingInternal() {
 
         post("/report-worldgen-failure") {
 
-            if (!uploadsEnabled)
+            if (!uploadsEnabled) {
+
                 call.respond(HttpStatusCode.InsufficientStorage)
+
+                return@post
+            }
 
             try {
 
