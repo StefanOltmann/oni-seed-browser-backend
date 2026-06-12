@@ -29,14 +29,14 @@ import java.sql.DriverManager
 
 object DatabaseFactory {
 
-    /*
-     * Minimum game version to keep in the database.
-     *
-     * We delete older maps to free up disk space.
-     * Also, older maps sometimes have outdated data due to
-     * worldgen changes; for example, an outdated starmap.
-     */
-    const val MINIMUM_GAME_VERSION_TO_KEEP = 663500
+//    /*
+//     * Minimum game version to keep in the database.
+//     *
+//     * We delete older maps to free up disk space.
+//     * Also, older maps sometimes have outdated data due to
+//     * worldgen changes; for example, an outdated starmap.
+//     */
+//    const val MINIMUM_GAME_VERSION_TO_KEEP = 663500
 
     fun init(
         url: String,
@@ -108,16 +108,16 @@ object DatabaseFactory {
 
             println("[INIT] Completed database migration.")
 
-            transaction(db) {
-
-                /*
-                 * Delete the oldest maps to clean up.
-                 */
-                WorldsTable.deleteWhere { WorldsTable.gameVersion less MINIMUM_GAME_VERSION_TO_KEEP }
-                SearchIndexTable.deleteWhere { SearchIndexTable.gameVersion less MINIMUM_GAME_VERSION_TO_KEEP }
-            }
-
-            println("[INIT] Completed database cleanup.")
+//            transaction(db) {
+//
+//                /*
+//                 * Delete the oldest maps to clean up.
+//                 */
+//                WorldsTable.deleteWhere { WorldsTable.gameVersion less MINIMUM_GAME_VERSION_TO_KEEP }
+//                SearchIndexTable.deleteWhere { SearchIndexTable.gameVersion less MINIMUM_GAME_VERSION_TO_KEEP }
+//            }
+//
+//            println("[INIT] Completed database cleanup.")
 
             return db
 
