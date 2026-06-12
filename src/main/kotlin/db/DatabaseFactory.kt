@@ -25,6 +25,7 @@ import org.jetbrains.exposed.v1.jdbc.SchemaUtils
 import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import java.sql.DriverManager
 
 object DatabaseFactory {
 
@@ -67,9 +68,6 @@ object DatabaseFactory {
 
                         /* ~20 MB page cache */
                         connection.createStatement().execute("PRAGMA cache_size = -20000;")
-
-                        /* VACUUM to free up disk space */
-                        connection.createStatement().execute("VACUUM;")
                     }
                 }
             )
@@ -102,10 +100,8 @@ object DatabaseFactory {
                     UsernamesTable
                 )
 
-                val transaction = TransactionManager.current()
-
                 for (sql in alterStatements)
-                    transaction.exec(sql)
+                    exec(sql)
 
                 /*
                  * Delete the oldest maps to clean up.
@@ -115,6 +111,14 @@ object DatabaseFactory {
             }
 
             println("[INIT] Completed database migration.")
+
+            if (url.contains("sqlite", ignoreCase = true)) {
+                DriverManager.getConnection(url).use { connection ->
+                    connection.createStatement().execute("VACUUM;")
+                }
+            }
+
+            println("[INIT] Completed database vacuum.")
 
             return db
 
