@@ -100,8 +100,15 @@ object DatabaseFactory {
                     UsernamesTable
                 )
 
+                val transaction = TransactionManager.current()
+
                 for (sql in alterStatements)
-                    exec(sql)
+                    transaction.exec(sql)
+            }
+
+            println("[INIT] Completed database migration.")
+
+            transaction(db) {
 
                 /*
                  * Delete the oldest maps to clean up.
@@ -110,7 +117,7 @@ object DatabaseFactory {
                 SearchIndexTable.deleteWhere { SearchIndexTable.gameVersion less MINIMUM_GAME_VERSION_TO_KEEP }
             }
 
-            println("[INIT] Completed database migration.")
+            println("[INIT] Completed database cleanup.")
 
             if (url.contains("sqlite", ignoreCase = true)) {
                 DriverManager.getConnection(url).use { connection ->
