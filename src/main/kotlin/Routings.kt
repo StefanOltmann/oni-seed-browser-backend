@@ -133,6 +133,7 @@ const val MNI_BROWSER_API_KEY = "MNI_API_KEY_BROWSER"
 const val MNI_DOCKER_API_KEY = "MNI_API_KEY_DOCKER"
 const val MNI_PURGE_API_KEY = "MNI_PURGE_API_KEY"
 const val MNI_DATABASE_EXPORT_API_KEY = "MNI_DATABASE_EXPORT_API_KEY"
+const val MNI_UPLOADS_ENABLED_KEY = "MNI_UPLOADS_ENABLED"
 
 private const val SEARCH_INDEX_REFRESH_INTERVAL_HOURS = 4
 private const val BACKUP_REFRESH_INTERVAL_HOURS = 24
@@ -152,6 +153,9 @@ private val publicKey: ECPublicKey = System.getenv("MNI_JWT_PUBLIC_KEY")?.let { 
     val keySpec = X509EncodedKeySpec(keyBytes)
     KeyFactory.getInstance("EC").generatePublic(keySpec) as ECPublicKey
 } ?: error("Missing MNI_JWT_PUBLIC_KEY environment variable")
+
+private val uploadsEnabled: Boolean =
+    System.getenv(MNI_UPLOADS_ENABLED_KEY) == "true"
 
 private val ecdsaAlgorithm = Algorithm.ECDSA256(publicKey)
 
@@ -644,6 +648,9 @@ private fun Application.configureRoutingInternal() {
 
         post("/upload") {
 
+            if (!uploadsEnabled)
+                call.respond(HttpStatusCode.InsufficientStorage)
+
             try {
 
                 val ipAddress = call.getIpAddress()
@@ -903,6 +910,9 @@ private fun Application.configureRoutingInternal() {
         }
 
         post("/report-worldgen-failure") {
+
+            if (!uploadsEnabled)
+                call.respond(HttpStatusCode.InsufficientStorage)
 
             try {
 
