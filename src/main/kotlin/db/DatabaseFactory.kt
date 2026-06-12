@@ -19,12 +19,23 @@
 package db
 
 import org.jetbrains.exposed.v1.core.StdOutSqlLogger
+import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.jdbc.Database
 import org.jetbrains.exposed.v1.jdbc.SchemaUtils
+import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
 import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 object DatabaseFactory {
+
+    /*
+     * Minimum game version to keep in the database.
+     *
+     * We delete older maps to free up disk space.
+     * Also, older maps sometimes have outdated data due to
+     * worldgen changes; for example, an outdated starmap.
+     */
+    const val MINIMUM_GAME_VERSION_TO_KEEP = 651155
 
     fun init(
         url: String,
@@ -57,14 +68,10 @@ object DatabaseFactory {
                         /* ~20 MB page cache */
                         connection.createStatement().execute("PRAGMA cache_size = -20000;")
                     }
-
-                    /*
-                     * Delete the oldest maps to clean up.
-                     */
-                    connection.createStatement().execute("DELETE FROM worlds WHERE game_version < 643370;")
-                    connection.createStatement().execute("DELETE FROM search_index WHERE game_version < 643370;")
                 }
             )
+
+            println("[INIT] Connected to database: $url")
 
             transaction(db) {
 
@@ -96,9 +103,15 @@ object DatabaseFactory {
 
                 for (sql in alterStatements)
                     transaction.exec(sql)
+
+                /*
+                 * Delete the oldest maps to clean up.
+                 */
+                SearchIndexTable.deleteWhere { SearchIndexTable.gameVersion less MINIMUM_GAME_VERSION_TO_KEEP }
+                WorldsTable.deleteWhere { WorldsTable.gameVersion less MINIMUM_GAME_VERSION_TO_KEEP }
             }
 
-            println("[INIT] Connected to database: $url")
+            println("[INIT] Completed database migration.")
 
             return db
 
